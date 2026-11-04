@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.bar{display:flex;gap:10px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
+h2{font-size:18px;margin:0 16px 0 0}
+.prog{display:flex;align-items:center;gap:8px}
+.prog .b{width:70px;height:6px;border-radius:3px;background:var(--line2);overflow:hidden}
+.prog .b i{display:block;height:100%;background:var(--ok)}
+.pname b{display:block;font-weight:600}
+.pname span{color:var(--muted);font-size:12px}
+.dl.late{color:var(--bad);font-weight:600}
+.q{display:inline-grid;place-items:center;min-width:22px;height:20px;border-radius:10px;background:var(--bad);color:#fff;font-weight:700;font-size:11px;padding:0 6px}
+tr.arch td{color:var(--faint)}
+.dd{width:330px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(20,30,40,.14);z-index:10}
+.dd .h{padding:10px 14px;font-weight:600;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.dd .it{padding:10px 14px;border-bottom:1px solid var(--line2);display:grid;gap:2px}
+.dd .it small{color:var(--muted)}
+.dd .it.new{background:#fbfdfe}
+.tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+</style></head><body><div class="canvas" style="display:flex;gap:24px;align-items:flex-start"><div class="app t-rel" style="flex:1">
+<div class="hdr"><div class="logo"><i></i>Оценка проектов</div><div class="nav t-rel"><a class="on">Мои оценки</a></div><div class="sp"></div>
+<div class="bell t-rel">🔔<b>3</b><i class="co" style="top:-8px;left:-26px">6</i></div><div class="user"><span class="av">ИИ</span>Иванов И. ▾</div></div>
+<div class="bar">
+ <h2>Мои оценки</h2>
+ <div class="inp ph t-rel" style="width:300px">🔍 Поиск по названию и заказчику<i class="co" style="top:-10px;right:-10px">1</i></div>
+ <span class="chip on">Статус: все, кроме архива ▾</span><span class="chip">Роль: все ▾</span>
+ <div class="sp"></div><div class="t-rel"><button class="btn pri">+ Создать проект</button><i class="co" style="top:-10px;right:-10px">2</i></div>
+</div>
+<table class="t">
+<thead><tr><th>Проект</th><th>Статус</th><th>Моя роль</th><th class="t-rel">Мой прогресс<i class="co" style="top:2px;left:92px">3</i></th><th class="t-rel">Дедлайн<i class="co" style="top:2px;left:62px">4</i></th><th class="t-rel">Мне<i class="co" style="top:2px;left:36px">5</i></th><th class="r t-rel">Итог, ч<i class="co" style="top:2px;left:-6px">7</i></th><th>Изменён</th></tr></thead>
+<tbody>
+<tr><td class="pname"><b>Портал дилеров</b><span>ООО «Пример»</span></td><td><span class="pill acc">Оценка</span></td><td>Эксперт: Бэкенд · ревьюер</td><td><div class="prog"><div class="b"><i style="width:67%"></i></div>2 из 3</div></td><td class="dl late">05.11.2026 ⚠</td><td><span class="q">2</span></td><td class="r num">425,5 <small style="color:var(--muted)">P80</small></td><td>сегодня 14:20</td></tr>
+<tr><td class="pname"><b>Интеграция с ФНС</b><span>ИП Юг</span></td><td><span class="pill acc">Оценка</span></td><td>Модератор</td><td><div class="prog"><div class="b"><i style="width:0"></i></div>0 из 6 веток</div></td><td>20.11.2026</td><td><span class="q">1</span></td><td class="r num">96,0 <small style="color:var(--muted)">P80</small><div class="money" style="font-size:11.5px">🔒 288 000 ₽</div></td><td>вчера</td></tr>
+<tr><td class="pname"><b>Мобильное приложение курьера</b><span>АО «Север»</span></td><td><span class="pill warn">Сведение</span></td><td>Эксперт: Фронтенд</td><td><div class="prog"><div class="b"><i style="width:100%"></i></div>3 из 3</div></td><td>07.11.2026</td><td style="color:var(--faint)">—</td><td class="r num">812,0 <small style="color:var(--muted)">E</small></td><td>02.11.2026</td></tr>
+<tr><td class="pname"><b>Личный кабинет страхователя</b><span>ПАО «Восток»</span></td><td><span class="pill gray">Подготовка</span></td><td>Модератор</td><td style="color:var(--faint)">команда не назначена</td><td>—</td><td style="color:var(--faint)">—</td><td class="r num">—</td><td>01.11.2026</td></tr>
+<tr><td class="pname"><b>Реинжиниринг склада</b><span>ООО «Логистик»</span></td><td><span class="pill ok">Завершена</span></td><td>Эксперт: Бэкенд, DevOps</td><td><div class="prog"><div class="b"><i style="width:100%"></i></div>4 из 4</div></td><td>12.10.2026</td><td style="color:var(--faint)">—</td><td class="r num">1 240,5 <small style="color:var(--muted)">P80</small></td><td>14.10.2026</td></tr>
+</tbody></table>
+<div style="padding:10px 18px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between"><span>Показано 5 проектов. Архивные скрыты: 12</span><span>Сортировка: сначала с вопросами мне, затем по дедлайну</span></div>
+</div><div><div style="font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px 2px">Раскрытый список «Мне» (клик по 🔔)</div><div class="dd">
+ <div class="h">Мне <span style="color:var(--accent);font-weight:500">Отметить всё прочитанным</span></div>
+ <div class="it new"><span class="tag" style="color:var(--bad)">Вопрос вам</span>@Бэкенд: «Нужны ли тесты на стенде для обмена с 1С?»<small>Портал дилеров › Тестирование › QA · 10 мин назад</small></div>
+ <div class="it new"><span class="tag" style="color:var(--accent)">Ответ заказчика</span>«REST, спецификация будет в декабре»<small>Портал дилеров › Разработка › Бэкенд › Обмен с 1С</small></div>
+ <div class="it new"><span class="tag" style="color:var(--warn)">Изменение модератора</span>Профиль дилера: R 14 → 16<small>Портал дилеров · А. Смирнова · только что</small></div>
+</div>
+</div></div></body></html>

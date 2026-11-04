@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.tools{display:flex;gap:8px;align-items:center;padding:12px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.main{padding:0 22px 22px}
+table.t td{vertical-align:top}
+.path{color:var(--muted);font-size:11.5px}
+.qn{font-family:var(--m);font-weight:600;color:var(--accent-ink)}
+.cb{width:15px;height:15px;border:1.5px solid var(--faint);border-radius:4px;display:inline-block;vertical-align:middle}
+.cb.on{background:var(--accent);border-color:var(--accent);position:relative}
+.cb.on::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+tr.sel td{background:#f7fbfd}
+.ans{background:var(--ok-soft);border-radius:5px;padding:4px 7px;margin-top:4px;font-size:12.5px}
+.sum{display:flex;gap:18px;padding:12px 22px;color:var(--muted);font-size:12px}
+.sum b{color:var(--ink)}
+</style></head><body><div class="canvas"><div class="app">
+<div class="hdr"><div class="logo"><i></i>Оценка проектов</div><div style="color:var(--muted)">Портал дилеров › <b style="color:var(--ink)">Статистика</b></div><div class="sp"></div><button class="btn">← К оценке</button><div class="user"><span class="av" style="background:#8a6db0">ПС</span>Сидоров П. <span class="pill gray">пресейл</span></div></div>
+<div class="tabs"><span>Готовность</span><span>Итоги</span><span>Доли и соотношения</span><span>Объёмы по типам</span><span>Кандидаты на декомпозицию</span><span>Допущения и риски</span><span>Обсуждения</span><span class="on">Вопросы заказчику <span class="pill warn">1 новый</span></span><span>Снимки</span></div>
+<div class="tools t-rel"><i class="co" style="top:6px;left:4px">1</i>
+ <span class="chip on">Все <span class="c">6</span></span><span class="chip">Новые <span class="c">1</span></span><span class="chip">Отправлены <span class="c">2</span></span><span class="chip">Отвечены <span class="c">1</span></span><span class="chip">Решены <span class="c">1</span></span><span class="chip">Сняты <span class="c">1</span></span>
+ <span style="width:8px"></span><div class="inp" style="width:170px">Дисциплина: все ▾</div>
+ <div class="sp"></div>
+ <span class="t-rel" style="display:inline-flex;gap:8px;align-items:center"><span style="color:var(--muted);font-size:12px">Выбрано: 2</span><button class="btn pri">⇩ Выгрузить в Word</button><button class="btn">⇩ Excel</button><i class="co" style="top:-12px;right:-12px">2</i></span>
+</div>
+<div class="main">
+<table class="t">
+ <thead><tr><th style="width:28px"></th><th style="width:70px">№</th><th>Вопрос</th><th style="width:150px">Автор, дата</th><th style="width:150px">Статус</th><th style="width:28px"></th></tr></thead>
+ <tbody>
+  <tr class="sel t-rel"><td><span class="cb on"></span></td><td class="qn">В-006</td><td>Нужна ли выгрузка списка дилеров в 1С или только в Excel?<div class="path">Разработка › Бэкенд › Личный кабинет</div></td><td>И. Иванов<br><span class="path">сегодня 11:20</span></td><td><span class="pill acc">новый</span></td><td><i class="co" style="position:static;display:inline-block">3</i></td></tr>
+  <tr class="sel"><td><span class="cb on"></span></td><td class="qn">В-005</td><td>Сколько ролей пользователей в портале: только дилер или ещё менеджер дилера?<div class="path">Анализ и проектирование › Аналитика</div></td><td>О. Кузнецова<br><span class="path">02.11 15:02</span></td><td><span class="pill warn">отправлен 02.11</span><div style="margin-top:4px"><span class="pill gray">изменён после отправки</span></div></td><td><i class="co" style="position:static;display:inline-block">4</i></td></tr>
+  <tr><td><span class="cb"></span></td><td class="qn">В-004</td><td>Требуется ли поддержка мобильных браузеров?<div class="path">Проект целиком</div></td><td>А. Смирнова<br><span class="path">31.10 10:40</span></td><td><span class="pill warn">отправлен 31.10</span><div class="path" style="margin-top:4px">ждём 3 дня</div></td><td></td></tr>
+  <tr><td><span class="cb"></span></td><td class="qn">В-003</td><td>Какой протокол обмена с 1С: REST, SOAP или файловый обмен? Есть ли спецификация?<div class="path">Разработка › Бэкенд › Обмен с 1С</div><div class="ans"><b>Ответ заказчика</b> · внёс П. Сидоров · 02.11: REST. Спецификации пока нет, обещают в декабре.</div></td><td>И. Иванов<br><span class="path">01.11 11:05</span></td><td><span class="pill ok">отвечен 02.11</span></td><td><i class="co" style="position:static;display:inline-block">5</i></td></tr>
+  <tr style="color:var(--muted)"><td><span class="cb"></span></td><td class="qn">В-002</td><td>Нужен ли единый вход через Keycloak для сотрудников заказчика?<div class="path">Разработка › Бэкенд › Авторизация</div><div class="ans" style="opacity:.8">Да, через их Keycloak · вывод перенесён в комментарий листа</div></td><td>И. Иванов<br><span class="path">29.10 14:00</span></td><td><span class="pill gray">✓ решён 30.10</span></td><td></td></tr>
+  <tr style="color:var(--faint)"><td><span class="cb"></span></td><td class="qn"><s>В-001</s></td><td><s>Есть ли у заказчика тестовый стенд 1С?</s><div class="path">Снят автором: дублирует В-003</div></td><td>М. Орлова<br><span class="path">29.10 09:30</span></td><td><span class="pill gray">снят</span></td><td><i class="co" style="position:static;display:inline-block">6</i></td></tr>
+ </tbody>
+</table>
+</div>
+<div class="sum t-rel"><i class="co" style="top:8px;left:-4px">7</i><span style="margin-left:18px">Выгрузка Word: шапка (проект, заказчик, дата, гриф «Коммерческая тайна»), таблица «№, раздел, вопрос, ответ» с пустой колонкой ответа. Выгруженные «новые» становятся «отправлен». Денег и внутренних обсуждений в выгрузке нет</span></div>
+</div></div></body></html>

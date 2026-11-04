@@ -1,0 +1,75 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.body{display:grid;grid-template-columns:220px 1fr}
+.side{border-right:1px solid var(--line);padding:16px 10px;display:grid;gap:2px;align-content:start;background:#fafbfc}
+.side a{padding:8px 12px;border-radius:6px;color:var(--muted);font-weight:500;text-decoration:none;display:flex;justify-content:space-between}
+.side a.on{background:var(--accent-soft);color:var(--accent-ink)}
+.main{padding:22px 28px 26px}
+h2{font-size:18px;margin:0 0 4px}
+.sec{border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin-top:16px}
+.sec h3{font-size:13.5px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:170px 1fr;gap:10px 14px;align-items:center}
+.grid>label{color:var(--muted);font-weight:500}
+.radio{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:7px}
+.radio.on{border-color:var(--accent);background:var(--accent-soft)}
+.radio i{width:16px;height:16px;border-radius:50%;border:2px solid var(--faint);flex:none;margin-top:1px}
+.radio.on i{border:5px solid var(--accent)}
+.radio b{display:block}
+.radio span{color:var(--muted);font-size:12px}
+.info{display:flex;gap:8px;padding:9px 12px;background:var(--warn-soft);color:#7a5414;border-radius:6px;font-size:12px;margin-top:10px}
+.ok{color:var(--ok);font-weight:600}
+.cb{display:inline-flex;gap:8px;align-items:center;font-weight:500}
+.cb i{width:16px;height:16px;border-radius:4px;background:var(--accent);display:inline-block;position:relative}
+.cb i::after{content:"";position:absolute;left:5px;top:2px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.res{background:var(--ok-soft);border-radius:6px;padding:10px 12px;font-size:12.5px;display:grid;gap:4px}
+.foot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;align-items:center}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.map{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
+</style></head><body><div class="canvas"><div class="app">
+<div class="hdr"><div class="logo"><i></i>Оценка проектов</div><div class="nav"><a class="on">Система</a></div><div class="sp"></div>
+<span class="pill bad">Суперадминистратор</span><div class="user"><span class="av" style="background:#8a5a44">СА</span>sa.petrova</div></div>
+<div class="body">
+ <div class="side t-rel"><a>Состояние системы</a><a class="on">Аутентификация</a><a>Безопасность</a><a>Почта (SMTP)</a><a>Администраторы</a><a>Журнал аудита</a><i class="co" style="top:46px;right:-11px">1</i></div>
+ <div class="main">
+  <h2>Аутентификация</h2><div style="color:var(--muted)">Способ входа для всех пользователей, кроме суперадминистраторов</div>
+  <div class="sec t-rel"><h3>Способ входа</h3>
+   <div class="two">
+    <div class="radio"><i></i><div><b>Через приложение</b><span>Учётные записи и пароли создаются и хранятся в приложении</span></div></div>
+    <div class="radio on"><i></i><div><b>Через Active Directory</b><span>Пароль проверяет AD, пользователи появляются при первом входе</span></div></div>
+   </div>
+   <div class="info">ⓘ Суперадминистраторы всегда входят паролем приложения и кодом TOTP. Так вход сохранится, даже если AD недоступен.</div>
+   <i class="co" style="top:12px;right:12px">2</i>
+  </div>
+  <div class="sec t-rel"><h3>Подключение</h3>
+   <div class="grid">
+    <label>Контроллеры</label><div style="display:flex;gap:8px"><div class="inp" style="width:220px">dc1.corp.local:636</div><div class="inp" style="width:220px">dc2.corp.local:636</div><button class="btn sm">+ Добавить</button></div>
+    <label>Защита канала</label><div style="display:flex;gap:18px;align-items:center"><span class="cb"><i></i>LDAPS</span><span style="color:var(--muted)">○ StartTLS</span><span style="color:var(--faint)">Без шифрования недоступно</span>
+      <span style="margin-left:24px;color:var(--muted)">Сертификат УЦ</span><span class="pill ok">corp-root-ca.pem ✓ до 12.2029</span></div>
+    <label>Base DN</label><div class="inp mono" style="width:100%">OU=Users,DC=corp,DC=local</div>
+    <label>Фильтр поиска</label><div class="inp mono" style="width:100%">(&amp;(objectClass=user)(sAMAccountName={login}))</div>
+    <label>Сервисная учётка</label><div style="display:flex;gap:8px"><div class="inp mono" style="flex:1">CN=svc-estimator,OU=Service,DC=corp,DC=local</div><div class="inp" style="width:170px">••••••&nbsp; <span class="link" style="color:var(--accent);margin-left:auto">изменить</span></div></div>
+   </div>
+   <div class="foot" style="justify-content:flex-start;margin-top:12px"><button class="btn">Проверить подключение</button><span class="ok">✓ Подключено к dc1.corp.local за 0,2 с</span></div>
+   <i class="co" style="top:12px;right:12px">3</i>
+  </div>
+  <div class="two">
+   <div class="sec t-rel"><h3>Доступ и роли</h3>
+    <div class="map"><label style="color:var(--muted)">Группа доступа</label><div class="inp mono" style="font-size:11.5px">CN=APP-Estimator-Users,OU=Groups,…</div></div>
+    <div style="margin:12px 0 8px"><span class="cb"><i></i>Назначать роли по группам AD</span></div>
+    <div class="map">
+     <label>Администратор</label><div class="inp mono" style="font-size:11.5px">CN=APP-Estimator-Admins,…</div>
+     <label>Модератор</label><div class="inp mono" style="font-size:11.5px">CN=APP-Estimator-Moderators,…</div>
+     <label>Пресейл</label><div class="inp mono" style="font-size:11.5px">CN=APP-Estimator-Presale,…</div>
+    </div>
+    <i class="co" style="top:12px;right:12px">4</i>
+   </div>
+   <div class="sec t-rel"><h3>Тестовый вход</h3>
+    <div style="display:flex;gap:8px;margin-bottom:12px"><div class="inp" style="flex:1">i.ivanov</div><div class="inp" style="flex:1">••••••••</div><button class="btn">Проверить вход</button></div>
+    <div class="res"><div><b class="ok">✓ Пользователь найден:</b> Иванов Иван Иванович, i.ivanov@corp.ru</div><div><b class="ok">✓ Учётка активна</b>, пароль верный</div><div><b class="ok">✓ Группы:</b> APP-Estimator-Users, APP-Estimator-Moderators → роль «Модератор»</div></div>
+    <div style="color:var(--muted);font-size:11.5px;margin-top:8px">Пароль для проверки нигде не сохраняется</div>
+    <i class="co" style="top:12px;right:12px">5</i>
+   </div>
+  </div>
+  <div class="foot t-rel"><span style="color:var(--muted)">Для сохранения потребуются пароль и код TOTP. При смене способа входа сессии всех пользователей, кроме вашей, завершатся.</span><button class="btn">Отмена</button><button class="btn pri">Сохранить…</button><i class="co" style="top:-8px;right:-10px">6</i></div>
+ </div>
+</div></div></div></body></html>

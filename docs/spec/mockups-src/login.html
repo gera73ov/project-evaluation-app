@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.row{display:flex;gap:28px;align-items:flex-start}
+.card{width:360px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:28px 28px 24px;box-shadow:0 1px 3px rgba(20,30,40,.06)}
+.cap{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 10px 4px}
+h1{font-size:19px;margin:12px 0 4px}
+.sub{color:var(--muted);margin-bottom:20px}
+.f{display:grid;gap:5px;margin-bottom:14px}
+.f label{font-weight:500;font-size:12px}
+.f .inp{height:36px;width:100%}
+.btn.wide{width:100%;justify-content:center;height:38px;font-size:14px}
+.hint{display:flex;gap:8px;align-items:center;margin-top:16px;padding:10px 12px;background:var(--line2);border-radius:6px;color:var(--muted);font-size:12px}
+.err{background:var(--bad-soft);color:var(--bad);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12.5px}
+.otp{display:flex;gap:8px;margin:8px 0 18px}
+.otp span{width:40px;height:46px;border:1px solid var(--line);border-radius:6px;display:grid;place-items:center;font:600 20px var(--m)}
+.otp span.f1{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.link{color:var(--accent);font-weight:500}
+</style></head><body><div class="canvas">
+<div class="row">
+ <div>
+  <div class="cap">А. Режим «Active Directory»</div>
+  <div class="card">
+   <div class="logo"><i></i>Оценка проектов</div>
+   <h1>Вход</h1><div class="sub">Учётная запись компании</div>
+   <div class="f t-rel"><label>Логин</label><div class="inp focus">i.ivanov</div><i class="co" style="top:-4px;right:-14px">1</i></div>
+   <div class="f"><label>Пароль</label><div class="inp">••••••••••••</div></div>
+   <div class="t-rel"><button class="btn pri wide">Войти</button><i class="co" style="top:8px;right:-14px">2</i></div>
+   <div class="hint t-rel">🔒 Используйте логин и пароль, под которыми входите в компьютер<i class="co" style="top:-10px;right:-14px">3</i></div>
+  </div>
+ </div>
+ <div>
+  <div class="cap">Б. Режим «Приложение», ошибка входа</div>
+  <div class="card">
+   <div class="logo"><i></i>Оценка проектов</div>
+   <h1>Вход</h1><div class="sub">Учётная запись приложения</div>
+   <div class="err t-rel">Неверный логин или пароль<i class="co" style="top:-10px;right:-14px">4</i></div>
+   <div class="f"><label>Логин</label><div class="inp">i.ivanov</div></div>
+   <div class="f"><label>Пароль</label><div class="inp ph">Введите пароль</div></div>
+   <button class="btn pri wide" style="opacity:.45;cursor:not-allowed">Войти</button>
+   <div class="t-rel" style="margin-top:14px;text-align:center"><span class="link">Забыли пароль?</span><i class="co" style="top:-3px;right:60px">5</i></div>
+  </div>
+ </div>
+ <div>
+  <div class="cap">В. Второй шаг: код TOTP</div>
+  <div class="card">
+   <div class="logo"><i></i>Оценка проектов</div>
+   <h1>Подтвердите вход</h1><div class="sub">Введите 6 цифр из приложения-аутентификатора (Яндекс Ключ, Google Authenticator и др.)</div>
+   <div class="otp t-rel"><span class="f1">4</span><span>8</span><span>1</span><span></span><span></span><span></span><i class="co" style="top:-10px;right:-6px">6</i></div>
+   <button class="btn pri wide" disabled>Подтвердить</button>
+   <div class="t-rel" style="margin-top:14px;display:flex;justify-content:space-between"><span class="link">Использовать резервный код</span><span class="link" style="color:var(--muted)">Назад</span><i class="co" style="top:-3px;left:-30px">7</i></div>
+   <div class="hint">Код обновляется каждые 30 секунд</div>
+  </div>
+ </div>
+</div></div></body></html>

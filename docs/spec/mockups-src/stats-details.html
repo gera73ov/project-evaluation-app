@@ -1,0 +1,85 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.main{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px 22px 22px}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.card h4{margin:0 0 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.tabname{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);font-weight:700;margin-bottom:4px}
+table.t td,table.t th{padding:6px 8px}
+.hb{display:grid;grid-template-columns:110px 1fr 70px;gap:8px;align-items:center;padding:4px 0;font-variant-numeric:tabular-nums}
+.hb .b{height:12px;border-radius:3px;background:var(--accent)}
+.bar{height:8px;background:var(--line2);border-radius:4px;position:relative;margin:8px 0 4px}
+.bar .zone{position:absolute;top:-3px;bottom:-3px;border:1.5px dashed var(--ok);border-radius:4px}
+.bar .val{position:absolute;top:0;bottom:0;left:0;border-radius:4px}
+.tg{display:inline-block;font-size:10.5px;font-weight:700;border-radius:4px;padding:0 5px;margin-right:5px}
+.tg.tech{background:#e6eefc;color:#2f5aa8}.tg.as{background:#eef3e4;color:#57702c}.tg.risk{background:var(--bad-soft);color:var(--bad)}.tg.lim{background:#f3ece2;color:#8a5a1f}
+.path{color:var(--muted);font-size:11.5px}
+.ic{width:20px;height:20px;border-radius:4px;display:inline-grid;place-items:center;font-size:11px;background:var(--line2);color:var(--muted);font-weight:700;margin-right:6px}
+.wide{grid-column:1 / -1}
+</style></head><body><div class="canvas">
+<div class="capt" style="font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px 2px">Содержимое остальных вкладок статистики. Каждая карточка — отдельная вкладка; здесь они собраны на одной картинке</div>
+<div class="app">
+<div class="hdr"><div class="logo"><i></i>Оценка проектов</div><div style="color:var(--muted)">Портал дилеров › <b style="color:var(--ink)">Статистика</b></div><div class="sp"></div><button class="btn">← К оценке</button><div class="user"><span class="av" style="background:#6b8f5a">АС</span>Смирнова А.</div></div>
+<div class="main">
+ <div class="card t-rel"><i class="co" style="top:-10px;left:-10px">1</i><div class="tabname">Вкладка «Доли и соотношения»</div>
+  <h4><span>Доли дисциплин в работах</span><span style="font-size:12px;color:var(--muted);font-weight:500">фаза: все ▾</span></h4>
+  <div class="hb"><span>Аналитика</span><div class="b" style="width:24%"></div><span class="r">24%</span></div>
+  <div class="hb"><span>Архитектура</span><div class="b" style="width:7%"></div><span class="r">7%</span></div>
+  <div class="hb"><span>Бэкенд</span><div class="b" style="width:27%"></div><span class="r">27%</span></div>
+  <div class="hb"><span>Фронтенд</span><div class="b" style="width:28%"></div><span class="r">28%</span></div>
+  <div class="hb"><span>QA</span><div class="b" style="width:13%"></div><span class="r">13%</span></div>
+  <div style="font-size:11.5px;color:var(--muted);margin:2px 0 12px">Доли округлены до целого, поэтому сумма может отличаться от 100% на 1 п.п.</div>
+  <h4 style="margin-top:6px">Контрольные соотношения</h4>
+  <div style="display:flex;justify-content:space-between"><span>QA к (Бэкенд + Фронтенд)</span><b style="color:var(--warn)">24% · ниже нормы</b></div>
+  <div class="bar"><div class="zone" style="left:50%;width:20%"></div><div class="val" style="width:48%;background:var(--warn)"></div></div>
+  <div style="display:flex;justify-content:space-between;margin-top:12px"><span>Аналитика к работам</span><b style="color:var(--ok)">24% · в норме</b></div>
+  <div class="bar"><div class="zone" style="left:30%;width:30%"></div><div class="val" style="width:48%;background:var(--ok)"></div></div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>0%</span><span>шкала до 50%, зелёная рамка — норма из админки</span><span>50%</span></div>
+ </div>
+ <div class="card t-rel"><i class="co" style="top:-10px;right:-10px">2</i><div class="tabname">Вкладка «Объёмы по типам»</div>
+  <h4><span>Сколько чего оцениваем</span><span style="font-size:12px;color:var(--muted);font-weight:500">с учётом ×N</span></h4>
+  <table class="t num"><thead><tr><th>Тип</th><th class="r">Единиц</th><th class="r">E, ч</th><th class="r">E на единицу</th><th>Дисциплины</th></tr></thead><tbody>
+   <tr><td><span class="ic">▭</span>Экран</td><td class="r">13</td><td class="r">97,3</td><td class="r">7,5</td><td>Фронтенд</td></tr>
+   <tr><td><span class="ic">✓</span>Тест-набор</td><td class="r">31</td><td class="r">45,8</td><td class="r">1,5</td><td>QA</td></tr>
+   <tr><td><span class="ic">ƒ</span>Функция</td><td class="r">2</td><td class="r">29,3</td><td class="r">14,7</td><td>Бэкенд</td></tr>
+   <tr><td><span class="ic">⇄</span>Интеграция</td><td class="r">1</td><td class="r">63,3</td><td class="r">63,3</td><td>Бэкенд</td></tr>
+   <tr><td><span class="ic">•</span>Работа</td><td class="r">2</td><td class="r">108,7</td><td class="r">—</td><td>Аналитика, Архитектура</td></tr>
+  </tbody></table>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">Сводка для КП одной строкой: «Экран — 13, Функция — 2, Интеграция — 1, Тест-набор — 31». Узлы-группы (Модуль) не считаются. Для «Работы» E на единицу не показывается</div>
+ </div>
+ <div class="card t-rel"><i class="co" style="top:-10px;left:-10px">3</i><div class="tabname">Вкладка «Кандидаты на декомпозицию»</div>
+  <h4><span>Крупные листья (по E одной штуки)</span><span style="font-size:12px;color:var(--muted);font-weight:500">порог «Средне» — 80 ч</span></h4>
+  <table class="t num"><tbody>
+   <tr><td><b>◆ Аналитика целиком</b><div class="path">Анализ и проектирование › Аналитика</div></td><td class="r"><b>83,3 ч</b></td><td><span class="pill warn">выше порога</span></td></tr>
+   <tr><td>Создать типовой экран ×12<div class="path">Разработка › Фронтенд · 6,0 ч за штуку</div></td><td class="r">72,0 ч</td><td><span class="pill gray">повторяющийся</span></td></tr>
+   <tr><td>Обмен с 1С<div class="path">Разработка › Бэкенд</div></td><td class="r">63,3 ч</td><td></td></tr>
+  </tbody></table>
+  <h4 style="margin-top:12px"><span>Широкие вилки (топ по σ/E)</span><span style="font-size:12px;color:var(--muted);font-weight:500">порог — 30%</span></h4>
+  <table class="t num"><tbody>
+   <tr><td>Регресс-кейс ЛК ×30<div class="path">Тестирование › QA · 0,5–1–2</div></td><td class="r">σ/E 23%</td></tr>
+   <tr><td>Тесты обмена с 1С<div class="path">Тестирование › QA · 8–12–24</div></td><td class="r">σ/E 20%</td></tr>
+   <tr><td>Обмен с 1С<div class="path">Разработка › Бэкенд · 40–60–100</div></td><td class="r">σ/E 16%</td></tr>
+  </tbody></table>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">Выше порога 30% листьев нет, поэтому флажков ↔ в сетке нет. Клик по строке открывает лист на рабочем экране</div>
+ </div>
+ <div class="card t-rel"><i class="co" style="top:-10px;right:-10px">4</i><div class="tabname">Вкладка «Допущения и риски»</div>
+  <h4><span>Черновик раздела КП</span><button class="btn sm">⇩ Word</button></h4>
+  <div style="display:grid;gap:9px">
+   <div><span class="tg as">Допущение</span>Обмен через REST, формат согласуем с заказчиком; спецификации пока нет<div class="path">Разработка › Бэкенд › Обмен с 1С</div></div>
+   <div><span class="tg as">Допущение</span>УП 18%: стандартная сложность, один заказчик<div class="path">Настройки проекта</div></div>
+   <div><span class="tg lim">Огр.</span>Поддерживаются браузеры Chrome и Edge последних версий<div class="path">Разработка › Фронтенд</div></div>
+   <div><span class="tg risk">Риск</span>Спецификация 1С появится не раньше декабря<div class="path">Разработка › Бэкенд › Обмен с 1С</div></div>
+   <div><span class="tg risk">Риск</span>Keycloak заказчика может не поддерживать нужные scopes<div class="path">Разработка › Бэкенд › Авторизация</div></div>
+   <div><span class="tg risk">Риск</span>Тестовая база 1С недоступна до подписания договора<div class="path">Тестирование › QA › Тесты обмена с 1С</div></div>
+   <div><span class="tg tech">Тех.</span>OAuth2 через корпоративный Keycloak заказчика · Python 3.12, FastAPI · React<div class="path">3 комментария</div></div>
+  </div>
+ </div>
+ <div class="card wide t-rel"><i class="co" style="top:-10px;left:-10px">5</i><div class="tabname">Вкладка «Снимки»</div>
+  <h4><span>Снимки проекта</span><span><button class="btn sm">Сравнить с текущим</button> <button class="btn sm">Сравнить два</button></span></h4>
+  <table class="t num"><thead><tr><th></th><th>Название</th><th>Создал</th><th class="r">E / P80, ч</th><th class="r money">🔒 В КП, USD</th><th>Описание</th><th></th></tr></thead><tbody>
+   <tr><td>☐</td><td><b>v2 — после ответов заказчика</b></td><td>А. Смирнова · 02.11 18:00</td><td class="r">406,5 / 425,5</td><td class="r money">12 978</td><td style="color:var(--muted)">Учтён REST для 1С</td><td class="r"><button class="btn sm ghost">⇩</button></td></tr>
+   <tr><td>☐</td><td><b>v1 — КП отправлено</b></td><td>А. Смирнова · 01.11 10:30</td><td class="r">378,2 / 395,2</td><td class="r money">12 394</td><td style="color:var(--muted)">Предварительная цифра, курс 90</td><td class="r"><button class="btn sm ghost">⇩</button></td></tr>
+   <tr style="color:var(--faint)"><td>☐</td><td><s>v0 — черновик</s> <span class="pill gray">ошибочный</span></td><td>А. Смирнова · 29.10 09:15</td><td class="r"><s>210,4 / 226,0</s></td><td class="r"><s>7 008</s></td><td>Снят с не той ставкой QA</td><td></td></tr>
+  </tbody></table>
+ </div>
+</div>
+</div></div></body></html>

@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.main{padding:18px 22px 22px;display:grid;grid-template-columns:1.25fr 1fr;gap:18px}
+.sec{border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.sec h3{font-size:14px;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+.ppl{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.person{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px 0 3px;border:1px solid var(--line);border-radius:14px;background:#fff;font-weight:500;white-space:nowrap}
+.person .av{width:22px;height:22px;font-size:9px}
+.person .x{color:var(--faint)}
+.person.rev{border-color:#b9d9e5;background:var(--accent-soft)}
+.add{color:var(--accent);font-weight:600;font-size:12px;white-space:nowrap}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;margin-bottom:12px}
+.kv label{color:var(--muted);font-weight:500}
+.money-sec{border-color:#d9cff2;background:#fcfbff}
+.rates{display:grid;grid-template-columns:1fr 130px;gap:8px 12px;align-items:center}
+.rates .inp{justify-content:flex-end;font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--muted);margin-top:10px}
+.warnbox{background:var(--warn-soft);color:#7a5414;border-radius:6px;padding:8px 10px;font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg span{padding:5px 12px;border-right:1px solid var(--line)}
+.seg span:last-child{border-right:none}
+.seg .on{background:var(--accent);color:#fff}
+</style></head><body><div class="canvas"><div class="app">
+<div class="hdr"><div class="logo"><i></i>Оценка проектов</div><div style="color:var(--muted)">Портал дилеров › <b style="color:var(--ink)">Настройки проекта</b></div><div class="sp"></div><span class="t-rel" style="display:inline-flex;gap:6px;align-items:center;margin-right:10px"><span style="color:var(--muted);font-size:12px">Статус</span><button class="btn sm" style="background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);font-weight:600">Оценка ▾</button><button class="btn sm ghost" title="Копировать проект">⋯</button><i class="co" style="top:-10px;right:-14px">15</i></span><span class="pill acc">Вы модератор</span><div class="user"><span class="av" style="background:#6b8f5a">АС</span>Смирнова А.</div></div>
+<div class="tabs t-rel"><span class="on">Основное и команда</span><span>Документы заказчика <span class="pill gray">3</span></span><span>Результат пресейла</span><span>Снимки</span><span>Корзина <span class="pill gray">2</span></span><span>Журнал проекта</span><i class="co" style="top:8px;left:6px">1</i></div>
+<div class="main">
+ <div style="display:grid;gap:18px;align-content:start">
+  <div class="sec t-rel"><h3>Основное</h3><i class="co" style="top:10px;right:10px">2</i>
+   <div class="kv"><label>Название</label><div class="inp">Портал дилеров</div></div>
+   <div class="kv"><label>Заказчик</label><div class="inp">ООО «Пример»</div></div>
+   <div class="kv"><label>Описание</label><div class="inp" style="color:#38424c">Портал для дилеров: ЛК, обмен с 1С. ТЗ — <span style="color:var(--accent)">https://wiki.corp/dealers</span></div></div>
+   <div class="kv"><label>Фазы</label><div class="ppl"><span class="chip on">✓ Анализ и проектирование</span><span class="chip on">✓ Разработка</span><span class="chip on">✓ Тестирование</span><span class="chip">Внедрение</span><span class="chip">Гарантийная поддержка</span><span class="chip" style="background:var(--line2);color:var(--muted);border-style:dashed">Управление проектом · всегда</span></div></div>
+   <div class="kv"><label>Детализация</label><div><span class="seg"><span>Крупно</span><span class="on">Средне</span><span>Детально</span></span> <span style="color:var(--muted);font-size:12px;margin-left:8px">лист с E одной штуки &gt; 80 ч помечается «крупный»</span></div></div>
+   <div class="kv t-rel"><label>Управление проектом</label><div style="display:flex;gap:8px;align-items:center"><div class="inp" style="width:80px;justify-content:flex-end">18 %</div><div class="inp" style="flex:1">Стандартная сложность, один заказчик</div></div><i class="co" style="top:4px;left:-30px">3</i></div>
+   <div class="kv t-rel"><label>База УП</label><div><div class="ppl"><span class="chip on">✓ Анализ и проектирование</span><span class="chip on">✓ Разработка</span><span class="chip on">✓ Тестирование</span></div><div style="color:var(--muted);font-size:12px;margin-top:4px">От каких фаз считается процент УП. «Гарантийная поддержка» по умолчанию не входит; выключенные фазы не показываются</div></div><i class="co" style="top:4px;left:-30px">10</i></div>
+   <div class="kv t-rel"><label>Цифра для КП</label><div><span class="seg"><span>E</span><span class="on">P80</span><span>P90</span></span> <span style="color:var(--muted);font-size:12px;margin-left:8px">сейчас 425,5 ч — выделяется в верхней полосе и идёт в экспорт для КП</span></div><i class="co" style="top:4px;left:-30px">11</i></div>
+   <div class="kv" style="margin:0"><label>Дедлайн оценки</label><div style="display:flex;gap:18px;align-items:center"><div class="inp" style="width:140px">05.11.2026</div><span style="color:var(--muted);font-weight:500">Срок, недель</span><div class="inp" style="width:70px;justify-content:flex-end">14</div><span style="color:var(--muted);font-size:12px">вводится вручную, в КП</span></div></div>
+  </div>
+  <div class="sec t-rel"><h3>Команда <span style="display:inline-flex;gap:14px"><span class="add t-rel">🔍 Найти в AD<i class="co" style="top:-6px;left:-28px">16</i></span><span style="width:12px"></span><span class="add t-rel">+ Добавить дисциплину<i class="co" style="top:-6px;right:-26px">4</i></span></span></h3>
+   <div class="kv"><label>Модераторы</label><div class="ppl"><span class="person"><span class="av" style="background:#6b8f5a">АС</span>А. Смирнова</span><span class="add">+ добавить</span></div></div>
+   <div class="kv"><label>Пресейл</label><div class="ppl"><span class="person"><span class="av" style="background:#8a6db0">ПС</span>П. Сидоров <span class="x">✕</span></span><span class="add">+ добавить</span></div></div>
+   <table class="t" style="margin-top:4px"><thead><tr><th style="width:120px">Дисциплина</th><th>Эксперты <span style="font-weight:400">(подсвечен ревьюер)</span></th></tr></thead><tbody>
+    <tr><td>Аналитика</td><td><div class="ppl"><span class="person"><span class="av" style="background:#4f8f8f">ОК</span>О. Кузнецова <span class="x">✕</span></span><span class="add">+</span></div></td></tr>
+    <tr><td>Архитектура</td><td><div class="ppl"><span class="person"><span class="av" style="background:#7a6a5a">ДМ</span>Д. Морозов <span class="x">✕</span></span><span class="add">+</span></div></td></tr>
+    <tr class="t-rel"><td>Бэкенд</td><td><div class="ppl"><span class="person rev t-rel"><span class="av">ИИ</span>И. Иванов ★ ревьюер <span class="x">✕</span><i class="co" style="top:-12px;right:-12px">5</i></span><span class="person t-rel" style="border-color:#efc7c4;background:var(--bad-soft);color:var(--bad)"><span class="av" style="background:#b0b7bf">НН</span>Н. Новиков · заблокирован <b style="color:var(--accent)">Заменить</b><i class="co" style="top:-12px;right:-12px">12</i></span><span class="add">+</span></div></td></tr>
+    <tr><td>Фронтенд</td><td><div class="ppl"><span class="person"><span class="av" style="background:#d97a2b">ПП</span>П. Петров <span class="x">✕</span></span><span class="add">+</span></div></td></tr>
+    <tr><td>QA</td><td><div class="ppl"><span class="person"><span class="av" style="background:#9a5a8a">МО</span>М. Орлова <span class="x">✕</span></span><span class="add">+</span></div></td></tr>
+    <tr><td>DevOps</td><td><div class="ppl t-rel"><span class="pill warn">⚠ нет эксперта</span><span class="add">+ назначить</span><i class="co" style="top:-1px;left:200px">6</i></div></td></tr>
+   </tbody></table>
+  </div>
+ </div>
+ <div class="sec money-sec t-rel" style="align-self:start"><h3><span>Деньги</span><span class="lock">🔒 видят модераторы, пресейл и руководитель пресейла</span></h3><i class="co" style="top:-10px;left:-10px">7</i>
+  <div class="kv t-rel"><label>Валюта КП</label><div style="display:flex;gap:8px;align-items:center"><div class="inp" style="width:90px">USD ▾</div><span style="color:var(--muted)">курс</span><div class="inp num" style="width:110px;justify-content:flex-end">92,5000</div><span style="color:var(--muted)">₽ за 1 USD</span></div><i class="co" style="top:4px;right:-6px">8</i></div>
+  <div class="note" style="margin:-4px 0 12px">Курс вводится вручную и фиксируется в проекте. При снимке он сохраняется вместе со ставками.</div>
+  <div class="kv t-rel"><label>НДС</label><div style="display:flex;gap:8px;align-items:center"><div class="inp" style="width:140px">20% ▾</div><span style="color:var(--muted);font-size:12px">ставки и итог — без НДС; НДС отдельной строкой</span></div><i class="co" style="top:4px;left:-36px">13</i></div>
+  <div class="lbl" style="margin-bottom:8px">Ставки, ₽ за час</div>
+  <div class="rates t-rel"><i class="co" style="top:-28px;right:-6px">9</i>
+   <span>Аналитика</span><div class="inp">2 500</div>
+   <span>Архитектура</span><div class="inp">3 500</div>
+   <span>Бэкенд</span><div class="inp">3 000</div>
+   <span>Фронтенд</span><div class="inp">2 800</div>
+   <span>QA</span><div class="inp">2 200</div>
+   <span>DevOps</span><div class="inp ph" style="border-color:#ecd3a4;background:var(--warn-soft)">не задана</div>
+   <span>Управление проектом</span><div class="inp">3 200</div>
+  </div>
+  <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px" class="t-rel"><i class="co" style="top:24px;left:-36px">14</i>
+   <div class="ln" style="display:flex;justify-content:space-between;padding:3px 0"><span>Итог без НДС</span><b class="num money">1 146 798 ₽ · 12 397 USD</b></div>
+   <div style="display:flex;justify-content:space-between;padding:3px 0"><span>НДС 20%</span><span class="num money">229 360 ₽</span></div>
+   <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Итого с НДС</span><b class="num money">1 376 158 ₽ · 14 877 USD</b></div>
+   <div style="display:flex;justify-content:space-between;padding:3px 0"><span>В КП (P80) без НДС / с НДС</span><b class="num money">12 978 / 15 574 USD</b></div>
+  </div>
+  <div class="warnbox" style="margin-top:14px">Не задана ставка DevOps. Пока у DevOps нет часов, итог считается. Как только появятся часы, вместо суммы будет «не заданы ставки: DevOps»</div>
+  <div class="note">Изменения сохраняются автоматически. В журнал аудита пишется только факт изменения, без сумм.</div>
+ </div>
+</div>
+</div></div></body></html>

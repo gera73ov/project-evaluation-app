@@ -1,0 +1,141 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.top{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:#fff}
+.top h2{font-size:16px;margin:0;white-space:nowrap}.top{flex-wrap:nowrap}.top>div{white-space:nowrap}
+.tot{display:flex;gap:14px;align-items:baseline;padding:4px 12px;border-radius:6px;background:var(--line2)}
+.tot b{font-size:15px}
+.tot small{color:var(--muted)}
+.cnt{white-space:nowrap;display:inline-flex;gap:6px;align-items:center;font-weight:600}
+.presence{display:flex}
+.presence .av{width:24px;height:24px;margin-left:-6px;box-shadow:0 0 0 2px #fff;font-size:9.5px}
+.tools{display:flex;gap:8px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.warnline{margin-left:auto;color:var(--warn);font-weight:600;font-size:12px}
+.g{display:grid;grid-template-columns:minmax(300px,1fr) 56px minmax(280px,1.15fr) 60px 60px 60px 82px 44px;align-items:center}
+.head{background:#fafbfc;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--muted);font-weight:600}
+.head>div{padding:8px 10px}
+.row{border-bottom:1px solid var(--line2);min-height:38px}
+.row>div{padding:6px 10px}
+.row.ph{background:#f1f4f7;font-weight:700}
+.row.dis{background:#f8fafb;font-weight:600}
+.name{display:flex;align-items:center;gap:7px;min-width:0}
+.tw{width:14px;color:var(--muted);flex:none;text-align:center}
+.ic{width:20px;height:20px;border-radius:4px;display:inline-grid;place-items:center;font-size:11px;background:var(--line2);color:var(--muted);flex:none;font-weight:700}
+.ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.disc{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);padding:1px 6px;border:1px solid var(--line);border-radius:9px;flex:none;position:relative}
+.disc.open{color:var(--warn);border-color:#ecd3a4;background:var(--warn-soft)}
+.disc.me::after{content:"";position:absolute;top:-3px;right:-3px;width:7px;height:7px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 2px #fff}
+.mul{font-size:12px;color:var(--faint);text-align:center}
+.mul.x{color:var(--accent-ink);background:var(--accent-soft);border-radius:5px;font-weight:700;padding:2px 0}
+.cm{color:#38424c;font-size:12.5px;line-height:1.35}
+.tg{display:inline-block;font-size:10.5px;font-weight:700;border-radius:4px;padding:0 5px;margin-right:5px}
+.tg.tech{background:#e6eefc;color:#2f5aa8}.tg.as{background:#eef3e4;color:#57702c}.tg.risk{background:var(--bad-soft);color:var(--bad)}
+.cell{height:26px;border:1px solid var(--line);border-radius:5px;display:grid;place-items:center;font-variant-numeric:tabular-nums;background:#fff;position:relative}
+.cell.ro{border-color:transparent;background:transparent}
+.cell.empty{border-color:#efc7c4;background:var(--bad-soft)}
+.cell.badv{border-color:var(--bad);color:var(--bad);font-weight:600}
+.cell.other{border:2px solid #6b8f5a}
+.cell.other::after{content:"АС";position:absolute;top:-9px;right:-8px;background:#6b8f5a;color:#fff;font-size:9px;font-weight:700;border-radius:7px;padding:0 4px}
+.cell.mine{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.e{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.e.na{color:var(--bad);font-weight:500;font-size:11.5px}
+.ck{text-align:center;color:var(--ok);font-weight:700}
+.row.err{background:#fffafa}
+.flash{background:#fff8d6!important;transition:none}
+.thread{grid-column:1 / -1;margin:0 10px 10px 76px;border:1px solid var(--line);border-radius:8px;background:#fcfdfd;padding:10px 14px}
+.msg{display:grid;grid-template-columns:28px 1fr;gap:8px;padding:6px 0}
+.msg .who{font-size:12px;color:var(--muted)}
+.msg .who b{color:var(--ink)}
+.msg .tx{margin-top:2px}
+.ev{color:var(--muted);font-size:12px;padding:4px 0 4px 36px;border-left:2px solid var(--line);margin-left:13px}
+.ans{background:var(--ok-soft);border-radius:6px;padding:6px 8px}
+.compose{display:flex;gap:8px;align-items:center;margin-top:8px;padding-top:10px;border-top:1px solid var(--line2)}
+.compose .inp{flex:1;height:32px}
+.cb2{display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:500}
+.cb2 i{width:15px;height:15px;border:1.5px solid var(--faint);border-radius:4px;display:inline-block}
+.statusbtn{font-size:11.5px}
+.indent1{padding-left:24px!important}.indent2{padding-left:40px!important}.indent3{padding-left:56px!important}
+.modbar{margin-top:22px}
+.capt{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px 2px}
+.kp{font-size:10px;font-weight:700;color:#fff;background:var(--accent);border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:2px}
+.half{display:inline-block;width:12px;height:12px;border-radius:50%;border:1.5px solid var(--warn);background:linear-gradient(90deg,var(--warn) 50%,#fff 50%);vertical-align:-1px}
+.ttabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:-4px 0 8px}
+.ttabs span{padding:6px 12px;font-weight:600;font-size:12px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.ttabs span.on{color:var(--ink);border-bottom-color:var(--accent)}
+.ttabs span.m.on{border-bottom-color:var(--money);color:var(--money)}
+.note{background:var(--money-soft);border-radius:6px;padding:6px 8px}
+.tag-who{font-size:10px;font-weight:700;color:#fff;background:#6b8f5a;border-radius:4px;padding:0 5px;margin-left:6px}
+.more{display:inline-block;font-size:10.5px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:6px;background:var(--line2);color:var(--muted)}
+.tip{position:absolute;z-index:30;top:3px;right:80px;background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:0 6px 18px rgba(20,30,40,.16);padding:6px 10px;font-size:11.5px;font-weight:500;white-space:nowrap;color:var(--ink);text-align:left}
+.tip small{color:var(--muted)}
+</style></head><body><div class="canvas">
+<div class="capt">Рабочий экран проекта. Вошёл эксперт Бэкенда И. Иванов (он же ревьюер). Включён фильтр «Мои ветки». «Авторизацию» он оценил сам и отметил проверенной — поэтому значок <span class="half"></span> «самопроверка»</div>
+<div class="app">
+ <div class="top">
+  <span style="color:var(--muted)">←</span>
+  <div class="t-rel"><h2>Портал дилеров</h2><div style="color:var(--muted);font-size:12px">ООО «Пример» · уровень «Средне» · дедлайн 05.11</div><i class="co" style="top:-6px;left:-30px">1</i></div>
+  <span class="pill acc">Оценка</span>
+  <div class="tot t-rel"><span><small>E</small> <b class="num">406,5</b></span><span><small>P80</small> <b class="num">425,5 ч</b><span class="kp">в КП</span></span><span><small>P90</small> <b class="num">435,5</b></span><i class="co" style="top:-10px;right:-12px">2</i></div>
+  <span class="cnt t-rel" style="color:var(--warn)">💬 Открыто <span class="pill warn">2 мне / 5</span><i class="co" style="top:-12px;right:-14px">3</i></span>
+  <span class="cnt" style="color:var(--bad)">⚠ Риски <span class="pill bad">3</span></span>
+  <div class="sp"></div>
+  <div class="presence t-rel" title="Сейчас в проекте"><span class="av" style="background:#5a7fa0">ИИ</span><span class="av" style="background:#d97a2b">ПП</span><span class="av" style="background:#6b8f5a">АС</span><i class="co" style="top:-10px;right:-14px">4</i></div>
+  <button class="btn">Статистика</button><button class="btn">Экспорт ▾</button><button class="btn ghost">⚙ Настройки</button>
+ </div>
+ <div class="tools">
+  <div class="inp ph t-rel" style="width:280px;white-space:nowrap">🔍 Поиск по названию и комментарию<i class="co" style="top:-10px;right:-10px">5</i></div>
+  <span class="chip on">✓ Мои ветки</span><span class="chip">Без оценки <span class="c">2</span></span><span class="chip">Крупные <span class="c">1</span></span><span class="chip">Без «Проверено» <span class="c">6</span></span><span class="chip">С вопросами <span class="c">2</span></span>
+  <span style="width:10px"></span><span style="color:var(--muted);font-size:12px">Показать:</span><button class="btn sm">до фаз</button><button class="btn sm">до дисциплин</button><button class="btn sm">всё раскрыть</button>
+  <span class="warnline t-rel">⚠ 2 листа не учтены в итогах: пустой и неверный<i class="co" style="top:-3px;left:-30px">6</i></span>
+ </div>
+ <div class="g head"><div>Узел</div><div style="text-align:center">×N</div><div>Комментарий</div><div style="text-align:center">O</div><div style="text-align:center">R</div><div style="text-align:center">P</div><div class="r">Σ E, ч</div><div style="text-align:center">✓</div></div>
+
+ <div class="g row ph"><div class="name"><span class="tw">▸</span>Анализ и проектирование</div><div></div><div></div><div></div><div></div><div></div><div class="e">108,7</div><div></div></div>
+ <div class="g row ph"><div class="name"><span class="tw">▾</span>Разработка</div><div></div><div></div><div></div><div></div><div></div><div class="e">190,0</div><div></div></div>
+
+ <div class="g row dis t-rel"><div class="name indent1"><span class="tw">▾</span>Бэкенд <span class="pill warn">черновик</span><button class="btn sm statusbtn">Отметить «Готово»</button><i class="co" style="top:7px;left:2px">7</i></div><div></div><div class="cm">Python 3.12, FastAPI, PostgreSQL</div><div></div><div></div><div></div><div class="e t-rel">92,7<div class="tip"><small>Σ O–R–P</small> 60–88–144 · <small>σ</small> 10,4 · <small>P80</small> 101,4</div><i class="co" style="top:-12px;right:330px">20</i></div><div></div></div>
+
+ <div class="g row"><div class="name indent2"><span class="tw">▾</span><span class="ic">▣</span><span class="ttl">Личный кабинет</span></div><div></div><div class="cm" style="color:var(--faint)"></div><div></div><div></div><div></div><div class="e">29,3</div><div></div></div>
+
+ <div class="g row t-rel"><div class="name indent3"><span class="tw"></span><span class="ic">ƒ</span><span class="ttl">Авторизация</span><span class="disc">💬 2</span></div><div class="mul">×1</div><div class="cm t-rel"><span class="tg tech">Тех.</span>OAuth2 через корпоративный Keycloak заказчика<span class="more">+1 Риск</span><i class="co" style="top:-6px;right:-8px">19</i></div><div><div class="cell">8</div></div><div><div class="cell">12</div></div><div><div class="cell">20</div></div><div class="e">12,7</div><div class="ck t-rel" title="самопроверка"><span class="half"></span><i class="co" style="top:-14px;left:-14px">12</i></div></div>
+
+ <div class="g row flash t-rel"><div class="name indent3"><span class="tw"></span><span class="ic">ƒ</span><span class="ttl">Профиль дилера</span><span class="tag-who">АС изменил</span><i class="co" style="position:static;flex:none">8</i></div><div class="mul">×1</div><div class="cm">Карточка, реквизиты, контакты</div><div><div class="cell">12</div></div><div><div class="cell other">16</div></div><div><div class="cell">24</div></div><div class="e">16,7</div><div class="ck"></div></div>
+
+ <div class="g row err t-rel"><div class="name indent3"><span class="tw"></span><span class="ic">ƒ</span><span class="ttl">Смена пароля</span><i class="co" style="position:static;flex:none">9</i></div><div class="mul">×1</div><div class="cm" style="color:var(--faint)">Нажмите, чтобы добавить комментарий</div><div><div class="cell empty"></div></div><div><div class="cell empty"></div></div><div><div class="cell empty"></div></div><div class="e na">не учтён</div><div></div></div>
+
+ <div class="g row err t-rel"><div class="name indent3"><span class="tw"></span><span class="ic">ƒ</span><span class="ttl">Выгрузка списка дилеров в Excel</span><i class="co" style="position:static;flex:none">10</i></div><div class="mul x t-rel">×3<i class="co" style="top:-9px;left:-18px">11</i></div><div class="cm">Три разных выгрузки по одному шаблону</div><div><div class="cell badv">10</div></div><div><div class="cell badv mine">8</div></div><div><div class="cell">12</div></div><div class="e na">O &gt; R</div><div></div></div>
+
+ <div class="g row t-rel"><div class="name indent2"><span class="tw"></span><span class="ic">⇄</span><span class="ttl">Обмен с 1С</span><span class="disc open me">💬 3</span><i class="co" style="top:7px;left:210px">13</i></div><div class="mul">×1</div><div class="cm"><span class="tg as">Допущение</span>Обмен через REST, формат согласуем с заказчиком; спецификации пока нет<span class="more">+1 Риск</span></div><div><div class="cell">40</div></div><div><div class="cell">60</div></div><div><div class="cell">100</div></div><div class="e">63,3</div><div></div>
+  <div class="thread t-rel"><i class="co" style="top:-10px;right:-10px">14</i>
+   <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:2px"><span><b style="color:var(--warn)">Открытый вопрос</b> · адресат @заказчик · статус «отвечен»</span><span style="color:var(--accent);font-weight:500">Показать всё (5)</span></div>
+   <div class="msg"><span class="av">ИИ</span><div><div class="who"><b>И. Иванов</b> → <span class="pill money" style="background:var(--warn-soft);color:var(--warn)">@заказчик</span> · нужен ответ · 01.11 11:05</div><div class="tx">Какой протокол обмена с 1С: REST, SOAP или файловый обмен? Есть ли спецификация?</div></div></div>
+   <div class="ev">⟲ изменено: O/R/P 30–40–60 → 40–60–100 · И. Иванов · 01.11 11:07</div>
+   <div class="msg"><span class="av" style="background:#8a6db0">ПС</span><div><div class="who"><b>П. Сидоров</b> (пресейл) · <span class="pill ok">Ответ заказчика</span> · 02.11 16:40</div><div class="tx ans">REST. Спецификации пока нет, обещают в декабре.</div></div></div>
+   <div class="compose"><div class="inp ph">Ответить… (@ — выбрать адресата, Ctrl+Enter — отправить)</div><span class="cb2"><i></i>нужен ответ</span><button class="btn pri sm">Отправить</button><button class="btn sm">Решено ▾</button></div>
+  </div>
+ </div>
+
+ <div class="g row dis"><div class="name indent1"><span class="tw">▸</span>Фронтенд <span class="pill ok">готово</span><span style="color:var(--muted);font-weight:400;font-size:12px">· чужая дисциплина, только просмотр</span></div><div></div><div class="cm"><span class="tg tech">Тех.</span>React<span class="more">+1 Огр.</span></div><div></div><div></div><div></div><div class="e">97,3</div><div class="ck">✓</div></div>
+ <div class="g row ph"><div class="name"><span class="tw">▸</span>Тестирование</div><div></div><div></div><div></div><div></div><div></div><div class="e">45,8</div><div></div></div>
+ <div class="g row ph t-rel" style="font-weight:600;background:#f6f3fb"><div class="name"><span class="tw"></span>Управление проектом <span class="pill gray">18% от базы УП</span></div><div></div><div class="cm" style="font-weight:400">Обоснование: стандартная сложность, один заказчик</div><div></div><div></div><div></div><div class="e">62,0</div><div></div><i class="co" style="top:8px;left:330px">15</i></div>
+</div>
+
+<div class="modbar"><style>.modbar .top{gap:10px}</style>
+ <div class="capt">Верхняя полоса модератора. Отличия от полосы эксперта: статус — кнопка с меню переходов, деньги, «Снимок». Счётчики «Открыто», «Риски», аватары, «Экспорт» — как у эксперта (здесь сокращены)</div>
+ <div class="app"><div class="top">
+  <span style="color:var(--muted)">←</span><div><h2>Портал дилеров</h2><div style="color:var(--muted);font-size:12px">ООО «Пример» · уровень «Средне» · дедлайн 05.11</div></div>
+  <span class="t-rel"><button class="btn sm" style="background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);font-weight:600">Оценка ▾</button><i class="co" style="top:-12px;right:-12px">21</i></span>
+  <div class="tot"><span><small>E</small> <b class="num">406,5</b></span><span><small>P80</small> <b class="num">425,5 ч</b><span class="kp">в КП</span></span><span><small>P90</small> <b class="num">435,5</b></span></div>
+  <div class="tot t-rel" style="background:var(--money-soft)"><span class="money"><small>в КП, без НДС</small> <b class="num">12 978 USD</b></span><span class="money"><small>с НДС 20%</small> <b class="num">15 574 USD</b></span><span class="lock">🔒</span><i class="co" style="top:-10px;right:-12px">16</i></div>
+  <div class="sp"></div><span style="color:var(--faint);font-size:12px;white-space:nowrap">…</span><button class="btn sm">Статистика</button><div class="t-rel"><button class="btn sm">📷 Снимок</button><i class="co" style="top:-10px;right:-10px">17</i></div><button class="btn sm ghost">⚙</button>
+ </div></div>
+ <div class="capt" style="margin-top:22px">Обсуждение под строкой у модератора, пресейла и руководителя пресейла: вторая вкладка «Заметки 🔒». У экспертов этой вкладки нет</div>
+ <div class="app" style="padding:14px 18px">
+  <div class="thread t-rel" style="margin:0"><i class="co" style="top:-10px;right:-10px">18</i>
+   <div class="ttabs"><span>💬 Обсуждение <span class="pill gray">5</span></span><span class="m on">🔒 Заметки <span class="pill money">2</span></span><span style="margin-left:auto;font-weight:500;color:var(--muted)">Обмен с 1С · Разработка › Бэкенд</span></div>
+   <div class="msg"><span class="av" style="background:#8a6db0">ПС</span><div><div class="who"><b>П. Сидоров</b> (пресейл) · 02.11 17:05</div><div class="tx note">Заказчик торгуется по интеграции. Держим P80, скидку даём только за счёт УП.</div></div></div>
+   <div class="msg"><span class="av" style="background:#6b8f5a">АС</span><div><div class="who"><b>А. Смирнова</b> (модератор) · 02.11 17:20</div><div class="tx note">Согласна. Если спецификации 1С не будет до 15.12 — вынести интеграцию отдельным этапом.</div></div></div>
+   <div class="compose"><div class="inp ph">Закрытая заметка — видят модераторы, пресейл и руководитель пресейла</div><button class="btn pri sm" style="background:var(--money);border-color:var(--money)">Добавить заметку</button></div>
+  </div>
+ </div>
+</div>
+</div></body></html>

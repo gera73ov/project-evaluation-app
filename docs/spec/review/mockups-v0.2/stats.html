@@ -1,0 +1,83 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.main{display:grid;grid-template-columns:1fr 330px;gap:18px;padding:18px 22px 22px}
+.grid{display:grid;grid-template-columns:170px repeat(6,1fr);gap:6px}
+.gh{font-size:11.5px;font-weight:600;color:var(--muted);padding:4px 6px}
+.ph{font-weight:600;padding:10px 6px;display:flex;align-items:center}
+.c{border-radius:7px;padding:8px 9px;min-height:62px;border:1px solid var(--line);display:grid;gap:3px;align-content:start;background:#fff}
+.c .s{font-size:11px;font-weight:700}
+.c .v{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.c .d{font-size:11px;color:var(--muted)}
+.c.done{background:var(--ok-soft);border-color:#c5e3cf}.c.done .s{color:var(--ok)}
+.c.draft{background:var(--warn-soft);border-color:#ecd3a4}.c.draft .s{color:var(--warn)}
+.c.ns{background:#fff;border-style:dashed}.c.ns .s{color:var(--muted)}
+.c.nn{background:repeating-linear-gradient(135deg,#f6f7f9 0 6px,#fff 6px 12px);color:var(--faint);border-color:var(--line2)}
+.c.nn .s{color:var(--faint);font-weight:500}
+.fl{display:flex;gap:4px;flex-wrap:wrap}
+.f{font-size:10.5px;font-weight:700;padding:0 5px;border-radius:4px;background:#fff;border:1px solid var(--line)}
+.f.big{color:#7a4fb3}.f.q{color:var(--warn)}.f.noexp{color:var(--bad)}
+.moneyrow .c{min-height:auto;background:var(--money-soft);border-color:#d9cff2;color:var(--money);font-weight:700;font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:12px}
+.side{display:grid;gap:14px;align-content:start}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.card h4{margin:0 0 10px;font-size:13px}
+.ln{display:flex;justify-content:space-between;padding:4px 0;font-variant-numeric:tabular-nums}
+.ln.tot{border-top:1px solid var(--line);margin-top:4px;padding-top:8px;font-weight:700}
+.bar{height:8px;background:var(--line2);border-radius:4px;position:relative;margin:8px 0 4px}
+.bar .zone{position:absolute;top:-3px;bottom:-3px;border:1.5px dashed var(--ok);border-radius:4px}
+.bar .val{position:absolute;top:0;bottom:0;left:0;background:var(--warn);border-radius:4px}
+</style></head><body><div class="canvas"><div class="app">
+<div class="hdr"><div class="logo"><i></i>Оценка проектов</div><div style="color:var(--muted)">Портал дилеров › <b style="color:var(--ink)">Статистика</b></div><div class="sp"></div><button class="btn">← К оценке</button><div class="user"><span class="av" style="background:#6b8f5a">АС</span>Смирнова А.</div></div>
+<div class="tabs t-rel"><span class="on">Готовность</span><span>Итоги</span><span>Доли и соотношения</span><span>Объёмы по типам</span><span>Кандидаты на декомпозицию</span><span>Допущения и риски</span><span>Обсуждения</span><span>Вопросы заказчику <span class="pill warn">1 новый</span></span><span>Снимки</span><i class="co" style="top:8px;left:4px">1</i></div>
+<div class="main">
+ <div>
+  <div class="grid t-rel">
+   <div class="gh">Фаза \ Дисциплина</div><div class="gh">Аналитика</div><div class="gh">Архитектура</div><div class="gh">Бэкенд</div><div class="gh">Фронтенд</div><div class="gh">QA</div><div class="gh">DevOps</div>
+   <div class="ph">Анализ и проектирование</div>
+   <div class="c done t-rel"><span class="s">✓ готово</span><span class="v">83,3</span><span class="d">О. Кузнецова · 01.11</span><div class="fl"><span class="f big">◆ крупный лист</span></div><i class="co" style="top:-10px;right:-8px">2</i></div>
+   <div class="c done"><span class="s">✓ готово</span><span class="v">25,3</span><span class="d">Д. Морозов · 31.10</span></div>
+   <div class="c nn"><span class="s">не нужно</span></div><div class="c nn"><span class="s">не нужно</span></div><div class="c nn"><span class="s">не нужно</span></div><div class="c nn t-rel"><span class="s">не нужно</span><i class="co" style="top:-10px;right:-8px">5</i></div>
+   <div class="ph">Разработка</div>
+   <div class="c nn"><span class="s">не нужно</span></div><div class="c nn"><span class="s">не нужно</span></div>
+   <div class="c draft t-rel"><span class="s">✎ черновик</span><span class="v">92,7</span><span class="d">И. Иванов · сегодня 14:20</span><div class="fl"><span class="f q">? 1 вопрос</span><span class="f" style="color:var(--bad)">2 не учтены</span></div><i class="co" style="top:-10px;right:-8px">3</i></div>
+   <div class="c done"><span class="s">✓ готово</span><span class="v">97,3</span><span class="d">П. Петров · 02.11</span></div>
+   <div class="c nn"><span class="s">не нужно</span></div>
+   <div class="c ns t-rel"><span class="s">○ не начато</span><span class="v" style="color:var(--faint)">—</span><div class="fl"><span class="f noexp">нет эксперта</span></div><i class="co" style="top:-10px;right:-8px">4</i></div>
+   <div class="ph">Тестирование</div>
+   <div class="c nn"><span class="s">не нужно</span></div><div class="c nn"><span class="s">не нужно</span></div><div class="c nn"><span class="s">не нужно</span></div><div class="c nn"><span class="s">не нужно</span></div>
+   <div class="c draft"><span class="s">✎ черновик</span><span class="v">45,8</span><span class="d">М. Орлова · 02.11</span><div class="fl"><span class="f q">? 1 вопрос</span></div></div>
+   <div class="c ns"><span class="s">○ не начато</span><span class="v" style="color:var(--faint)">—</span><div class="fl"><span class="f noexp">нет эксперта</span></div></div>
+   <div class="ph money t-rel" style="font-size:12px">🔒 Стоимость, ₽<i class="co" style="top:-12px;left:-6px">6</i></div>
+   <div class="c moneyrow" style="min-height:auto;background:var(--money-soft);border-color:#d9cff2;color:var(--money);font-weight:700">208 333</div>
+   <div class="c" style="min-height:auto;background:var(--money-soft);border-color:#d9cff2;color:var(--money);font-weight:700">88 667</div>
+   <div class="c" style="min-height:auto;background:var(--money-soft);border-color:#d9cff2;color:var(--money);font-weight:700">278 000</div>
+   <div class="c" style="min-height:auto;background:var(--money-soft);border-color:#d9cff2;color:var(--money);font-weight:700">272 533</div>
+   <div class="c" style="min-height:auto;background:var(--money-soft);border-color:#d9cff2;color:var(--money);font-weight:700">100 833</div>
+   <div class="c" style="min-height:auto;background:var(--money-soft);border-color:#d9cff2;color:var(--faint);font-weight:500">0</div>
+  </div>
+  <div class="legend"><span>✓ готово</span><span>✎ черновик</span><span>○ не начато</span><span>▨ не нужно</span><span>◆ есть крупный лист</span><span>↔ широкая вилка (σ/E &gt; 30%)</span><span>? открытые вопросы</span><span>Клик по ячейке — переход к ветке на рабочем экране</span></div>
+  <div style="display:flex;gap:10px;margin-top:14px;align-items:center" class="t-rel"><button class="btn">✉ Напомнить не начавшим</button><span style="color:var(--muted);font-size:12px">Письмо получат эксперты веток «не начато». Сейчас таких нет: у DevOps не назначен эксперт</span><i class="co" style="top:-10px;left:-10px">7</i></div>
+ </div>
+ <div class="side">
+  <div class="card t-rel"><h4>Итог проекта</h4><i class="co" style="top:-10px;right:-10px">8</i>
+   <div class="ln"><span>Работы, E</span><b>344,5 ч</b></div>
+   <div class="ln"><span>Управление проектом 18%</span><b>62,0 ч</b></div>
+   <div class="ln tot"><span>Итог E / P80</span><span>406,5 / 425,5 ч</span></div>
+   <div class="ln money"><span>🔒 Итог, ₽</span><b>1 146 799</b></div>
+   <div class="ln money"><span>🔒 Итог, USD (курс 92,5)</span><b>12 398</b></div>
+   <div class="ln money"><span>🔒 P80, USD</span><b>12 978</b></div>
+  </div>
+  <div class="card t-rel"><h4>Контрольные соотношения</h4><i class="co" style="top:-10px;right:-10px">9</i>
+   <div style="display:flex;justify-content:space-between"><span>QA к (Бэкенд + Фронтенд)</span><b style="color:var(--warn)">24%</b></div>
+   <div class="bar"><div class="zone" style="left:50%;width:20%"></div><div class="val" style="width:48%"></div></div>
+   <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>0%</span><span>норма 25–35%</span><span>50%</span></div>
+   <div class="pill warn" style="margin-top:8px">⚠ ниже нормы на 1 п.п.</div>
+  </div>
+  <div class="card"><h4>Проверено ревьюерами</h4>
+   <div class="ln"><span>Бэкенд</span><span>12,7 из 92,7 ч · 14%</span></div>
+   <div class="ln"><span>Фронтенд</span><span>97,3 из 97,3 ч · 100%</span></div>
+   <div class="ln"><span>QA</span><span>0 из 45,8 ч · 0%</span></div>
+  </div>
+ </div>
+</div>
+</div></div></body></html>

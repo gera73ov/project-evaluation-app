@@ -1,0 +1,73 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.main{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px 22px 22px}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.card h4{margin:0 0 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+table.t td,table.t th{padding:7px 8px}
+.num td{font-variant-numeric:tabular-nums}
+tr.sum td{font-weight:700;border-top:1px solid var(--line);background:#fafbfc}
+tr.kp td{background:var(--accent-soft)}
+td.m,th.m{color:var(--money);background:#fcfbff}
+td:has(.bar){white-space:nowrap}
+.bar{display:inline-block;height:7px;border-radius:4px;background:var(--accent);vertical-align:middle;margin-right:6px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-size:12px}
+.seg span{padding:4px 10px;border-right:1px solid var(--line)}.seg span:last-child{border-right:none}.seg .on{background:var(--accent);color:#fff}
+.wide{grid-column:1 / -1}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px}
+</style></head><body><div class="canvas"><div class="app">
+<div class="hdr"><div class="logo"><i></i>Оценка проектов</div><div style="color:var(--muted)">Портал дилеров › <b style="color:var(--ink)">Статистика</b></div><div class="sp"></div><button class="btn">⇩ Excel</button><button class="btn">← К оценке</button><div class="user"><span class="av" style="background:#6b8f5a">АС</span>Смирнова А.</div></div>
+<div class="tabs"><span>Готовность</span><span class="on">Итоги</span><span>Доли и соотношения</span><span>Объёмы по типам</span><span>Кандидаты на декомпозицию</span><span>Допущения и риски</span><span>Обсуждения</span><span>Вопросы заказчику <span class="pill warn">1 новый</span></span><span>Снимки</span></div>
+<div class="main">
+ <div class="card t-rel"><i class="co" style="top:-10px;left:-10px">1</i>
+  <h4><span>По фазам</span><span class="pill acc">в КП: P80</span></h4>
+  <table class="t num"><thead><tr><th>Фаза</th><th class="r">E, ч</th><th class="r">σ</th><th class="r">P80</th><th class="r">P90</th><th>Доля</th><th class="r m">🔒 Стоимость, ₽</th></tr></thead><tbody>
+   <tr><td>Анализ и проектирование</td><td class="r">108,7</td><td class="r">10,8</td><td class="r">117,7</td><td class="r">122,5</td><td><span class="bar" style="width:27px"></span>27%</td><td class="r m">297 000</td></tr>
+   <tr><td>Разработка</td><td class="r">190,0</td><td class="r">13,7</td><td class="r">201,5</td><td class="r">207,6</td><td><span class="bar" style="width:47px"></span>47%</td><td class="r m">550 533</td></tr>
+   <tr><td>Тестирование</td><td class="r">45,8</td><td class="r">8,0</td><td class="r">52,5</td><td class="r">56,0</td><td><span class="bar" style="width:11px"></span>11%</td><td class="r m">100 833</td></tr>
+   <tr class="sum"><td>Работы</td><td class="r">344,5</td><td class="r">19,2</td><td class="r">360,6</td><td class="r">369,1</td><td>85%</td><td class="r m">948 366</td></tr>
+   <tr class="t-rel"><td>Управление проектом 18% <span style="color:var(--muted);font-weight:400;font-size:11.5px">от базы: 3 фазы</span></td><td class="r">62,0</td><td class="r">3,5</td><td class="r">—</td><td class="r">—</td><td><span class="bar" style="width:15px;background:#8a7fb0"></span>15%</td><td class="r m">198 432</td></tr>
+   <tr class="sum kp"><td>Итог</td><td class="r">406,5</td><td class="r">22,6</td><td class="r">425,5</td><td class="r">435,5</td><td>100%</td><td class="r m">1 146 798</td></tr>
+  </tbody></table>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">σ складывается квадратично, поэтому P80 итога меньше суммы P80 фаз. У УП P80/P90 отдельно не считаются: УП входит в итог (раздел 6.3)</div>
+ </div>
+ <div class="card t-rel"><i class="co" style="top:-10px;right:-10px">2</i>
+  <h4><span>По дисциплинам</span><span class="seg"><span class="on">часы</span><span>% работ</span></span></h4>
+  <table class="t num"><thead><tr><th>Дисциплина</th><th class="r">E, ч</th><th class="r">σ</th><th class="r">P80</th><th class="r">P90</th><th class="r m">🔒 Ставка</th><th class="r m">🔒 Стоимость, ₽</th></tr></thead><tbody>
+   <tr><td>Аналитика</td><td class="r">83,3</td><td class="r">10,0</td><td class="r">91,7</td><td class="r">96,1</td><td class="r m">2 500</td><td class="r m">208 333</td></tr>
+   <tr><td>Архитектура</td><td class="r">25,3</td><td class="r">4,0</td><td class="r">28,7</td><td class="r">30,5</td><td class="r m">3 500</td><td class="r m">88 667</td></tr>
+   <tr><td>Бэкенд</td><td class="r">92,7</td><td class="r">10,4</td><td class="r">101,4</td><td class="r">106,0</td><td class="r m">3 000</td><td class="r m">278 000</td></tr>
+   <tr><td>Фронтенд</td><td class="r">97,3</td><td class="r">8,9</td><td class="r">104,9</td><td class="r">108,8</td><td class="r m">2 800</td><td class="r m">272 533</td></tr>
+   <tr><td>QA</td><td class="r">45,8</td><td class="r">8,0</td><td class="r">52,5</td><td class="r">56,0</td><td class="r m">2 200</td><td class="r m">100 833</td></tr>
+   <tr style="color:var(--faint)"><td>DevOps <span class="pill gray">нет часов</span></td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r m" style="color:var(--warn)">не задана</td><td class="r m">—</td></tr>
+   <tr class="sum"><td>Работы</td><td class="r">344,5</td><td class="r">19,2</td><td class="r">360,6</td><td class="r">369,1</td><td class="r m"></td><td class="r m">948 366</td></tr>
+  </tbody></table>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">Стоимость каждой строки округлена до рубля, итог — сумма строк (BR-MONEY-04)</div>
+ </div>
+ <div class="card t-rel" style="border-color:#d9cff2;background:#fcfbff"><i class="co" style="top:-10px;left:-10px">3</i>
+  <h4><span class="money">🔒 Сумма для КП</span><span style="font-size:12px;color:var(--muted);font-weight:500">USD, курс 92,5 · НДС 20% · срок 14 недель</span></h4>
+  <table class="t num"><thead><tr><th></th><th class="r">E</th><th class="r" style="background:var(--accent-soft)">P80 · в КП</th><th class="r">P90</th></tr></thead><tbody>
+   <tr><td>Часы</td><td class="r">406,5</td><td class="r" style="background:var(--accent-soft)"><b>425,5</b></td><td class="r">435,5</td></tr>
+   <tr><td>Без НДС, ₽</td><td class="r">1 146 798</td><td class="r" style="background:var(--accent-soft)"><b>1 200 495</b></td><td class="r">1 228 569</td></tr>
+   <tr><td>НДС 20%, ₽</td><td class="r">229 360</td><td class="r" style="background:var(--accent-soft)">240 099</td><td class="r">245 714</td></tr>
+   <tr class="sum"><td>С НДС, ₽</td><td class="r">1 376 158</td><td class="r" style="background:var(--accent-soft)">1 440 594</td><td class="r">1 474 283</td></tr>
+   <tr><td>Без НДС, USD</td><td class="r">12 397</td><td class="r" style="background:var(--accent-soft)"><b>12 978</b></td><td class="r">13 282</td></tr>
+   <tr><td>С НДС, USD</td><td class="r">14 877</td><td class="r" style="background:var(--accent-soft)"><b>15 574</b></td><td class="r">15 938</td></tr>
+  </tbody></table>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">P80 и P90 в деньгах = итог без НДС × P/E (раздел 6.4). Колонка «в КП» задаётся в настройках проекта</div>
+ </div>
+ <div class="card t-rel"><i class="co" style="top:-10px;right:-10px">4</i>
+  <h4><span>Динамика итога</span><span class="seg"><span class="on">часы</span><span>USD 🔒</span></span></h4>
+  <svg viewBox="0 0 560 210" width="100%" style="display:block;font-family:var(--f);font-size:11px">
+   <g stroke="#eef1f4"><line x1="40" y1="20" x2="550" y2="20"/><line x1="40" y1="70" x2="550" y2="70"/><line x1="40" y1="120" x2="550" y2="120"/><line x1="40" y1="170" x2="550" y2="170"/></g>
+   <g fill="#9aa4ae" text-anchor="end"><text x="34" y="24">450</text><text x="34" y="74">300</text><text x="34" y="124">150</text><text x="34" y="174">0</text></g>
+   <g fill="#9aa4ae" text-anchor="middle"><text x="50" y="192">27.10</text><text x="122" y="192">28.10</text><text x="194" y="192">29.10</text><text x="266" y="192">30.10</text><text x="338" y="192">31.10</text><text x="410" y="192">01.11</text><text x="482" y="192">02.11</text><text x="545" y="192">03.11</text></g>
+   <line x1="410" y1="16" x2="410" y2="172" stroke="#4338ca" stroke-dasharray="4 3"/><rect x="340" y="4" width="140" height="16" rx="4" fill="#efebfa"/><text x="410" y="16" text-anchor="middle" fill="#4338ca" font-weight="600">📷 v1 — КП отправлено</text><line x1="482" y1="24" x2="482" y2="172" stroke="#4338ca" stroke-dasharray="4 3"/><text x="482" y="34" text-anchor="middle" fill="#4338ca" font-weight="600">📷 v2</text>
+   <polyline fill="none" stroke="#b7791f" stroke-width="2" points="50,128 122,94 194,72 266,58 338,45 410,36 482,33 545,28"/>
+   <polyline fill="none" stroke="#1f6f8b" stroke-width="2.5" points="50,132 122,100 194,79 266,66 338,53 410,44 482,42 545,34.5"/>
+   <circle cx="545" cy="34.5" r="3.5" fill="#1f6f8b"/><circle cx="545" cy="28" r="3" fill="#b7791f"/>
+  </svg>
+  <div class="legend"><span><i style="background:#1f6f8b"></i>E</span><span><i style="background:#b7791f"></i>P80</span><span>Точка в день — итог на конец дня; отметки — снимки</span></div>
+ </div>
+</div>
+</div></div></body></html>

@@ -1,0 +1,50 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.main{padding:18px 22px 22px;display:grid;grid-template-columns:1fr 330px;gap:18px}
+.drop{border:1.5px dashed #b9d9e5;background:#f7fbfd;border-radius:8px;padding:16px;display:flex;gap:14px;align-items:center;margin-bottom:14px}
+.drop b{font-size:14px}
+.fi{display:inline-grid;place-items:center;width:30px;height:34px;border-radius:5px;font-size:10px;font-weight:700;color:#fff;flex:none}
+.pdf{background:#c2413b}.docx{background:#2f5aa8}.xlsx{background:#2f8a4a}
+.fn{display:flex;gap:10px;align-items:center}
+.fn small{display:block;color:var(--muted)}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.card h4{margin:0 0 10px;font-size:13px}
+.ln{display:flex;justify-content:space-between;padding:4px 0;font-variant-numeric:tabular-nums}
+.side{display:grid;gap:14px;align-content:start}
+.bar{height:8px;background:var(--line2);border-radius:4px;overflow:hidden;margin:6px 0}
+.bar i{display:block;height:100%;background:var(--accent);width:5%}
+.lnk{color:var(--accent);font-weight:600}
+</style></head><body><div class="canvas"><div class="app">
+<div class="hdr"><div class="logo"><i></i>Оценка проектов</div><div style="color:var(--muted)">Портал дилеров › Настройки › <b style="color:var(--ink)">Документы заказчика</b></div><div class="sp"></div><span class="pill acc">Вы модератор</span><div class="user"><span class="av" style="background:#6b8f5a">АС</span>Смирнова А.</div></div>
+<div class="tabs"><span>Основное и команда</span><span class="on">Документы заказчика <span class="pill gray">3</span></span><span>Результат пресейла</span><span>Снимки</span><span>Корзина <span class="pill gray">2</span></span><span>Журнал проекта</span></div>
+<div class="main">
+ <div>
+  <div class="drop t-rel"><i class="co" style="top:-10px;left:-10px">1</i><span style="font-size:24px">⇪</span><div><b>Перетащите файл сюда или <span class="lnk">выберите на компьютере</span></b><div style="color:var(--muted);font-size:12px;margin-top:2px">PDF, DOCX, XLSX до 50 МБ. Файл проверяется антивирусом и только потом становится доступен. Файлы с макросами (.docm, .xlsm) не принимаются</div></div></div>
+  <table class="t t-rel">
+   <thead><tr><th>Документ</th><th>Загрузил</th><th class="r">Размер</th><th>Проверка</th><th></th></tr></thead>
+   <tbody>
+    <tr><td><div class="fn"><span class="fi pdf">PDF</span><div>ТЗ_портал_дилеров_v3.pdf<small>Ссылка для обсуждений: <span class="lnk">#doc-1</span></small></div></div></td><td>П. Сидоров · 28.10 10:12</td><td class="r num">4,2 МБ</td><td><span class="pill ok">✓ проверен</span></td><td class="r"><button class="btn sm">Скачать</button> <button class="btn sm ghost">🗑</button></td></tr>
+    <tr><td><div class="fn"><span class="fi xlsx">XLSX</span><div>Реестр_интеграций.xlsx<small>Ссылка для обсуждений: <span class="lnk">#doc-2</span></small></div></div></td><td>А. Смирнова · 30.10 15:40</td><td class="r num">0,3 МБ</td><td><span class="pill ok">✓ проверен</span></td><td class="r"><button class="btn sm">Скачать</button> <button class="btn sm ghost">🗑</button></td></tr>
+    <tr class="t-rel"><td><div class="fn"><span class="fi docx">DOCX</span><div>Требования_ИБ_заказчика.docx<small>Загружается…</small></div></div></td><td>П. Сидоров · сегодня 21:05</td><td class="r num">1,1 МБ</td><td><span class="pill warn">⟳ проверяется</span><i class="co" style="position:static;display:inline-block;margin-left:6px;vertical-align:middle">2</i></td><td class="r"><button class="btn sm" disabled>Скачать</button></td></tr>
+    <tr style="background:#fffafa"><td><div class="fn"><span class="fi docx" style="background:#9aa4ae">DOCX</span><div style="color:var(--muted)">Презентация_заказчика.docx<small>Отклонён: обнаружена угроза. Событие передано в ИБ</small></div></div></td><td>П. Сидоров · сегодня 20:58</td><td class="r num">2,7 МБ</td><td><span class="pill bad t-rel">✕ заражён<i class="co" style="top:-12px;right:-14px">3</i></span></td><td class="r"><span style="color:var(--faint);font-size:12px">недоступен</span></td></tr>
+   </tbody>
+  </table>
+  <div class="caption">Заражённый файл не хранится и не выдаётся, строка остаётся 24 часа для информации. Удалённые документы лежат в корзине 30 дней.</div>
+ </div>
+ <div class="side">
+  <div class="card t-rel"><i class="co" style="top:-10px;right:-10px">4</i><h4>Место проекта</h4>
+   <div class="bar"><i></i></div><div class="ln"><span>Занято</span><b>5,6 МБ из 1 ГБ</b></div>
+  </div>
+  <div class="card t-rel"><i class="co" style="top:-10px;right:-10px">5</i><h4>Кто что может</h4>
+   <div class="ln"><span>Модератор, пресейл</span><span>загрузить, удалить</span></div>
+   <div class="ln"><span>Эксперты, ревьюеры</span><span>скачать</span></div>
+   <div class="ln"><span>Руководитель пресейла</span><span>скачать</span></div>
+   <div style="font-size:12px;color:var(--muted);margin-top:6px">Каждое скачивание пишется в журнал аудита. Файлы на диске зашифрованы</div>
+  </div>
+  <div class="card t-rel"><i class="co" style="top:-10px;right:-10px">6</i><h4>Ссылка в обсуждении</h4>
+   <div style="font-size:12.5px">«Протокол обмена описан в <span class="lnk">📎 ТЗ_портал_дилеров_v3.pdf</span>, раздел 4.2»</div>
+   <div style="font-size:12px;color:var(--muted);margin-top:6px">В обсуждения файлы не прикладываются: вставляется ссылка на документ из этой вкладки (кнопка «📎» в поле ответа)</div>
+  </div>
+ </div>
+</div>
+</div></div></body></html>

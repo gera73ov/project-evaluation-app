@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css">
+<style>
+.tools{display:flex;gap:8px;align-items:center;padding:12px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:16px 22px 0}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .d{font-size:11.5px;color:var(--muted)}
+.kpi.m{border-color:#d9cff2;background:#fcfbff}.kpi.m .v{color:var(--money)}
+.row2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:12px 22px 0}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.card h4{margin:0 0 10px;font-size:13px}
+.hb{display:grid;grid-template-columns:130px 1fr 44px;gap:8px;align-items:center;padding:3px 0;font-variant-numeric:tabular-nums;font-size:12.5px}
+.hb .b{height:11px;border-radius:3px}
+.main{padding:14px 22px 22px}
+.num td{font-variant-numeric:tabular-nums}
+td.m,th.m{color:var(--money)}
+.path{color:var(--muted);font-size:11.5px}
+.stack{display:flex;height:14px;border-radius:4px;overflow:hidden;margin:6px 0}
+</style></head><body><div class="canvas"><div class="app">
+<div class="hdr"><div class="logo"><i></i>Оценка проектов</div><div class="nav"><a>Мои оценки</a><a class="on">Портфель 🔒</a></div><div class="sp"></div><div class="bell">🔔</div><div class="user"><span class="av" style="background:#a0605a">ЕВ</span>Волкова Е. <span class="pill money">руководитель пресейла</span></div></div>
+<div class="tools t-rel"><i class="co" style="top:6px;left:4px">1</i>
+ <div class="inp" style="width:220px;margin-left:16px">Период: 01.07 – 03.11.2026 ▾</div><div class="inp" style="width:150px">Статус: все ▾</div><div class="inp" style="width:170px">Результат: все ▾</div><div class="inp" style="width:170px">Модератор: все ▾</div><div class="inp ph" style="width:220px">🔍 Название или заказчик</div>
+ <div class="sp"></div><button class="btn">⇩ Excel</button>
+</div>
+<div class="kpis t-rel"><i class="co" style="top:6px;left:12px">2</i>
+ <div class="kpi"><div class="lbl">Проектов за период</div><div class="v">24</div><div class="d">в работе 7 · завершено 15 · архив 2</div></div>
+ <div class="kpi"><div class="lbl">Выиграно</div><div class="v">6 из 13</div><div class="d">46% по числу · ещё 2 отменены, 9 без итога</div></div>
+ <div class="kpi m"><div class="lbl">🔒 Доля выигранных, ₽</div><div class="v">52%</div><div class="d">выиграно 31,4 из 60,1 млн ₽ (в КП, без НДС)</div></div>
+ <div class="kpi m"><div class="lbl">🔒 Договор / в КП</div><div class="v">0,93</div><div class="d">медиана по выигранным: обычно уступаем 7%</div></div>
+ <div class="kpi m"><div class="lbl">🔒 В работе сейчас</div><div class="v">18,2 млн ₽</div><div class="d">7 проектов, сумма «в КП» без НДС</div></div>
+</div>
+<div class="row2">
+ <div class="card t-rel"><i class="co" style="top:-10px;left:-10px">3</i><h4>Результаты по месяцам</h4>
+  <div class="hb"><span>Июль</span><div class="stack"><i style="width:40%;background:var(--ok)"></i><i style="width:40%;background:var(--bad)"></i><i style="width:20%;background:var(--line)"></i></div><span>5</span></div>
+  <div class="hb"><span>Август</span><div class="stack"><i style="width:50%;background:var(--ok)"></i><i style="width:25%;background:var(--bad)"></i><i style="width:25%;background:var(--line)"></i></div><span>4</span></div>
+  <div class="hb"><span>Сентябрь</span><div class="stack"><i style="width:17%;background:var(--ok)"></i><i style="width:50%;background:var(--bad)"></i><i style="width:33%;background:var(--line)"></i></div><span>6</span></div>
+  <div class="hb"><span>Октябрь</span><div class="stack"><i style="width:20%;background:var(--ok)"></i><i style="width:20%;background:var(--bad)"></i><i style="width:60%;background:var(--line)"></i></div><span>5</span></div>
+  <div class="hb"><span>Ноябрь</span><div class="stack"><i style="width:100%;background:var(--line)"></i></div><span>4</span></div>
+  <div style="display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-top:8px;white-space:nowrap"><span><b style="color:var(--ok)">■</b> выигран</span><span><b style="color:var(--bad)">■</b> проигран</span><span><b style="color:var(--line)">■</b> нет итога</span><span>· по дате создания</span></div>
+ </div>
+ <div class="card t-rel"><i class="co" style="top:-10px;left:-10px">4</i><h4>Причины проигрыша</h4>
+  <div class="hb"><span>Цена</span><div class="b" style="width:60%;background:var(--bad)"></div><span>3</span></div>
+  <div class="hb"><span>Выбран конкурент</span><div class="b" style="width:40%;background:var(--bad)"></div><span>2</span></div>
+  <div class="hb"><span>Сроки</span><div class="b" style="width:20%;background:var(--bad)"></div><span>1</span></div>
+  <div class="hb"><span>Другое</span><div class="b" style="width:20%;background:var(--bad)"></div><span>1</span></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:6px">Справочник причин ведёт администратор. «Другое» — с текстом, виден по клику</div>
+ </div>
+ <div class="card t-rel" style="border-color:#d9cff2;background:#fcfbff"><i class="co" style="top:-10px;left:-10px">5</i><h4 class="money">🔒 Договор к «в КП» по выигранным <span style="font-weight:500;font-size:11.5px;color:var(--muted)">· 4 последних из 6, все — по клику</span></h4>
+  <div class="hb"><span>CRM для агентства</span><div class="b" style="width:100%;background:var(--money)"></div><span>1,00</span></div>
+  <div class="hb"><span>Склад. Мобильный ТСД</span><div class="b" style="width:95%;background:var(--money)"></div><span>0,95</span></div>
+  <div class="hb"><span>ЛК страхователя</span><div class="b" style="width:93%;background:var(--money)"></div><span>0,93</span></div>
+  <div class="hb"><span>Интеграция с ЭДО</span><div class="b" style="width:88%;background:var(--money)"></div><span>0,88</span></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:6px">Ниже 1 — уступили в цене. Нужно для калибровки норм и процента УП</div>
+ </div>
+</div>
+<div class="main t-rel"><i class="co" style="top:4px;left:12px">6</i>
+<table class="t num">
+ <thead><tr><th>Проект, заказчик</th><th>Модератор · пресейл</th><th>Статус</th><th class="r">В КП, ч</th><th class="r m">🔒 В КП, валюта</th><th class="r m">🔒 Без НДС, ₽</th><th>Результат</th><th class="r m">🔒 Договор</th><th>Изменён</th><th></th></tr></thead>
+ <tbody>
+  <tr><td><b>Портал дилеров</b><div class="path">ООО «Пример»</div></td><td>А. Смирнова · П. Сидоров</td><td><span class="pill acc">Оценка</span></td><td class="r">425,5 <span class="path">P80</span></td><td class="r m">12 978 USD</td><td class="r m">1 200 495</td><td><span class="pill gray">не известен</span></td><td class="r">—</td><td>сегодня</td><td class="r t-rel"><button class="btn sm">Открыть</button> <button class="btn sm">Стать модератором</button><i class="co" style="top:-6px;right:-12px">7</i></td></tr>
+  <tr><td><b>Склад. Мобильный ТСД</b><div class="path">АО «Логистика»</div></td><td>Д. Морозов · П. Сидоров</td><td><span class="pill ok">Завершена</span></td><td class="r">1 840,0 <span class="path">P80</span></td><td class="r m">6 120 400 ₽</td><td class="r m">6 120 400</td><td><span class="pill ok">выигран</span></td><td class="r m">5 814 000 ₽</td><td>28.10</td><td class="r"><button class="btn sm">Открыть</button></td></tr>
+  <tr><td><b>Интеграция с ЭДО</b><div class="path">ПАО «Энерго»</div></td><td>А. Смирнова · Т. Белова</td><td><span class="pill ok">Завершена</span></td><td class="r">620,0 <span class="path">P90</span></td><td class="r m">2 180 000 ₽</td><td class="r m">2 180 000</td><td><span class="pill ok">выигран</span></td><td class="r m">1 918 000 ₽</td><td>21.10</td><td class="r"><button class="btn sm">Открыть</button></td></tr>
+  <tr><td><b>Маркетплейс запчастей</b><div class="path">ТОО «Авто-КЗ»</div></td><td>Д. Морозов · Т. Белова</td><td><span class="pill ok">Завершена</span></td><td class="r">2 310,5 <span class="path">P80</span></td><td class="r m">42 360 000 KZT</td><td class="r m">7 836 600</td><td><span class="pill bad">проигран · цена</span></td><td class="r">—</td><td>14.10</td><td class="r"><button class="btn sm">Открыть</button></td></tr>
+  <tr><td><b>BI-отчётность</b><div class="path">ООО «Ритейл»</div></td><td>И. Иванов · —</td><td><span class="pill warn">Сведение</span></td><td class="r">390,0 <span class="path">E</span></td><td class="r m">1 053 000 ₽</td><td class="r m">1 053 000</td><td><span class="pill gray">не известен</span></td><td class="r">—</td><td>02.11</td><td class="r"><button class="btn sm">Открыть</button> <button class="btn sm">Стать модератором</button></td></tr>
+  <tr style="color:var(--muted)"><td><b>Чат-бот поддержки</b><div class="path">ООО «Телеком»</div></td><td><span class="pill bad">нет модератора</span> · П. Сидоров</td><td><span class="pill acc">Оценка</span></td><td class="r">—</td><td class="r m">не заданы ставки</td><td class="r m">—</td><td><span class="pill gray">не известен</span></td><td class="r">—</td><td>12.10</td><td class="r"><button class="btn sm">Открыть</button> <button class="btn sm">Стать модератором</button></td></tr>
+ </tbody>
+</table>
+<div class="caption">Суммы в рублях — для сравнения проектов в разных валютах (по курсу, зафиксированному в проекте). «В КП» — цифра, выбранная в настройках проекта (E, P80 или P90). Открытие проекта и вход модератором пишутся в журнал аудита</div>
+</div>
+</div></div></body></html>
