@@ -67,7 +67,7 @@ flowchart TD
     HAS -- да --> SC{"Область scope<br/>подходит к O?"}
     SC -- нет --> E403
     SC -- да --> ST{"Статус проекта разрешён<br/>(matrix_3_4, derived)?"}
-    ST -- нет --> E403s["403 (или 409 по правилу)"]
+    ST -- нет --> E409s["409 PROJECT_STATUS_CONFLICT"]
     ST -- да --> TOTP{"P.totp_gate и TOTP<br/>в сессии не пройден?"}
     TOTP -- да --> E403t["403 TOTP_REQUIRED"]
     TOTP -- нет --> UP{"P.step_up и step-up<br/>старше 5 мин?"}
@@ -75,9 +75,11 @@ flowchart TD
     UP -- нет --> OK["Разрешено; сериализатор<br/>убирает денежные ключи без money.read"]
 ```
 
-Коды ошибок `TOTP_REQUIRED`, `TOTP_ENROLL_REQUIRED`, `STEP_UP_REQUIRED` и коды 409 правил R-…
-(`LAST_MODERATOR`, `LAST_SUPERADMIN`, `ROLE_INCOMPATIBLE`, `PROJECT_ARCHIVED`, `INVALID_STATUS_TRANSITION`)
-описываются в `contracts/errors.yaml` (API-001).
+Коды ошибок — из `contracts/errors.yaml` (API-001): `FORBIDDEN` (403, с полем `permission`),
+`NOT_FOUND` (404, в том числе FR-SA-06), `TOTP_REQUIRED`, `TOTP_ENROLL_REQUIRED`, `STEP_UP_REQUIRED` (403),
+`PROJECT_STATUS_CONFLICT` (409, с полем `project_status`: роль по 3.3 разрешает, статус по 3.4 запрещает,
+в том числе «Стать модератором» в «Архиве»), `INVALID_TRANSITION` (409, переход не по диаграммам 4.2–4.4),
+`ROLE_INCOMPATIBLE`, `LAST_MODERATOR`, `LAST_SUPERADMIN` (409).
 
 ## Толкования, которых нет в SPEC дословно
 

@@ -828,7 +828,7 @@ rules:
     rule: >-
       Доступ к объекту проекта проверяется по цепочке «объект → проект → членство или контекст
       (support_session, any_project) → роль → дисциплина → статус (3.4)».
-      Нет членства и контекста — 404 (не 403). Есть членство или контекст, но нет права — 403.
+      Нет членства и контекста — 404 NOT_FOUND (не 403). Есть членство или контекст, но нет права — 403 FORBIDDEN.
   - id: R-SUM
     spec: [BR-ROLE-01]
     rule: >-
@@ -843,7 +843,7 @@ rules:
     spec: [BR-ROLE-02]
     rule: >-
       superadmin несовместим с любой другой ролью и не может быть участником проекта;
-      security_auditor совместим только с user. Нарушение — 409 при выдаче роли или назначении.
+      security_auditor совместим только с user. Нарушение — 409 ROLE_INCOMPATIBLE при выдаче роли или назначении.
     incompatible:
       superadmin: [admin, moderator, presale, presale_head, security_auditor, project_member]
       security_auditor: [superadmin, admin, moderator, presale, presale_head, project_member]
@@ -901,20 +901,20 @@ rules:
       Контекст any_project даёт руководителю пресейла чтение любого проекта с деньгами и
       notes.read; первое открытие каждого чужого проекта за сессию — событие аудита. Писать
       заметки и править может, только став модератором проекта (тогда действует member).
-      join_as_moderator добавляет только себя; в статусе archived — 409.
+      join_as_moderator добавляет только себя; в статусе archived — 409 PROJECT_STATUS_CONFLICT.
   - id: R-ROLE-GRANT-LIMITS
     spec: [SEC-AUTHZ-06, FR-AUTH-AD-07]
     rule: >-
       Администратор выдаёт и снимает только moderator, presale, presale_head; admin и
       security_auditor — только суперадминистратор; никто не меняет свои системные роли (403).
       При включённом сопоставлении групп AD ручная выдача moderator и presale AD-пользователям
-      недоступна (409). Назначение администратором себя или созданной им учётки в проект
+      недоступна (409 ROLE_INCOMPATIBLE). Назначение администратором себя или созданной им учётки в проект
       разрешено и пишется в аудит с пометкой added_by_admin_self (BR-ADM-03).
   - id: R-STATUS
     spec: [3.4]
     rule: >-
       Помимо выдачи право должно быть разрешено всеми строками matrix_3_4 (и derived_status_gates),
-      где оно перечислено, для субъекта из applies_to. Права, которых нет ни в одной строке,
+      где оно перечислено, для субъекта из applies_to; иначе 409 PROJECT_STATUS_CONFLICT. Права, которых нет ни в одной строке,
       от статуса проекта не зависят.
 
 # Ограничения по статусу, которых нет в таблице 3.4 явно, но которые следуют из текста SPEC
@@ -942,7 +942,7 @@ derived_status_gates:
                archived: deny}
   - id: D-04
     spec: [FR-PRJ-05, 4.2]
-    reason: Переходы статуса разрешены только по стрелкам диаграммы 4.2; остальные — 409.
+    reason: Переходы статуса разрешены только по стрелкам диаграммы 4.2; остальные — 409 INVALID_TRANSITION.
     permissions: [project.status]
     transitions:
       preparation: [estimation]
