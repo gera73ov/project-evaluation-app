@@ -1,0 +1,769 @@
+{
+  "schema_version": 1,
+  "id": "portal-dilerov",
+  "title": "Портал дилеров — полный пример расчёта SPEC 6.5",
+  "spec": [
+    "5.1",
+    "6.1",
+    "6.2",
+    "6.3",
+    "6.4",
+    "6.5",
+    "6.6",
+    "BR-CALC-03",
+    "BR-CALC-05",
+    "BR-MONEY-02",
+    "BR-MONEY-04",
+    "BR-MONEY-05",
+    "BR-MONEY-06",
+    "BR-TREE-09",
+    "R-01",
+    "TC-CALC-01",
+    "TC-MONEY-01",
+    "G-18"
+  ],
+  "input": {
+    "project": {
+      "pm_percent": "18",
+      "quote_figure": "p80",
+      "detail_level": "medium"
+    },
+    "phases": [
+      {
+        "id": "ph-analysis",
+        "name": "Анализ и проектирование",
+        "is_cross_cutting": false,
+        "in_pm_base": true,
+        "enabled": true
+      },
+      {
+        "id": "ph-dev",
+        "name": "Разработка",
+        "is_cross_cutting": false,
+        "in_pm_base": true,
+        "enabled": true
+      },
+      {
+        "id": "ph-test",
+        "name": "Тестирование",
+        "is_cross_cutting": false,
+        "in_pm_base": true,
+        "enabled": true
+      },
+      {
+        "id": "ph-pm",
+        "name": "Управление проектом",
+        "is_cross_cutting": true,
+        "in_pm_base": false,
+        "enabled": true
+      }
+    ],
+    "disciplines": [
+      {
+        "id": "d-analytics",
+        "name": "Аналитика"
+      },
+      {
+        "id": "d-arch",
+        "name": "Архитектура"
+      },
+      {
+        "id": "d-backend",
+        "name": "Бэкенд"
+      },
+      {
+        "id": "d-frontend",
+        "name": "Фронтенд"
+      },
+      {
+        "id": "d-qa",
+        "name": "QA"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "n-ph-analysis",
+        "parent_id": null,
+        "kind": "phase",
+        "phase_id": "ph-analysis",
+        "discipline_id": null,
+        "type": null,
+        "title": "Анализ и проектирование"
+      },
+      {
+        "id": "n-ph-analysis-d-analytics",
+        "parent_id": "n-ph-analysis",
+        "kind": "discipline",
+        "phase_id": "ph-analysis",
+        "discipline_id": "d-analytics",
+        "type": null,
+        "title": "Аналитика"
+      },
+      {
+        "id": "n-analytics-whole",
+        "parent_id": "n-ph-analysis-d-analytics",
+        "kind": "item",
+        "phase_id": "ph-analysis",
+        "discipline_id": "d-analytics",
+        "type": null,
+        "title": "Аналитика целиком",
+        "multiplier": 1,
+        "o": "60",
+        "r": "80",
+        "p": "120"
+      },
+      {
+        "id": "n-ph-analysis-d-arch",
+        "parent_id": "n-ph-analysis",
+        "kind": "discipline",
+        "phase_id": "ph-analysis",
+        "discipline_id": "d-arch",
+        "type": null,
+        "title": "Архитектура"
+      },
+      {
+        "id": "n-arch-design",
+        "parent_id": "n-ph-analysis-d-arch",
+        "kind": "item",
+        "phase_id": "ph-analysis",
+        "discipline_id": "d-arch",
+        "type": "Работа",
+        "title": "Проектирование архитектуры",
+        "multiplier": 1,
+        "o": "16",
+        "r": "24",
+        "p": "40"
+      },
+      {
+        "id": "n-ph-dev",
+        "parent_id": null,
+        "kind": "phase",
+        "phase_id": "ph-dev",
+        "discipline_id": null,
+        "type": null,
+        "title": "Разработка"
+      },
+      {
+        "id": "n-ph-dev-d-backend",
+        "parent_id": "n-ph-dev",
+        "kind": "discipline",
+        "phase_id": "ph-dev",
+        "discipline_id": "d-backend",
+        "type": null,
+        "title": "Бэкенд"
+      },
+      {
+        "id": "n-lk",
+        "parent_id": "n-ph-dev-d-backend",
+        "kind": "item",
+        "phase_id": "ph-dev",
+        "discipline_id": "d-backend",
+        "type": "Модуль",
+        "title": "Личный кабинет",
+        "multiplier": 1
+      },
+      {
+        "id": "n-auth",
+        "parent_id": "n-lk",
+        "kind": "item",
+        "phase_id": "ph-dev",
+        "discipline_id": "d-backend",
+        "type": "Функция",
+        "title": "Авторизация",
+        "multiplier": 1,
+        "o": "8",
+        "r": "12",
+        "p": "20"
+      },
+      {
+        "id": "n-profile",
+        "parent_id": "n-lk",
+        "kind": "item",
+        "phase_id": "ph-dev",
+        "discipline_id": "d-backend",
+        "type": "Функция",
+        "title": "Профиль дилера",
+        "multiplier": 1,
+        "o": "12",
+        "r": "16",
+        "p": "24"
+      },
+      {
+        "id": "n-1c",
+        "parent_id": "n-ph-dev-d-backend",
+        "kind": "item",
+        "phase_id": "ph-dev",
+        "discipline_id": "d-backend",
+        "type": "Интеграция",
+        "title": "Обмен с 1С",
+        "multiplier": 1,
+        "o": "40",
+        "r": "60",
+        "p": "100"
+      },
+      {
+        "id": "n-ph-dev-d-frontend",
+        "parent_id": "n-ph-dev",
+        "kind": "discipline",
+        "phase_id": "ph-dev",
+        "discipline_id": "d-frontend",
+        "type": null,
+        "title": "Фронтенд"
+      },
+      {
+        "id": "n-screen",
+        "parent_id": "n-ph-dev-d-frontend",
+        "kind": "item",
+        "phase_id": "ph-dev",
+        "discipline_id": "d-frontend",
+        "type": "Экран",
+        "title": "Создать типовой экран",
+        "multiplier": 12,
+        "o": "4",
+        "r": "6",
+        "p": "8"
+      },
+      {
+        "id": "n-dashboard",
+        "parent_id": "n-ph-dev-d-frontend",
+        "kind": "item",
+        "phase_id": "ph-dev",
+        "discipline_id": "d-frontend",
+        "type": "Экран",
+        "title": "Дашборд",
+        "multiplier": 1,
+        "o": "16",
+        "r": "24",
+        "p": "40"
+      },
+      {
+        "id": "n-ph-test",
+        "parent_id": null,
+        "kind": "phase",
+        "phase_id": "ph-test",
+        "discipline_id": null,
+        "type": null,
+        "title": "Тестирование"
+      },
+      {
+        "id": "n-ph-test-d-qa",
+        "parent_id": "n-ph-test",
+        "kind": "discipline",
+        "phase_id": "ph-test",
+        "discipline_id": "d-qa",
+        "type": null,
+        "title": "QA"
+      },
+      {
+        "id": "n-regress",
+        "parent_id": "n-ph-test-d-qa",
+        "kind": "item",
+        "phase_id": "ph-test",
+        "discipline_id": "d-qa",
+        "type": "Тест-набор",
+        "title": "Регресс-кейс ЛК",
+        "multiplier": 30,
+        "o": "0.5",
+        "r": "1",
+        "p": "2"
+      },
+      {
+        "id": "n-1c-tests",
+        "parent_id": "n-ph-test-d-qa",
+        "kind": "item",
+        "phase_id": "ph-test",
+        "discipline_id": "d-qa",
+        "type": "Тест-набор",
+        "title": "Тесты обмена с 1С",
+        "multiplier": 1,
+        "o": "8",
+        "r": "12",
+        "p": "24"
+      },
+      {
+        "id": "n-ph-pm",
+        "parent_id": null,
+        "kind": "phase",
+        "phase_id": "ph-pm",
+        "discipline_id": null,
+        "type": null,
+        "title": "Управление проектом"
+      }
+    ],
+    "branch_status": [
+      {
+        "phase_id": "ph-analysis",
+        "discipline_id": "d-analytics",
+        "status": "draft"
+      },
+      {
+        "phase_id": "ph-analysis",
+        "discipline_id": "d-arch",
+        "status": "draft"
+      },
+      {
+        "phase_id": "ph-dev",
+        "discipline_id": "d-backend",
+        "status": "draft"
+      },
+      {
+        "phase_id": "ph-dev",
+        "discipline_id": "d-frontend",
+        "status": "draft"
+      },
+      {
+        "phase_id": "ph-test",
+        "discipline_id": "d-qa",
+        "status": "draft"
+      }
+    ],
+    "money": {
+      "currency": "USD",
+      "exchange_rate": "92.5",
+      "vat_percent": "20",
+      "rates": [
+        {
+          "discipline_id": "d-analytics",
+          "rate_rub": "2500"
+        },
+        {
+          "discipline_id": "d-arch",
+          "rate_rub": "3500"
+        },
+        {
+          "discipline_id": "d-backend",
+          "rate_rub": "3000"
+        },
+        {
+          "discipline_id": "d-frontend",
+          "rate_rub": "2800"
+        },
+        {
+          "discipline_id": "d-qa",
+          "rate_rub": "2200"
+        },
+        {
+          "discipline_id": null,
+          "rate_rub": "3200"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "leaves": {
+      "from_spec": [
+        "e",
+        "sigma"
+      ],
+      "values": {
+        "n-analytics-whole": {
+          "e": "83.33",
+          "sigma": "10.00",
+          "e_unit": "83.33",
+          "p80": "91.75",
+          "p90": "96.15"
+        },
+        "n-arch-design": {
+          "e": "25.33",
+          "sigma": "4.00",
+          "e_unit": "25.33",
+          "p80": "28.70",
+          "p90": "30.46"
+        },
+        "n-auth": {
+          "e": "12.67",
+          "sigma": "2.00",
+          "e_unit": "12.67",
+          "p80": "14.35",
+          "p90": "15.23"
+        },
+        "n-profile": {
+          "e": "16.67",
+          "sigma": "2.00",
+          "e_unit": "16.67",
+          "p80": "18.35",
+          "p90": "19.23"
+        },
+        "n-1c": {
+          "e": "63.33",
+          "sigma": "10.00",
+          "e_unit": "63.33",
+          "p80": "71.75",
+          "p90": "76.15"
+        },
+        "n-screen": {
+          "e": "72.00",
+          "sigma": "8.00",
+          "e_unit": "6.00",
+          "p80": "78.73",
+          "p90": "82.25"
+        },
+        "n-dashboard": {
+          "e": "25.33",
+          "sigma": "4.00",
+          "e_unit": "25.33",
+          "p80": "28.70",
+          "p90": "30.46"
+        },
+        "n-regress": {
+          "e": "32.50",
+          "sigma": "7.50",
+          "e_unit": "1.08",
+          "p80": "38.81",
+          "p90": "42.11"
+        },
+        "n-1c-tests": {
+          "e": "13.33",
+          "sigma": "2.67",
+          "e_unit": "13.33",
+          "p80": "15.58",
+          "p90": "16.75"
+        }
+      }
+    },
+    "nodes": {
+      "from_spec": [],
+      "values": {
+        "n-ph-analysis": {
+          "e": "108.67",
+          "sigma": "10.77",
+          "p80": "117.73",
+          "p90": "122.47",
+          "sum_o": "76.0",
+          "sum_r": "104.0",
+          "sum_p": "160.0"
+        },
+        "n-ph-analysis-d-analytics": {
+          "e": "83.33",
+          "sigma": "10.00",
+          "p80": "91.75",
+          "p90": "96.15",
+          "sum_o": "60.0",
+          "sum_r": "80.0",
+          "sum_p": "120.0"
+        },
+        "n-ph-analysis-d-arch": {
+          "e": "25.33",
+          "sigma": "4.00",
+          "p80": "28.70",
+          "p90": "30.46",
+          "sum_o": "16.0",
+          "sum_r": "24.0",
+          "sum_p": "40.0"
+        },
+        "n-ph-dev": {
+          "e": "190.00",
+          "sigma": "13.71",
+          "p80": "201.54",
+          "p90": "207.57",
+          "sum_o": "124.0",
+          "sum_r": "184.0",
+          "sum_p": "280.0"
+        },
+        "n-ph-dev-d-backend": {
+          "e": "92.67",
+          "sigma": "10.39",
+          "p80": "101.41",
+          "p90": "105.99",
+          "sum_o": "60.0",
+          "sum_r": "88.0",
+          "sum_p": "144.0"
+        },
+        "n-lk": {
+          "e": "29.33",
+          "sigma": "2.83",
+          "p80": "31.71",
+          "p90": "32.96",
+          "sum_o": "20.0",
+          "sum_r": "28.0",
+          "sum_p": "44.0"
+        },
+        "n-ph-dev-d-frontend": {
+          "e": "97.33",
+          "sigma": "8.94",
+          "p80": "104.86",
+          "p90": "108.80",
+          "sum_o": "64.0",
+          "sum_r": "96.0",
+          "sum_p": "136.0"
+        },
+        "n-ph-test": {
+          "e": "45.83",
+          "sigma": "7.96",
+          "p80": "52.53",
+          "p90": "56.03",
+          "sum_o": "23.0",
+          "sum_r": "42.0",
+          "sum_p": "84.0"
+        },
+        "n-ph-test-d-qa": {
+          "e": "45.83",
+          "sigma": "7.96",
+          "p80": "52.53",
+          "p90": "56.03",
+          "sum_o": "23.0",
+          "sum_r": "42.0",
+          "sum_p": "84.0"
+        }
+      }
+    },
+    "disciplines": {
+      "from_spec": [
+        "e",
+        "sigma",
+        "p80"
+      ],
+      "values": {
+        "d-analytics": {
+          "e": "83.3",
+          "sigma": "10.0",
+          "p80": "91.7",
+          "p90": "96.1"
+        },
+        "d-arch": {
+          "e": "25.3",
+          "sigma": "4.0",
+          "p80": "28.7",
+          "p90": "30.5"
+        },
+        "d-backend": {
+          "e": "92.7",
+          "sigma": "10.4",
+          "p80": "101.4",
+          "p90": "106.0"
+        },
+        "d-frontend": {
+          "e": "97.3",
+          "sigma": "8.9",
+          "p80": "104.9",
+          "p90": "108.8"
+        },
+        "d-qa": {
+          "e": "45.8",
+          "sigma": "8.0",
+          "p80": "52.5",
+          "p90": "56.0"
+        }
+      }
+    },
+    "phases": {
+      "from_spec": [],
+      "values": {
+        "ph-analysis": {
+          "e": "108.67",
+          "sigma": "10.77",
+          "p80": "117.73",
+          "p90": "122.47"
+        },
+        "ph-dev": {
+          "e": "190.00",
+          "sigma": "13.71",
+          "p80": "201.54",
+          "p90": "207.57"
+        },
+        "ph-test": {
+          "e": "45.83",
+          "sigma": "7.96",
+          "p80": "52.53",
+          "p90": "56.03"
+        }
+      }
+    },
+    "works": {
+      "from_spec": [
+        "e",
+        "sigma",
+        "p80"
+      ],
+      "values": {
+        "e": "344.5",
+        "sigma": "19.17",
+        "p80": "360.6",
+        "p90": "369.1",
+        "sigma_squared": "367.4"
+      }
+    },
+    "pm": {
+      "from_spec": [
+        "e",
+        "sigma",
+        "sigma_exact"
+      ],
+      "values": {
+        "e": "62.0",
+        "sigma": "3.5",
+        "sigma_exact": "3.45",
+        "base_e": "344.5"
+      }
+    },
+    "total": {
+      "from_spec": [
+        "e",
+        "sigma",
+        "p80",
+        "p90",
+        "e_precise",
+        "p80_precise"
+      ],
+      "values": {
+        "e": "406.5",
+        "sigma": "22.6",
+        "p80": "425.5",
+        "p90": "435.5",
+        "e_precise": "406.5100",
+        "p80_precise": "425.5442",
+        "unaccounted_leaves": 0
+      }
+    },
+    "money": {
+      "quote_figure": "p80",
+      "by_figure": {
+        "e": {
+          "k": "1.000000",
+          "rows_rub": {
+            "d-analytics": "208333",
+            "d-arch": "88667",
+            "d-backend": "278000",
+            "d-frontend": "272533",
+            "d-qa": "100833",
+            "pm": "198432"
+          },
+          "total_rub": "1146798",
+          "vat_rub": "229360",
+          "total_with_vat_rub": "1376158",
+          "rows_cur": {
+            "d-analytics": "2252",
+            "d-arch": "959",
+            "d-backend": "3005",
+            "d-frontend": "2946",
+            "d-qa": "1090",
+            "pm": "2145"
+          },
+          "total_cur": "12397",
+          "vat_cur": "2480",
+          "total_with_vat_cur": "14877",
+          "from_spec": [
+            "k",
+            "rows_rub",
+            "total_rub",
+            "vat_rub",
+            "total_with_vat_rub",
+            "rows_cur",
+            "total_cur",
+            "vat_cur",
+            "total_with_vat_cur"
+          ]
+        },
+        "p80": {
+          "k": "1.046823",
+          "rows_rub": {
+            "d-analytics": "218088",
+            "d-arch": "92818",
+            "d-backend": "291017",
+            "d-frontend": "285294",
+            "d-qa": "105555",
+            "pm": "207723"
+          },
+          "total_rub": "1200495",
+          "vat_rub": "240099",
+          "total_with_vat_rub": "1440594",
+          "rows_cur": {
+            "d-analytics": "2358",
+            "d-arch": "1003",
+            "d-backend": "3146",
+            "d-frontend": "3084",
+            "d-qa": "1141",
+            "pm": "2246"
+          },
+          "total_cur": "12978",
+          "vat_cur": "2596",
+          "total_with_vat_cur": "15574",
+          "from_spec": [
+            "k",
+            "rows_rub",
+            "total_rub",
+            "vat_rub",
+            "total_with_vat_rub",
+            "rows_cur",
+            "total_cur",
+            "vat_cur",
+            "total_with_vat_cur"
+          ]
+        },
+        "p90": {
+          "k": "1.071303",
+          "rows_rub": {
+            "d-analytics": "223188",
+            "d-arch": "94989",
+            "d-backend": "297822",
+            "d-frontend": "291966",
+            "d-qa": "108023",
+            "pm": "212581"
+          },
+          "total_rub": "1228569",
+          "vat_rub": "245714",
+          "total_with_vat_rub": "1474283",
+          "rows_cur": {
+            "d-analytics": "2413",
+            "d-arch": "1027",
+            "d-backend": "3220",
+            "d-frontend": "3156",
+            "d-qa": "1168",
+            "pm": "2298"
+          },
+          "total_cur": "13282",
+          "vat_cur": "2656",
+          "total_with_vat_cur": "15938",
+          "from_spec": [
+            "k",
+            "total_rub",
+            "total_with_vat_rub",
+            "total_cur"
+          ]
+        }
+      },
+      "naive_total_cur_wrong": "12398"
+    },
+    "analytics": {
+      "from_spec": [
+        "control_ratio_qa",
+        "volumes",
+        "large_leaves_medium"
+      ],
+      "control_ratio_qa": {
+        "discipline_a": "d-qa",
+        "disciplines_b": [
+          "d-backend",
+          "d-frontend"
+        ],
+        "min_pct": "25",
+        "max_pct": "35",
+        "pct": "24.1",
+        "verdict": "below"
+      },
+      "volumes": {
+        "Экран": 13,
+        "Интеграция": 1,
+        "Тест-набор": 31
+      },
+      "large_leaves_medium": {
+        "threshold_hours": "80",
+        "large": [
+          "n-analytics-whole"
+        ],
+        "repeating": []
+      },
+      "large_leaves_detailed": {
+        "threshold_hours": "40",
+        "large": [
+          "n-analytics-whole",
+          "n-1c"
+        ],
+        "repeating": [
+          "n-screen"
+        ]
+      },
+      "wide_fork_over_30pct": []
+    }
+  }
+}
