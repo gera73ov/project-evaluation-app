@@ -9,9 +9,28 @@ check``) и тест сравнения моделей со схемой пос�
 from __future__ import annotations
 
 from estimator.db.base import Base
-from estimator.db.models import audit, dictionaries, projects, settings, users
+from estimator.db.models import (
+    audit,
+    dictionaries,
+    discussions,
+    files,
+    projects,
+    settings,
+    tree,
+    users,
+)
 from estimator.db.models import money as _money  # noqa: F401 — только для metadata
 
 metadata = Base.metadata
 
-__all__ = ["audit", "dictionaries", "metadata", "projects", "settings", "users"]
+__all__ = [
+    "audit",
+    "dictionaries",
+    "discussions",
+    "files",
+    "metadata",
+    "projects",
+    "settings",
+    "tree",
+    "users",
+]

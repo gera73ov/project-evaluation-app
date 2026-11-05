@@ -112,6 +112,68 @@ class BranchStatusValue(StrEnum):
     NOT_NEEDED = "not_needed"
 
 
+class NodeKind(StrEnum):
+    PHASE = "phase"
+    DISCIPLINE = "discipline"
+    ITEM = "item"
+
+
+class NodeAction(StrEnum):
+    CREATE = "create"
+    UPDATE = "update"
+    MOVE = "move"
+    DELETE = "delete"
+    RESTORE = "restore"
+    SPLIT = "split"
+    COLLAPSE = "collapse"
+    REVIEW = "review"
+
+
+class ThreadStatus(StrEnum):
+    OPEN = "open"
+    RESOLVED = "resolved"
+
+
+class CustomerQuestionStatus(StrEnum):
+    NEW = "new"
+    SENT = "sent"
+    ANSWERED = "answered"
+    CLOSED = "closed"
+    WITHDRAWN = "withdrawn"
+
+
+class MessageKind(StrEnum):
+    MESSAGE = "message"
+    EVENT = "event"
+    CUSTOMER_ANSWER = "customer_answer"
+
+
+class MessageHistoryReason(StrEnum):
+    EDIT = "edit"
+    REVOKE = "revoke"
+    EDIT_AFTER_SENT = "edit_after_sent"
+
+
+class AddresseeType(StrEnum):
+    USER = "user"
+    DISCIPLINE = "discipline"
+    MODERATORS = "moderators"
+    CUSTOMER = "customer"
+
+
+class ScanStatus(StrEnum):
+    PENDING = "pending"
+    CLEAN = "clean"
+    INFECTED = "infected"
+    ERROR = "error"
+
+
+class ExportStatus(StrEnum):
+    PENDING = "pending"
+    READY = "ready"
+    FAILED = "failed"
+
+
 def pg_enum(enum_cls: type[StrEnum], name: str) -> ENUM:
     """Тип PostgreSQL ``ENUM`` для модели: значения — ``value``, тип создаёт миграция."""
     return ENUM(
