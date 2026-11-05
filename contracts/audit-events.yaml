@@ -1,0 +1,520 @@
+# contracts/audit-events.yaml — каталог событий журнала аудита (SEC-002).
+# Владелец: трек SEC. Потребители: все бэкенд-треки (AUTH, ADM, CORE, EXP, NTF, RT), QA.
+# Источник правды — SPEC v0.5: 12.7 (SEC-AUD-01…06), SEC-AUTH-07, FR-LOCK-01..05, FR-AUTH-AD-05/08/13,
+# FR-SA-01, BR-PRJ-04, FR-ADM-05/06, FR-PORT-01/03, FR-EXP-06, уточнение к SEC-AUD-01 (факт без значений).
+# Запись — одна строка audit.audit_log (14.2), хэш-цепочка SEC-AUD-03, копия в SIEM (SEC-AUD-05).
+# До вехи M0 файл меняет трек SEC обычным PR; после M0 — только через CR (contracts/README.md).
+
+version: 0.1.0
+status: draft  # 1.0.0 после утверждения PM-001 (веха M0)
+spec: SPEC.md v0.5
+
+# ---------------------------------------------------------------------------
+# 1. Поля записи (SEC-AUD-02). Канонический JSON для хэша — RFC 8785, без поля hash.
+# ---------------------------------------------------------------------------
+record:  # ровно поля SEC-AUD-02 (столбцы audit.audit_log, contracts/db/schema.md)
+  time: {type: timestamptz, note: UTC, микросекунды; ISO 8601 в каноническом JSON}
+  type: {type: string, note: код события из раздела 5 (например auth.login.failed); категория выводится из каталога}
+  result: {type: string, enum_ref: results}
+  user_id: {type: uuid, nullable: true, note: null — неизвестный логин, система или консоль без учётки}
+  login: {type: string, nullable: true, note: логин на момент события; для неудачного входа — введённый логин}
+  ip: {type: inet, nullable: true}
+  user_agent: {type: string, nullable: true, max_length: 512}
+  session_hash: {type: string, nullable: true, note: SHA-256 идентификатора сессии, hex; сам идентификатор не пишется}
+  object_type: {type: string, nullable: true, enum_ref: object_types}
+  object_id: {type: string, nullable: true, note: UUID объекта или ключ настройки}
+  details: {type: object, note: общие ключи — common_details; остальное — схема типа события; правила — раздел 3}
+  prev_hash: {type: string, note: hash предыдущей записи; у первой записи и после audit purge — якорь}
+  hash: {type: string, note: "SHA-256(prev_hash ‖ канонический JSON записи без hash), hex"}
+
+# Ключи details, общие для всех событий (пишутся, когда применимы)
+common_details:
+  actor: {type: "enum actors", note: по умолчанию user; system и cli пишутся всегда}
+  os_user: {type: string, note: для actor = cli — пользователь ОС (SEC-AUD-01)}
+  project_id: {type: uuid, note: для событий внутри проекта, если объект — не сам проект}
+
+results:
+  success: Действие выполнено
+  failure: Действие не выполнено (ошибка, неверные данные, сбой проверки)
+  denied: Отказ по правам, сети, блокировке или лимиту частоты
+
+actors:
+  user: Действие пользователя через интерфейс или API
+  system: Фоновая задача Celery или автоматическое действие (автоархивация, синхронизация AD)
+  cli: Консольная команда estimator; в details.os_user — пользователь ОС
+  anonymous: Запрос без сессии (неудачный вход, «Забыли пароль»)
+
+object_types: [user, session, setting, dictionary_item, project, project_member, node, snapshot,
+               export, document, thread, support_session, audit_log, cli_command]
+
+# ---------------------------------------------------------------------------
+# 2. Категории (таблица SEC-AUD-01) и кто их видит (SEC-AUD-06)
+# ---------------------------------------------------------------------------
+categories:
+  auth: {title: Аутентификация, visible_to: [superadmin, security_auditor]}
+  users_roles: {title: Пользователи и роли, visible_to: [superadmin, security_auditor, admin]}
+  system: {title: Система, visible_to: [superadmin, security_auditor]}
+  dictionaries: {title: Справочники, visible_to: [superadmin, security_auditor, admin]}
+  projects: {title: Проекты, visible_to: [superadmin, security_auditor]}
+  security: {title: Безопасность, visible_to: [superadmin, security_auditor]}
+  audit: {title: Аудит, visible_to: [superadmin, security_auditor]}
+
+# ---------------------------------------------------------------------------
+# 3. Что нельзя писать в details (SEC-AUTH-04, SEC-AUD-02, уточнение к SEC-AUD-01, BR-PRJ-04)
+# ---------------------------------------------------------------------------
+details_rules:
+  - Секреты не пишутся никогда — ни значением, ни хэшем: пароли, токены, коды TOTP и резервные коды, cookie, ключи, пароль сервисной учётки AD и SMTP, клиентский ключ SIEM.
+  - Денежные значения не пишутся — только факт изменения (что и для какой дисциплины): ставки, курс, НДС, сумма договора, стоимость, итоги в деньгах.
+  - Содержимое оценки не пишется — названия узлов, O/R/P, комментарии, тексты сообщений и заметок, имена файлов документов. Аудит читают суперадминистратор и аудитор ИБ, которым содержимое проектов не положено (3.2), и записи переживают project purge.
+  - Для настроек и справочников пишется «было → стало» (BR-ADM-01), кроме секретных ключей — для них только признак changed.
+  - Свободный текст, который SPEC прямо требует в аудите (причина режима поддержки, причина отмены проекта, номер заявки на purge), пишется как есть, длина ограничена полем источника.
+
+forbidden_detail_keys: [password, password_hash, token, secret, totp, code, backup_code, cookie,
+                        authorization, key, private_key, bind_password, smtp_password, rate,
+                        rate_rub, cost, cost_rub, amount, contract_amount, money, exchange_rate,
+                        vat_percent, quote_rub, quote_cur, title, body, text, comment, comment_lines,
+                        file_name, o, r, p]
+
+# ---------------------------------------------------------------------------
+# 4. Причины отказа входа (SEC-AUD-01, FR-AUTH-AD-13, FR-LOCK-*, 17.2)
+#    Пользователь во всех случаях видит один и тот же ответ (R-04); причина — только здесь.
+# ---------------------------------------------------------------------------
+login_failure_reasons:
+  empty_credentials: Пустой логин или пароль — отклонено до обращения к AD (FR-AUTH-AD-13)
+  user_not_found: Нет пользователя (режим «Приложение») или поиск в AD вернул ноль записей
+  ad_ambiguous: Поиск в AD вернул больше одной записи (FR-AUTH-AD-13)
+  wrong_password: Неверный пароль (локальный или bind в AD)
+  user_blocked: Учётная запись заблокирована в приложении (users.status = blocked)
+  pending_password: Пароль ещё не установлен по ссылке (users.status = pending_password)
+  ad_account_disabled: Учётка отключена в AD (ACCOUNTDISABLE) — Gherkin «Аутентификация через AD»
+  ad_not_in_group: Нет в группе доступа AD с учётом вложенных групп — Gherkin «Аутентификация через AD»
+  ad_unavailable: Все контроллеры AD недоступны (FR-AUTH-AD-09)
+  locked_out: Пара «логин + IP» заблокирована после 5 неудач (FR-LOCK-01)
+  rate_limited: Превышено 20 попыток в минуту с IP (FR-LOCK-02)
+  invalid_totp: Неверный или повторно использованный код TOTP (FR-LOCK-03, FR-2FA-01)
+  invalid_backup_code: Неверный или использованный резервный код
+  setup_in_progress: Мастер первичной настройки не завершён, вход не суперадминистратора (FR-SA-02)
+
+# ---------------------------------------------------------------------------
+# 5. События. Поля:
+#    category, title, spec — категория, смысл, требования;
+#    object — тип объекта записи; details — поля details (тип и смысл);
+#    alert — оповещение ИБ SEC-AUTH-07: always | <условие> (письмо администраторам и на
+#            security.alert_email; текст письма — contracts/notifications.yaml, security_alert);
+#    Все события без исключения уходят в SIEM (SEC-AUD-05).
+# ---------------------------------------------------------------------------
+events:
+  # --- Аутентификация ---
+  auth.login.succeeded:
+    category: auth
+    title: Успешный вход (после пароля и, если нужен, TOTP)
+    spec: [SEC-AUD-01]
+    object: session
+    details: {method: "enum[local, ad]", mfa: bool, new_device: "bool — сработал SEC-AUTH-06"}
+  auth.login.failed:
+    category: auth
+    title: Неуспешный вход
+    spec: [SEC-AUD-01, FR-AUTH-AD-05, FR-AUTH-AD-13, 17.2]
+    object: user
+    details: {reason: "enum login_failure_reasons", method: "enum[local, ad]", step: "enum[password, totp]"}
+  auth.logout:
+    category: auth
+    title: Выход
+    spec: [SEC-AUD-01]
+    object: session
+    details: {}
+  auth.session.expired:
+    category: auth
+    title: Истечение сессии
+    spec: [SEC-AUD-01, FR-SESS-02]
+    object: session
+    details: {reason: "enum[idle, absolute, pre_mfa_limit]"}
+  auth.sessions.terminated:
+    category: auth
+    title: Завершение сессий пользователем или системой
+    spec: [SEC-AUD-01, FR-SESS-04, FR-SESS-05, FR-AUTH-LOC-03, FR-AUTH-LOC-04]
+    object: user
+    details: {count: int, reason: "enum[self, password_changed, password_reset, user_blocked, roles_changed, auth_mode_switched, session_limit, anonymized]"}
+  auth.sessions.revoked_by_ad:
+    category: auth
+    title: Отзыв сессий проверкой AD (каждые 15 минут и ежедневно)
+    spec: [SEC-AUD-01, FR-AUTH-AD-08]
+    object: user
+    details: {block_reason: "enum[ad_disabled, ad_group, ad_missing]", sessions: int}
+  auth.lockout.pair_locked:
+    category: auth
+    title: Блокировка пары «логин + IP» по попыткам
+    spec: [SEC-AUD-01, FR-LOCK-01, 17.2]
+    object: user
+    details: {failures: int, minutes: int}
+  auth.lockout.superadmin_delay:
+    category: auth
+    title: Растущая задержка ответа для IP при неудачах по логину суперадминистратора
+    spec: [SEC-AUD-01, FR-LOCK-04]
+    object: user
+    details: {delay_seconds: int, consecutive_failures: int}
+  auth.step_up.passed:
+    category: auth
+    title: Пройден step-up (пароль + TOTP) или TOTP для доступа к деньгам
+    spec: [SEC-AUD-01, SEC-AUTH-05, FR-2FA-05]
+    object: session
+    details: {purpose: "enum[step_up, money_totp]"}
+  auth.step_up.failed:
+    category: auth
+    title: Неудачный step-up
+    spec: [SEC-AUTH-05, FR-LOCK-03]
+    object: session
+    details: {purpose: "enum[step_up, money_totp]", reason: "enum[wrong_password, invalid_totp]"}
+  auth.password.reset_requested:
+    category: auth
+    title: Запрос «Забыли пароль» (пишется и для несуществующего логина)
+    spec: [SEC-AUD-01, FR-AUTH-LOC-03]
+    object: user
+    details: {email_sent: bool}
+  auth.password.set:
+    category: auth
+    title: Пароль установлен по ссылке активации или сброса
+    spec: [SEC-AUD-01, FR-SA-01, FR-AUTH-LOC-01, FR-AUTH-LOC-03]
+    object: user
+    details: {via: "enum[activation, reset]"}
+  auth.password.changed:
+    category: auth
+    title: Смена своего пароля в профиле
+    spec: [SEC-AUD-01, FR-AUTH-LOC-04]
+    object: user
+    details: {}
+  auth.password.reset_issued:
+    category: auth
+    title: Администратор, суперадминистратор или консоль выдали ссылку сброса пароля
+    spec: [SEC-AUD-01, FR-2FA-03, Q-22]
+    object: user
+    details: {target_roles: "list[system_role]", delivery: "enum[email, screen, cli]"}
+    alert: when target_roles содержит admin или superadmin
+  auth.mfa.enrolled:
+    category: auth
+    title: Подключение TOTP
+    spec: [SEC-AUD-01, FR-2FA-01, FR-2FA-04]
+    object: user
+    details: {forced: bool}
+  auth.mfa.disabled:
+    category: auth
+    title: Пользователь отключил свой TOTP
+    spec: [SEC-AUD-01]
+    object: user
+    details: {}
+  auth.mfa.reset:
+    category: auth
+    title: Сброс TOTP пользователю администратором или суперадминистратором
+    spec: [SEC-AUD-01, FR-2FA-03]
+    object: user
+    details: {target_roles: "list[system_role]"}
+    alert: always  # FR-2FA-03: «любой сброс оповещает ИБ»
+  auth.mfa.backup_codes_regenerated:
+    category: auth
+    title: Новые резервные коды
+    spec: [SEC-AUD-01]
+    object: user
+    details: {}
+
+  # --- Пользователи и роли ---
+  users.created:
+    category: users_roles
+    title: Создание пользователя
+    spec: [SEC-AUD-01, FR-AUTH-LOC-01, FR-AUTH-AD-06, FR-AUTH-AD-10]
+    object: user
+    details: {source: "enum[admin_local, admin_ad_search, moderator_ad_search, ad_jit, cli]", roles: "list[system_role]", project_id: "uuid? — при заведении модератором из команды"}
+  users.updated:
+    category: users_roles
+    title: Изменение ФИО, логина, email (вручную или из AD при входе)
+    spec: [SEC-AUD-01, FR-AUTH-AD-06]
+    object: user
+    details: {changes: "map field → [было, стало] для full_name, login, email"}
+  users.blocked:
+    category: users_roles
+    title: Блокировка пользователя
+    spec: [SEC-AUD-01, 14.2 users.block_reason]
+    object: user
+    details: {block_reason: "enum[manual, ad_disabled, ad_group, ad_missing, not_matched]"}
+  users.unblocked:
+    category: users_roles
+    title: Разблокировка пользователя
+    spec: [SEC-AUD-01]
+    object: user
+    details: {previous_reason: "enum[manual, ad_disabled, ad_group, ad_missing, not_matched]", automatic: bool}
+  users.anonymized:
+    category: users_roles
+    title: Анонимизация пользователя
+    spec: [SEC-AUD-01, SEC-PD-03]
+    object: user
+    details: {anonymous_no: int}
+  users.roles.changed:
+    category: users_roles
+    title: Изменение системных ролей
+    spec: [SEC-AUD-01, SEC-AUTHZ-06, FR-AUTH-AD-07]
+    object: user
+    details: {added: "list[system_role]", removed: "list[system_role]", source: "enum[manual, ad_group, ad_mapping_enabled, ad_mapping_disabled]"}
+    alert: when added или removed содержит admin, superadmin или security_auditor
+  users.ad_sync.completed:
+    category: users_roles
+    title: Синхронизация AD (сводка)
+    spec: [SEC-AUD-01, FR-AUTH-AD-08]
+    object: null
+    details: {kind: "enum[sessions_15min, daily]", checked: int, blocked: int, unblocked: int, roles_changed: int, skipped_ad_unavailable: bool}
+  users.ad_role_mapping.report:
+    category: users_roles
+    title: Отчёт при включении сопоставления групп AD с ролями
+    spec: [FR-AUTH-AD-07]
+    object: null
+    details: {roles_to_remove: int, applied: bool}
+  users.replaced_everywhere:
+    category: users_roles
+    title: Замена участника во всех проектах (администратор)
+    spec: [SEC-AUD-01, FR-ADM-05]
+    object: user
+    details: {replacement_user_id: uuid, projects_applied: int, projects_skipped: int, questions_redirected: int}
+
+  # --- Система ---
+  system.setup.step_completed:
+    category: system
+    title: Шаг мастера первичной настройки
+    spec: [SEC-AUD-01, 7.1]
+    object: setting
+    details: {step: "enum[address_timezone, smtp, auth_mode, security_policies, first_admin]"}
+  system.setup.finished:
+    category: system
+    title: Мастер первичной настройки завершён
+    spec: [7.1, FR-SA-02]
+    object: null
+    details: {}
+  system.auth_mode.switched:
+    category: system
+    title: Смена способа аутентификации (с отчётом сопоставления)
+    spec: [SEC-AUD-01, FR-AUTH-SW-01, C-13]
+    object: setting
+    details: {from: "enum[local, ad]", to: "enum[local, ad]", via: "enum[ui, cli]", matched: int, ambiguous_confirmed: int, ambiguous_rejected: int, not_found_blocked: int, dry_run: bool}
+    alert: "always (кроме dry_run = true)"
+  system.ad_settings.changed:
+    category: system
+    title: Изменение настроек AD (подключение, группы, сопоставление ролей)
+    spec: [SEC-AUD-01, FR-AUTH-AD-01..07]
+    object: setting
+    details: {changes: "map key → [было, стало]; для bind_password и сертификатов — changed: true"}
+    alert: always
+  system.settings.changed:
+    category: system
+    title: Изменение настроек системы (раздел system_settings)
+    spec: [SEC-AUD-01, SEC-AUD-04, NFR-REL-06]
+    object: setting
+    details: {section: "enum[security.password_policy, security.session, security.lockout, security.mfa_policy, security.admin_networks, security.alert_email, smtp, siem, app, retention, digest]", changes: "map key → [было, стало]; секретные ключи — changed: true"}
+    alert: >-
+      when section = smtp (письмо через старый и новый сервер, SEC-AUTH-07), section =
+      security.admin_networks, или в security.mfa_policy обязательный TOTP выключен для роли
+  system.privileged_account.changed:
+    category: system
+    title: Создание, блокировка, разжалование администратора или суперадминистратора; выдача и снятие роли «Аудитор ИБ»
+    spec: [SEC-AUD-01, FR-SA-05, BR-ROLE-03, SEC-AUTH-07]
+    object: user
+    details: {role: "enum[superadmin, admin, security_auditor]", op: "enum[created, granted, revoked, blocked, unblocked]"}
+    alert: always
+  system.cli.executed:
+    category: system
+    title: Запуск консольной команды estimator
+    spec: [SEC-AUD-01, FR-SA-01, 18.2]
+    object: cli_command
+    details: {command: "enum[migrate, create-superadmin, issue-activation, reset-superadmin, auth-mode, rotate-key, audit verify, audit purge, project purge, seed-demo]", os_user: string, host: string, args: "map — без секретов; логины допустимы", exit_code: int}
+  system.audit_chain.verified:
+    category: system
+    title: Результат проверки цепочки аудита (ежедневно 04:00 и командой)
+    spec: [SEC-AUD-01, SEC-AUD-03]
+    object: audit_log
+    details: {ok: bool, checked: int, first_broken_id: "string?"}
+    alert: when ok = false
+  system.audit.purged:
+    category: system
+    title: Удалены записи аудита старше срока хранения
+    spec: [SEC-AUD-04]
+    object: audit_log
+    details: {before: date, deleted: int, anchor_hash: string}
+  system.alert.delivery_failed:
+    category: system
+    title: Оповещение ИБ не доставлено через старый SMTP
+    spec: [SEC-AUTH-07, TC-AUTH-06]
+    object: setting
+    details: {alert_type: string, channel: "enum[old_smtp, new_smtp]"}
+
+  # --- Справочники ---
+  dict.changed:
+    category: dictionaries
+    title: Любое изменение справочника, «было → стало»
+    spec: [SEC-AUD-01, BR-ADM-01, 7.5]
+    object: dictionary_item
+    details: {dictionary: "enum[phases, disciplines, node_types, profiles, ratios, tags, currencies, vat_rates, loss_reasons, calendar, method]", op: "enum[create, update, deactivate, activate, delete, import]", changes: "map field → [было, стало]"}
+  dict.proposed_type.decided:
+    category: dictionaries
+    title: Решение по предложенному локальному типу
+    spec: [FR-TREE-03, 7.5]
+    object: dictionary_item
+    details: {decision: "enum[accepted, merged, rejected]", merged_into: "uuid?", project_id: uuid, nodes_relinked: int}
+
+  # --- Проекты ---
+  project.created:
+    category: projects
+    title: Создание проекта (в том числе копированием)
+    spec: [SEC-AUD-01, FR-PRJ-05, FR-PRJ-02]
+    object: project
+    details: {copied_from: "uuid?", rates_copied: bool}
+  project.status.changed:
+    category: projects
+    title: Смена статуса проекта, в том числе автоархивация и отмена
+    spec: [SEC-AUD-01, FR-PRJ-05, BR-PRJ-03, BR-PRJ-04]
+    object: project
+    details: {from: "enum project_status", to: "enum project_status", automatic: bool, cancel_reason: "string? (10–500 символов)"}
+  project.team.changed:
+    category: projects
+    title: Изменение команды и ролей в проекте
+    spec: [SEC-AUD-01, BR-ADM-03, Q-25]
+    object: project_member
+    details: {op: "enum[added, removed, updated]", member_user_id: uuid, role: "enum[moderator, expert, presale]", discipline_id: "uuid?", is_reviewer: bool, added_by_admin_self: "bool — «администратор назначил себя / свою учётку»", via: "enum[team, replace, ad_search, join_as_moderator, transfer]"}
+  project.moderator.transferred:
+    category: projects
+    title: Передача проекта или добавление модератора администратором
+    spec: [SEC-AUD-01, BR-PRJ-07]
+    object: project
+    details: {added_user_id: uuid, removed_user_id: "uuid?"}
+  project.questions.redirected:
+    category: projects
+    title: Переадресация открытых вопросов при замене участника
+    spec: [SEC-AUD-01, FR-ADM-05]
+    object: project
+    details: {from_user_id: uuid, to_user_id: uuid, threads: int}
+  project.opened_by_presale_head:
+    category: projects
+    title: Первое за сессию открытие чужого проекта руководителем пресейла
+    spec: [SEC-AUD-01, FR-PORT-01, R-02]
+    object: project
+    details: {}
+  project.joined_as_moderator:
+    category: projects
+    title: Руководитель пресейла стал модератором проекта
+    spec: [SEC-AUD-01, FR-PORT-03, R-06]
+    object: project
+    details: {}
+  project.support_session.opened:
+    category: projects
+    title: Открытие проекта в режиме поддержки
+    spec: [SEC-AUD-01, FR-ADM-06, Q-15]
+    object: support_session
+    details: {reason: "string (10–500 символов)", expires_at: timestamptz}
+  project.money.changed:
+    category: projects
+    title: Изменение ставок, валюты, курса, НДС или суммы договора — только факт, без значений
+    spec: [SEC-AUD-01, уточнение к SEC-AUD-01]
+    object: project
+    details: {fields: "list[enum[rate, pm_rate, currency, exchange_rate, vat_rate, contract_amount]]", discipline_ids: "list[uuid]"}
+  project.snapshot.created:
+    category: projects
+    title: Снимок оценки
+    spec: [SEC-AUD-01, FR-SNAP-01]
+    object: snapshot
+    details: {payload_sha256: string}
+  project.snapshot.invalidated:
+    category: projects
+    title: Пометка снимка «ошибочный»
+    spec: [SEC-AUD-01, FR-SNAP-02]
+    object: snapshot
+    details: {}
+  export.created:
+    category: projects
+    title: Создание выгрузки (любой вид из contracts/exports.yaml, кроме audit_csv)
+    spec: [SEC-AUD-01, FR-EXP-06, TC-SEC-09]
+    object: export
+    details: {kind: "enum exports.yaml kinds", snapshot_id: "uuid?", with_money: bool, rows: int}
+  export.downloaded:
+    category: projects
+    title: Скачивание файла выгрузки
+    spec: [SEC-AUD-01]
+    object: export
+    details: {kind: "enum exports.yaml kinds"}
+  project.document.changed:
+    category: projects
+    title: Загрузка, скачивание, удаление, восстановление документа заказчика
+    spec: [SEC-AUD-01, FR-DOC-01, GAP-06]
+    object: document
+    details: {op: "enum[uploaded, downloaded, deleted, restored, purged]", mime: string, size_bytes: int, scan_status: "enum[pending, clean, infected, error]"}
+  project.purged:
+    category: projects
+    title: Физическое удаление проекта командой project purge
+    spec: [SEC-AUD-01, BR-PRJ-04, GAP-12]
+    object: project
+    details: {ticket: string, approved_by_login: string, dry_run: bool, composition: "map {nodes, threads, messages, snapshots, documents, exports: int}", project_name: string}
+
+  # --- Безопасность ---
+  security.access_denied:
+    category: security
+    title: Отказ в доступе 403/404 на объекты проекта (не чаще 1 записи в минуту на пользователя и объект)
+    spec: [SEC-AUD-01, SEC-AUTHZ-03]
+    object: null  # тип объекта из запроса
+    details: {status: "enum[403, 404]", permission: "string — код из permissions.yaml", method: string, route: "string — шаблон пути, без значений", suppressed: "int — сколько повторов свёрнуто"}
+  security.network_denied:
+    category: security
+    title: Отказ по сетевому ограничению админки суперадминистратора
+    spec: [SEC-AUD-01, FR-SA-06]
+    object: null
+    details: {route: string}
+  security.rate_limited:
+    category: security
+    title: Превышение ограничения частоты
+    spec: [SEC-AUD-01, SEC-WEB-07, FR-LOCK-02]
+    object: null
+    details: {limit: "enum[login_ip, mutations, exports, messages, remind]", retry_after: int}
+  security.file_infected:
+    category: security
+    title: Заражённый или непроверенный файл документа заказчика
+    spec: [SEC-AUD-01, SEC-WEB-10]
+    object: document
+    details: {scan_status: "enum[infected, error]", signature: "string? — имя сигнатуры ClamAV", mime: string, size_bytes: int}
+  security.superadmin_login_failures:
+    category: security
+    title: 5 неудачных входов подряд по логину суперадминистратора
+    spec: [FR-LOCK-04, SEC-AUTH-07]
+    object: user
+    details: {consecutive_failures: int}
+    alert: always
+  security.login_failures_burst:
+    category: security
+    title: Больше 20 неудачных входов за час по одному логину с разных адресов
+    spec: [FR-LOCK-01, SEC-AUTH-07, TC-AUTH-07]
+    object: user
+    details: {failures_hour: int, distinct_ips: int}
+    alert: always
+
+  # --- Аудит ---
+  audit.viewed:
+    category: audit
+    title: Просмотр журнала аудита (фильтры)
+    spec: [SEC-AUD-01, SEC-AUD-06]
+    object: audit_log
+    details: {filters: "map period, user_id, type, result, category"}
+  audit.exported:
+    category: audit
+    title: Выгрузка журнала аудита в CSV
+    spec: [SEC-AUD-01, SEC-AUD-06, FR-EXP-06]
+    object: audit_log
+    details: {filters: map, rows: int}
+
+# ---------------------------------------------------------------------------
+# 6. Соответствие перечню оповещений ИБ SEC-AUTH-07 (проверяется тестом)
+# ---------------------------------------------------------------------------
+security_alerts:
+  smtp_changed: system.settings.changed
+  auth_mode_switched: system.auth_mode.switched
+  ad_settings_changed: system.ad_settings.changed
+  privileged_account_changed: system.privileged_account.changed
+  privileged_password_reset: auth.password.reset_issued
+  privileged_totp_reset: auth.mfa.reset
+  security_auditor_role: users.roles.changed
+  mfa_requirement_disabled: system.settings.changed
+  admin_networks_changed: system.settings.changed
+  superadmin_login_failures: security.superadmin_login_failures
+  login_failures_burst: security.login_failures_burst
+  audit_chain_broken: system.audit_chain.verified
