@@ -67,6 +67,33 @@ paths:
         '500':
           $ref: '#/components/responses/Problem500'
       security: []
+  /auth/options:
+    get:
+      operationId: getAuthOptions
+      summary: Режим входа для экрана входа (до входа)
+      description: 'CR-001. Публичный: без сессии и CSRF. Экран входа узнаёт режим до первой попытки входа — подсказка
+        «учётная запись компании» и отсутствие «Забыли пароль?» в режиме AD (SPEC 11.1 №3–5). Тот же режим отдают
+        GET /me и расширение auth_mode ошибки LOGIN_FAILED.'
+      tags:
+      - Вход и профиль
+      x-permission: public
+      x-spec:
+      - '11.1'
+      - FR-AUTH-AD-13
+      x-error-codes:
+      - RATE_LIMITED
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthOptions'
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '500':
+          $ref: '#/components/responses/Problem500'
+      security: []
   /auth/totp:
     post:
       operationId: loginTotp
@@ -8626,6 +8653,18 @@ components:
       required:
       - login
       - password
+      additionalProperties: false
+    AuthOptions:
+      type: object
+      description: CR-001. Режим входа приложения (app — учётные записи приложения, ad — Active Directory).
+      properties:
+        auth_mode:
+          type: string
+          enum:
+          - app
+          - ad
+      required:
+      - auth_mode
       additionalProperties: false
     LoginResponse:
       type: object
