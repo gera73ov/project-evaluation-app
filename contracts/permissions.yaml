@@ -1,0 +1,2200 @@
+# contracts/permissions.yaml — матрица прав как данные (SEC-001).
+# Владелец: трек SEC. Потребители: CORE, ADM, AUTH, RT, EXP, QA, FE (PLAN.md раздел 6).
+# Источник правды — SPEC v0.5, разделы 3.1–3.4, 12.4, FR-2FA-05, FR-ADM-06, FR-PORT-01..03.
+# Пояснения и правила вычисления — contracts/permissions.md.
+# До вехи M0 файл меняет трек SEC обычным PR; после M0 — только через CR (contracts/README.md).
+# Разделы 6–7 (матрицы 3.3 и 3.4) сверяются с SPEC тестом
+# backend/tests/unit/sec/test_permissions_contract.py: текст ячеек должен совпадать дословно.
+
+version: 0.1.0
+status: draft  # станет 1.0.0 после утверждения PM-001 (веха M0)
+spec: SPEC.md v0.5
+
+# ---------------------------------------------------------------------------
+# 1. Субъекты: системные роли, проектные роли и контексты доступа (3.1, 14.2)
+# ---------------------------------------------------------------------------
+system_roles:
+  superadmin: {title: Суперадминистратор, db: superadmin}
+  admin: {title: Администратор, db: admin}
+  moderator: {title: Модератор (право создавать проекты), db: moderator}
+  presale: {title: Пресейл, db: presale}
+  presale_head: {title: Руководитель пресейла, db: presale_head}
+  security_auditor: {title: Аудитор ИБ, db: security_auditor}
+  user: {title: Пользователь, db: null, note: есть у всех, в user_roles не хранится}
+
+project_roles:
+  project_moderator: {title: Модератор проекта, db: "project_members.role = 'moderator'"}
+  expert: {title: Эксперт дисциплины, db: "project_members.role = 'expert'"}
+  reviewer:
+    title: Ревьюер дисциплины
+    db: "project_members.role = 'expert' AND is_reviewer"
+    note: признак эксперта, а не отдельная роль; получает все права эксперта плюс review.mark
+  project_presale: {title: Пресейл проекта, db: "project_members.role = 'presale'"}
+
+# Столбцы матрицы 3.3 слева направо
+matrix_subjects: [superadmin, admin, security_auditor, presale_head, project_moderator, expert,
+                  reviewer, project_presale]
+
+# Обобщённый субъект в таблице 3.4: любой участник проекта (любая проектная роль)
+subject_groups:
+  project_member: [project_moderator, expert, reviewer, project_presale]
+
+# Контекст, в котором действует выдача права (grant.context)
+contexts:
+  global: Не привязано к проекту (админки, профиль, справочники)
+  member: Пользователь — участник проекта (строка project_members, кроме исключённых)
+  support_session: >-
+    Администратор открыл проект в режиме поддержки (support_sessions, не дольше 60 минут,
+    причина 10–500 символов, FR-ADM-06). Только чтение, без денег и без закрытых заметок.
+  any_project: >-
+    Руководитель пресейла открывает любой проект без членства (FR-PORT-01, R-02): чтение со
+    всеми деньгами; первое открытие каждого чужого проекта за сессию пишется в аудит
+    (presale_head.project_opened, contracts/audit-events.yaml).
+
+# Область выдачи (grant.scope) — проверяется на объекте по цепочке SEC-AUTHZ-03
+scopes:
+  any: Любой объект проекта
+  own_discipline: >-
+    Узел, ветка или лист дисциплины, на которую пользователь назначен экспертом (во всех фазах).
+    Для переноса — и источник, и цель в своей дисциплине.
+  own_project: Только проект, где пользователь — модератор
+  author: Пользователь — автор объекта (сообщения, вопроса)
+  author_or_addressee: Автор вопроса или любой из его адресатов (FR-DISC-05)
+  documents_only: В корзине — только удалённые документы заказчика (GAP-06)
+  all_projects: Все проекты приложения
+  admin_audit_categories: Только категории аудита «Справочники» и «Пользователи и роли» (SEC-AUD-06)
+  all: Без ограничения области
+
+# ---------------------------------------------------------------------------
+# 2. Каталог прав. Коды без суффикса области: область задаёт выдача (раздел 3).
+#    x-permission в contracts/openapi.yaml ссылается на эти коды (SEC-AUTHZ-02).
+#    Флаги:
+#      totp_gate     — действует только при пройденном в сессии TOTP (FR-2FA-05, R-05),
+#                      иначе денежные поля отсутствуют, эндпоинт → 403 TOTP_REQUIRED;
+#      step_up       — нужен свежий step-up: пароль + TOTP, действует 5 минут (SEC-AUTH-05);
+#      network       — путь ограничен списком security.admin_networks, иначе 404 (FR-SA-06);
+#      money_fields  — ответ содержит денежные поля только при money.read (SEC-AUTHZ-04);
+#      read_only     — право чтения: допустимо в режиме поддержки и у руководителя пресейла.
+# ---------------------------------------------------------------------------
+permissions:
+  # --- служебные псевдоправа: эндпоинты без роли тоже объявляют право (TC-SEC-01) ---
+  public:
+    title: Без аутентификации
+    spec: [15.2, FR-AUTH-LOC-03]
+    endpoints:
+      - "POST /auth/login"
+      - "POST /auth/password/forgot"
+  token.login_step:
+    title: Временный токен шага TOTP (5 минут) после верного пароля
+    spec: [7.2, FR-2FA-01]
+    endpoints:
+      - "POST /auth/totp"
+  token.activation:
+    title: Одноразовый токен из ссылки активации или сброса пароля
+    spec: [FR-SA-01, FR-AUTH-LOC-01, FR-AUTH-LOC-03, SEC-AUTH-03]
+    endpoints:
+      - "POST /auth/activate"
+      - "POST /auth/password/reset"
+  session.pre_mfa:
+    title: Сессия до обязательного подключения TOTP (не дольше 15 минут)
+    spec: [FR-2FA-04]
+    endpoints:
+      - "POST /auth/totp/enroll"
+      - "POST /auth/totp/enroll/confirm"
+      - "POST /auth/logout"
+  authenticated:
+    title: Любой вошедший пользователь (сессия полностью установлена)
+    spec: [15.2]
+    endpoints:
+      - "POST /auth/logout"
+      - "POST /auth/step-up"
+      - "GET /me"
+      - "PATCH /me"
+      - "GET /me/sessions"
+      - "DELETE /me/sessions"
+      - "POST /me/password"
+      - "POST /me/totp"
+      - "POST /me/backup-codes"
+      - "GET /me/notification-settings"
+      - "PUT /me/notification-settings"
+      - "GET /notifications"
+      - "POST /notifications/read"
+      - "WS /ws"
+  me.totp.disable:
+    title: Отключить свой TOTP
+    spec: [15.2]
+    step_up: true
+    endpoints:
+      - "DELETE /me/totp"
+
+  # --- система (суперадминистратор) ---
+  system.setup:
+    title: Мастер первичной настройки (только до его завершения)
+    spec: [7.1, FR-SA-02]
+    network: true
+    endpoints:
+      - "GET /system/setup/{step}"
+      - "POST /system/setup/{step}"
+  system.health.read:
+    title: Состояние системы
+    spec: [FR-SA-07]
+    network: true
+    endpoints:
+      - "GET /system/health"
+  system.settings.read:
+    title: Чтение настроек системы
+    spec: [7.1, 14.2 system_settings]
+    network: true
+    endpoints:
+      - "GET /system/settings/{section}"
+  system.settings.write:
+    title: Политики безопасности, SMTP, сети, сроки хранения, SIEM, адрес и часовой пояс
+    spec: [3.3, SEC-AUTH-05, SEC-AUTH-07]
+    network: true
+    step_up: true
+    endpoints:
+      - "PUT /system/settings/{section}"
+  system.auth.test:
+    title: Проверить подключение и вход AD (без сохранения)
+    spec: [FR-AUTH-AD-03]
+    network: true
+    endpoints:
+      - "POST /system/auth/ad/test-connection"
+      - "POST /system/auth/ad/test-login"
+  system.auth.manage:
+    title: Способ аутентификации и параметры AD, переход «Приложение → AD»
+    spec: [3.3, FR-AUTH-SW-01, SEC-AUTH-05]
+    network: true
+    step_up: true
+    endpoints:
+      - "PUT /system/settings/auth"
+      - "POST /system/auth/switch-mode"
+      - "POST /system/auth/switch-mode/resolve"
+  system.admins.manage:
+    title: Создать, заблокировать, разжаловать администратора и суперадминистратора; выдать и снять роль «Аудитор ИБ»
+    spec: [3.3, FR-SA-05, BR-ROLE-03, SEC-AUTHZ-06, SEC-AUTH-05]
+    network: true
+    step_up: true
+    endpoints:
+      - "GET /system/admins"
+      - "POST /system/admins"
+      - "PATCH /system/admins/{id}"
+      - "DELETE /system/admins/{id}"
+  system.users.reset_credentials:
+    title: Сбросить пароль или TOTP администратору или суперадминистратору
+    spec: [FR-2FA-03, Q-22, SEC-AUTH-05]
+    network: true
+    step_up: true
+    endpoints:
+      - "POST /system/users/{id}/reset-password"
+      - "POST /system/users/{id}/reset-totp"
+  system.users.anonymize:
+    title: Анонимизировать заблокированного пользователя
+    spec: [SEC-PD-03, SEC-AUTH-05]
+    network: true
+    step_up: true
+    endpoints:
+      - "POST /system/users/{id}/anonymize"
+  registry.read:
+    title: Реестр всех проектов без денег (название, модератор, статус, даты)
+    spec: [3.2, 3.3, 7.5]
+    endpoints:
+      - "GET /system/projects"
+      - "GET /admin/projects"
+  audit.read.all:
+    title: Весь журнал аудита, включая действия суперадминистраторов
+    spec: [SEC-AUD-06, Q-27]
+    endpoints:
+      - "GET /system/audit"
+  audit.read.admin_categories:
+    title: Журнал аудита — только категории «Справочники» и «Пользователи и роли»
+    spec: [SEC-AUD-06]
+    endpoints:
+      - "GET /system/audit"
+  audit.export:
+    title: Выгрузка журнала аудита в CSV с грифом
+    spec: [SEC-AUD-06, FR-EXP-06, SEC-AUTH-05]
+    step_up: true
+    endpoints:
+      - "POST /system/audit/export"
+
+  # --- администратор ---
+  dict.read:
+    title: Читать справочники (фазы, дисциплины, типы, профили, пороги, календарь, причины проигрыша, метки, валюты, НДС)
+    spec: [3.3, 7.5]
+    endpoints:
+      - "GET /admin/phases"
+      - "GET /admin/disciplines"
+      - "GET /admin/node-types"
+      - "GET /admin/profiles"
+      - "GET /admin/ratios"
+      - "GET /admin/tags"
+      - "GET /admin/currencies"
+      - "GET /admin/vat-rates"
+      - "GET /admin/loss-reasons"
+      - "GET /admin/calendar"
+  dict.write:
+    title: Вести справочники и «Пороги и проценты» (method.*)
+    spec: [3.3, 7.5, BR-ADM-01]
+    endpoints:
+      - "POST|PUT|PATCH|DELETE /admin/phases"
+      - "/admin/disciplines"
+      - "/admin/node-types"
+      - "/admin/profiles"
+      - "/admin/ratios"
+      - "/admin/tags"
+      - "/admin/currencies"
+      - "/admin/vat-rates"
+      - "/admin/loss-reasons"
+      - "/admin/calendar"
+  proposed_types.manage:
+    title: Принять, объединить, отклонить предложенные локальные типы
+    spec: [7.5, FR-TREE-03]
+    endpoints:
+      - "GET /admin/proposed-types"
+      - "POST /admin/proposed-types/{id}/accept"
+      - "POST /admin/proposed-types/{id}/merge"
+      - "POST /admin/proposed-types/{id}/reject"
+  users.read:
+    title: Список и карточка пользователей
+    spec: [7.5]
+    endpoints:
+      - "GET /admin/users"
+      - "GET /admin/users/{id}"
+  users.manage:
+    title: Создать, изменить, заблокировать и разблокировать пользователя
+    spec: [3.3, 7.5, FR-AUTH-LOC-01]
+    endpoints:
+      - "POST /admin/users"
+      - "PATCH /admin/users/{id}"
+      - "POST /admin/users/{id}/block"
+      - "POST /admin/users/{id}/unblock"
+  users.roles.grant:
+    title: Выдать и снять роли «Модератор», «Пресейл», «Руководитель пресейла»
+    spec: [3.3, SEC-AUTHZ-06, FR-AUTH-AD-07]
+    endpoints:
+      - "PATCH /admin/users/{id}"
+  users.reset_credentials:
+    title: Сбросить пароль или TOTP пользователю
+    spec: [FR-2FA-03, SEC-AUTH-05]
+    step_up: true
+    endpoints:
+      - "POST /admin/users/{id}/reset-password"
+      - "POST /admin/users/{id}/reset-totp"
+  users.replace_everywhere:
+    title: Заменить участника во всех активных проектах
+    spec: [FR-ADM-05, Q-29]
+    endpoints:
+      - "POST /admin/users/{id}/replace"
+  ad.search:
+    title: Поиск в каталоге AD и заведение пользователя заранее
+    spec: [FR-AUTH-AD-10, Q-16]
+    endpoints:
+      - "GET /admin/ad/search"
+  project.moderators.transfer:
+    title: Передать проект другому модератору или добавить модератора (из реестра)
+    spec: [3.3, BR-PRJ-07]
+    endpoints:
+      - "POST /admin/projects/{id}/moderators"
+  support.open:
+    title: Открыть проект в режиме поддержки (с причиной)
+    spec: [FR-ADM-06, Q-15]
+    endpoints:
+      - "POST /admin/projects/{id}/support-session"
+
+  # --- руководитель пресейла ---
+  portfolio.read:
+    title: Реестр всех проектов с деньгами и сводка по портфелю
+    spec: [FR-PORT-01, FR-PORT-02, Q-31]
+    totp_gate: true
+    endpoints:
+      - "GET /portfolio/projects"
+      - "GET /portfolio/summary"
+  portfolio.export:
+    title: Выгрузка реестра и сводки в Excel
+    spec: [FR-PORT-02, FR-EXP-06]
+    totp_gate: true
+    endpoints:
+      - "POST /portfolio/export"
+  project.join_as_moderator:
+    title: «Стать модератором проекта» — только себя, статус не «Архив» (иначе 409)
+    spec: [FR-PORT-03, R-06]
+    endpoints:
+      - "POST /projects/{id}/join-as-moderator"
+
+  # --- проект: настройки и команда ---
+  project.list_mine:
+    title: Видеть проект в «Моих оценках»
+    spec: [FR-HOME-01, 3.4]
+    endpoints:
+      - "GET /projects"
+  project.create:
+    title: Создать проект
+    spec: [3.3, FR-HOME-03, FR-PRJ-05]
+    endpoints:
+      - "POST /projects"
+  project.copy:
+    title: Копировать проект (модератор проекта с системной ролью «Модератор»)
+    spec: [FR-PRJ-02]
+    endpoints:
+      - "POST /projects/{id}/copy"
+  project.read:
+    title: Настройки проекта, команда, «Результат пресейла» (без суммы договора), состояние вида
+    spec: [3.3, 11.6]
+    read_only: true
+    money_fields: true
+    endpoints:
+      - "GET /projects/{id}"
+      - "GET /projects/{id}/members"
+      - "GET /projects/{id}/outcome"
+      - "GET /me/view-state/{project_id}"
+      - "PUT /me/view-state/{project_id}"
+  project.settings.write:
+    title: Изменить настройки проекта (без денег)
+    spec: [FR-PRJ-01, 11.6]
+    endpoints:
+      - "PATCH /projects/{id}"
+  project.status:
+    title: Сменить статус проекта, в том числе отменить и перевести в архив
+    spec: [FR-PRJ-05, 4.2]
+    endpoints:
+      - "POST /projects/{id}/status"
+  project.disciplines.add:
+    title: Добавить дисциплину в проект
+    spec: [FR-PRJ-04]
+    endpoints:
+      - "POST /projects/{id}/disciplines"
+  team.write:
+    title: Изменить команду, в том числе добавить модератора
+    spec: [3.3, BR-ROLE-07]
+    endpoints:
+      - "PUT /projects/{id}/members"
+  team.replace_member:
+    title: Заменить заблокированного участника в проекте
+    spec: [FR-ADM-05]
+    endpoints:
+      - "POST /projects/{id}/members/{user_id}/replace"
+  project.ad_search:
+    title: Найти человека в AD и назначить в проект (режим AD)
+    spec: [FR-AUTH-AD-10]
+    endpoints:
+      - "GET /projects/{id}/ad-search"
+  team.remind:
+    title: «Напомнить не начавшим» (не чаще 1 раза в сутки, иначе 429)
+    spec: [10.1, 11.8]
+    endpoints:
+      - "POST /projects/{id}/remind"
+  outcome.write:
+    title: Заполнить «Результат пресейла»
+    spec: [BR-PRJ-05]
+    endpoints:
+      - "PUT /projects/{id}/outcome"
+  money.read:
+    title: Ставки, валюта, курс, НДС, сумма договора, стоимость и итоги в деньгах
+    spec: [SEC-AUTHZ-04, BR-MONEY-01]
+    totp_gate: true
+    read_only: true
+    endpoints:
+      - "GET /projects/{id}/money"
+  money.write:
+    title: Изменить ставки, валюту, курс, НДС
+    spec: [SEC-AUTHZ-04]
+    totp_gate: true
+    endpoints:
+      - "PUT /projects/{id}/money"
+  notes.read:
+    title: Читать закрытые заметки
+    spec: [FR-NOTE-01, SEC-AUTHZ-04]
+    totp_gate: true
+    read_only: true
+    endpoints:
+      - "GET /projects/{id}/notes"
+  notes.write:
+    title: Писать и править закрытые заметки
+    spec: [FR-NOTE-01, SEC-AUTHZ-04]
+    totp_gate: true
+    endpoints:
+      - "POST /projects/{id}/notes"
+      - "PATCH /notes/{id}"
+  docs.read:
+    title: Список и скачивание документов заказчика (скачивание — в аудит)
+    spec: [FR-DOC-01]
+    read_only: true
+    endpoints:
+      - "GET /projects/{id}/documents"
+      - "GET /documents/{id}/download"
+  docs.write:
+    title: Загрузить и удалить документ заказчика
+    spec: [FR-DOC-01, SEC-WEB-10]
+    endpoints:
+      - "POST /projects/{id}/documents"
+      - "DELETE /documents/{id}"
+  docs.restore:
+    title: Восстановить документ заказчика из корзины
+    spec: [FR-DOC-01, GAP-06]
+    endpoints:
+      - "POST /documents/{id}/restore"
+  journal.read:
+    title: Журнал проекта (записи о деньгах — только с money.read)
+    spec: [11.6, GAP-02]
+    read_only: true
+    money_fields: true
+    endpoints:
+      - "GET /projects/{id}/journal"
+
+  # --- дерево ---
+  tree.read:
+    title: Дерево, изменения с версии, история узла, подписка WS на проект
+    spec: [3.3, FR-TREE-25, FR-TREE-33, 15.4]
+    read_only: true
+    endpoints:
+      - "GET /projects/{id}/tree"
+      - "GET /projects/{id}/changes"
+      - "GET /nodes/{id}/history"
+      - "WS subscribe project:{id}"
+  tree.write:
+    title: Менять структуру и O/R/P/×N (создать, изменить, перенести внутри области, разбить, свернуть, дублировать, удалить в корзину, захват ячейки)
+    spec: [3.3, SEC-AUTHZ-05, FR-TREE-20..25, FR-TREE-31]
+    endpoints:
+      - "POST /projects/{id}/nodes"
+      - "PATCH /nodes/{id}"
+      - "POST /nodes/{id}/move"
+      - "POST /nodes/{id}/split"
+      - "POST /nodes/{id}/collapse"
+      - "POST /nodes/{id}/duplicate"
+      - "DELETE /nodes/{id}"
+      - "WS lock/unlock"
+  tree.move.cross_branch:
+    title: Перенести узел в другую ветку проекта (модератор)
+    spec: [FR-TREE-23, BR-BR-02, SEC-AUTHZ-05]
+    endpoints:
+      - "POST /nodes/{id}/move"
+  tree.lock.force:
+    title: Перехватить чужой захват ячейки («Всё равно править»)
+    spec: [FR-TREE-31]
+    endpoints:
+      - "WS lock {force: true}"
+  comment.write:
+    title: Комментарий листа и узла (строки с метками)
+    spec: [3.3, 9.1, R-03, BR-BR-02]
+    endpoints:
+      - "PATCH /nodes/{id}"
+  branch.profile.write:
+    title: Профиль ветки дисциплины в проекте
+    spec: [FR-TREE-04]
+    endpoints:
+      - "PATCH /projects/{id}/disciplines/{discipline_id}"
+  node_type.create_local:
+    title: Создать локальный тип узла
+    spec: [FR-TREE-03]
+    endpoints:
+      - "POST /projects/{id}/node-types"
+  branch.copy_from:
+    title: Копировать ветку из другого проекта (в цель — по области; источник — только текущий участник)
+    spec: [FR-PRJ-03, BR-ROLE-06]
+    endpoints:
+      - "POST /nodes/{id}/copy-from"
+  branch.status.draft_done:
+    title: Статус ветки «черновик / готово»
+    spec: [3.3, BR-BR-01]
+    endpoints:
+      - "PUT /projects/{id}/branches/{phase}/{discipline}/status"
+  branch.status.not_needed:
+    title: Статус ветки «не нужно» и возврат из него
+    spec: [3.3, 4.3]
+    endpoints:
+      - "PUT /projects/{id}/branches/{phase}/{discipline}/status"
+  review.mark:
+    title: Отметка «Проверено» (на своих листьях ревьюера — самопроверка)
+    spec: [FR-REV-01, FR-REV-04, Q-33]
+    endpoints:
+      - "POST /nodes/{id}/review"
+  trash.read:
+    title: Корзина проекта
+    spec: [FR-TREE-24, GAP-06]
+    read_only: true
+    endpoints:
+      - "GET /projects/{id}/trash"
+  trash.restore:
+    title: Восстановить узлы из корзины
+    spec: [FR-TREE-24]
+    endpoints:
+      - "POST /trash/{batch_id}/restore"
+
+  # --- обсуждения и вопросы заказчику ---
+  discussion.read:
+    title: Читать обсуждения и вопросы проекта, автодополнение адресатов
+    spec: [FR-DISC-08, Q-03, GAP-02]
+    read_only: true
+    endpoints:
+      - "GET /projects/{id}/threads"
+      - "GET /nodes/{id}/messages"
+      - "GET /projects/{id}/members/suggest"
+  discussion.write:
+    title: Писать в обсуждениях; править и отзывать своё сообщение (FR-DISC-06)
+    spec: [3.3, FR-DISC-02..06]
+    endpoints:
+      - "POST /projects/{id}/threads"
+      - "POST /nodes/{id}/messages"
+      - "POST /threads/{id}/messages"
+      - "PATCH /messages/{id}"
+      - "POST /messages/{id}/revoke"
+  thread.resolve:
+    title: Закрыть и переоткрыть обычный вопрос (обсуждение)
+    spec: [FR-DISC-05, 4.4]
+    endpoints:
+      - "POST /threads/{id}/resolve"
+      - "POST /threads/{id}/reopen"
+  cq.read:
+    title: Список вопросов заказчику (без кнопок выгрузки)
+    spec: [FR-CQ-02, 11.11]
+    read_only: true
+    endpoints:
+      - "GET /projects/{id}/customer-questions"
+  cq.manage:
+    title: Статусы вопросов заказчику и выгрузка в Excel/Word (новые → «отправлен»)
+    spec: [FR-CQ-02, FR-CQ-04]
+    endpoints:
+      - "POST /projects/{id}/customer-questions/export"
+  cq.edit:
+    title: Править текст вопроса заказчику (после отправки — пометка «изменён после отправки»)
+    spec: [BR-CQ-01, Q-46]
+    endpoints:
+      - "PATCH /threads/{id}/question"
+  cq.withdraw:
+    title: Снять вопрос заказчику с причиной
+    spec: [4.4, BR-CQ-02]
+    endpoints:
+      - "POST /threads/{id}/withdraw"
+  cq.answer:
+    title: «Внести ответ заказчика»
+    spec: [FR-CQ-03]
+    endpoints:
+      - "POST /threads/{id}/answer"
+  cq.close:
+    title: Закрыть отвеченный вопрос заказчику
+    spec: [BR-CQ-02, C-05]
+    endpoints:
+      - "POST /threads/{id}/resolve"
+  cq.reopen:
+    title: Переоткрыть закрытый вопрос заказчику
+    spec: [BR-CQ-02]
+    endpoints:
+      - "POST /threads/{id}/reopen"
+
+  # --- статистика, снимки, экспорт ---
+  stats.read:
+    title: Статистика (деньги — только с money.read)
+    spec: [10.1]
+    read_only: true
+    money_fields: true
+    endpoints:
+      - "GET /projects/{id}/stats"
+  snapshot.read:
+    title: Список снимков
+    spec: [10.1, FR-SNAP-01]
+    read_only: true
+    money_fields: true
+    endpoints:
+      - "GET /projects/{id}/snapshots"
+  snapshot.create:
+    title: Создать снимок
+    spec: [FR-SNAP-01, BR-PRJ-02]
+    endpoints:
+      - "POST /projects/{id}/snapshots"
+  snapshot.invalidate:
+    title: Пометить снимок «ошибочный»
+    spec: [FR-SNAP-02]
+    endpoints:
+      - "POST /snapshots/{id}/invalidate"
+  snapshot.compare:
+    title: Сравнение со снимком (деньги — только с money.read)
+    spec: [FR-SNAP-03, FR-SNAP-04]
+    money_fields: true
+    endpoints:
+      - "GET /snapshots/{id}/diff"
+  export.hours:
+    title: Выгрузки без денег — «Часы», вкладки статистики, сравнение снимков (денежные колонки — только с money.read)
+    spec: [FR-EXP-01, FR-SNAP-05, GAP-02]
+    money_fields: true
+    endpoints:
+      - "POST /projects/{id}/exports"
+      - "GET /exports/{id}"
+      - "GET /projects/{id}/stats/{tab}/export"
+      - "POST /snapshots/{id}/diff/export"
+  export.money:
+    title: Выгрузки «с деньгами и допущениями» — Excel «С деньгами», Word «Допущения и риски»
+    spec: [FR-EXP-02, 11.10, GAP-02]
+    totp_gate: true
+    endpoints:
+      - "POST /projects/{id}/exports"
+      - "GET /projects/{id}/assumptions/export"
+
+# ---------------------------------------------------------------------------
+# 3. Выдача прав. Ключ — субъект; context — где действует (раздел 1); scope — область.
+#    Права, не перечисленные у субъекта, запрещены (SEC-AUTHZ-02, «запрещено по умолчанию»).
+# ---------------------------------------------------------------------------
+grants:
+  any_authenticated:  # любой вошедший, включая суперадминистратора и аудитора ИБ
+    - {permission: authenticated, context: global}
+    - {permission: me.totp.disable, context: global}
+
+  user:  # роль «Пользователь»: есть у всех, кроме суперадминистратора (BR-ROLE-02)
+    - {permission: project.list_mine, context: global, unless_role: [superadmin, security_auditor]}
+    - {permission: dict.read, context: global, unless_role: [superadmin, security_auditor],
+       note: суперадминистратор и аудитор ИБ справочники не видят (3.3)}
+
+  superadmin:
+    - {permission: system.setup, context: global}
+    - {permission: system.health.read, context: global}
+    - {permission: system.settings.read, context: global}
+    - {permission: system.settings.write, context: global}
+    - {permission: system.auth.test, context: global}
+    - {permission: system.auth.manage, context: global}
+    - {permission: system.admins.manage, context: global}
+    - {permission: system.users.reset_credentials, context: global}
+    - {permission: system.users.anonymize, context: global}
+    - {permission: registry.read, context: global}
+    - {permission: audit.read.all, context: global}
+    - {permission: audit.export, context: global}
+
+  security_auditor:
+    - {permission: audit.read.all, context: global}
+    - {permission: audit.export, context: global}
+
+  admin:
+    - {permission: dict.read, context: global}
+    - {permission: dict.write, context: global}
+    - {permission: proposed_types.manage, context: global}
+    - {permission: users.read, context: global}
+    - {permission: users.manage, context: global}
+    - {permission: users.roles.grant, context: global,
+       limit: {roles: [moderator, presale, presale_head], not_self: true}}
+    - {permission: users.reset_credentials, context: global, limit: {target_roles_exclude: [admin, superadmin]}}
+    - {permission: users.replace_everywhere, context: global}
+    - {permission: ad.search, context: global}
+    - {permission: registry.read, context: global}
+    - {permission: project.moderators.transfer, context: global}
+    - {permission: support.open, context: global}
+    - {permission: audit.read.admin_categories, context: global, scope: admin_audit_categories}
+    # режим поддержки: только чтение, без денег и заметок (FR-ADM-06)
+    - {permission: project.read, context: support_session}
+    - {permission: tree.read, context: support_session}
+    - {permission: discussion.read, context: support_session}
+    - {permission: journal.read, context: support_session}
+    - {permission: stats.read, context: support_session}
+    - {permission: cq.read, context: support_session}
+    - {permission: snapshot.read, context: support_session}
+
+  moderator:  # системная роль
+    - {permission: project.create, context: global}
+
+  presale_head:
+    - {permission: portfolio.read, context: global}
+    - {permission: portfolio.export, context: global}
+    - {permission: project.join_as_moderator, context: any_project}
+    - {permission: project.read, context: any_project}
+    - {permission: tree.read, context: any_project}
+    - {permission: discussion.read, context: any_project}
+    - {permission: journal.read, context: any_project}
+    - {permission: docs.read, context: any_project}
+    - {permission: cq.read, context: any_project}
+    - {permission: stats.read, context: any_project}
+    - {permission: snapshot.read, context: any_project}
+    - {permission: snapshot.compare, context: any_project}
+    - {permission: export.hours, context: any_project}
+    - {permission: export.money, context: any_project}
+    - {permission: money.read, context: any_project}
+    - {permission: notes.read, context: any_project}
+    - {permission: outcome.write, context: any_project}
+
+  project_moderator:
+    - {permission: project.read, context: member}
+    - {permission: project.settings.write, context: member}
+    - {permission: project.status, context: member}
+    - {permission: project.copy, context: member, requires_system_role: moderator}
+    - {permission: project.disciplines.add, context: member}
+    - {permission: team.write, context: member}
+    - {permission: team.replace_member, context: member}
+    - {permission: project.ad_search, context: member, requires_setting: "auth.mode = ad"}
+    - {permission: team.remind, context: member}
+    - {permission: outcome.write, context: member}
+    - {permission: money.read, context: member}
+    - {permission: money.write, context: member}
+    - {permission: notes.read, context: member}
+    - {permission: notes.write, context: member}
+    - {permission: docs.read, context: member}
+    - {permission: docs.write, context: member}
+    - {permission: docs.restore, context: member}
+    - {permission: journal.read, context: member}
+    - {permission: tree.read, context: member}
+    - {permission: tree.write, context: member, scope: any}
+    - {permission: tree.move.cross_branch, context: member, scope: any}
+    - {permission: tree.lock.force, context: member, scope: any}
+    - {permission: comment.write, context: member, scope: any}
+    - {permission: branch.profile.write, context: member, scope: any}
+    - {permission: node_type.create_local, context: member}
+    - {permission: branch.copy_from, context: member, scope: any}
+    - {permission: branch.status.draft_done, context: member, scope: any}
+    - {permission: branch.status.not_needed, context: member, scope: any}
+    - {permission: review.mark, context: member, scope: any}
+    - {permission: trash.read, context: member, scope: any}
+    - {permission: trash.restore, context: member, scope: any}
+    - {permission: discussion.read, context: member}
+    - {permission: discussion.write, context: member}
+    - {permission: thread.resolve, context: member, scope: any}
+    - {permission: cq.read, context: member}
+    - {permission: cq.manage, context: member}
+    - {permission: cq.edit, context: member, scope: any}
+    - {permission: cq.withdraw, context: member, scope: any}
+    - {permission: cq.answer, context: member}
+    - {permission: cq.close, context: member, scope: any}
+    - {permission: cq.reopen, context: member}
+    - {permission: snapshot.read, context: member}
+    - {permission: snapshot.create, context: member}
+    - {permission: snapshot.invalidate, context: member}
+    - {permission: snapshot.compare, context: member}
+    - {permission: stats.read, context: member}
+    - {permission: export.hours, context: member}
+    - {permission: export.money, context: member}
+
+  expert:
+    - {permission: project.read, context: member}
+    - {permission: docs.read, context: member}
+    - {permission: journal.read, context: member}
+    - {permission: tree.read, context: member}
+    - {permission: tree.write, context: member, scope: own_discipline}
+    - {permission: comment.write, context: member, scope: own_discipline}
+    - {permission: branch.profile.write, context: member, scope: own_discipline}
+    - {permission: node_type.create_local, context: member}
+    - {permission: branch.copy_from, context: member, scope: own_discipline}
+    - {permission: branch.status.draft_done, context: member, scope: own_discipline}
+    - {permission: trash.read, context: member, scope: own_discipline}
+    - {permission: trash.restore, context: member, scope: own_discipline}
+    - {permission: discussion.read, context: member}
+    - {permission: discussion.write, context: member}
+    - {permission: thread.resolve, context: member, scope: author_or_addressee}
+    - {permission: cq.read, context: member}
+    - {permission: cq.edit, context: member, scope: author, condition: cq_status_new}
+    - {permission: cq.withdraw, context: member, scope: author, condition: cq_status_new}
+    - {permission: cq.close, context: member, scope: author}
+    - {permission: snapshot.read, context: member}
+    - {permission: snapshot.compare, context: member}
+    - {permission: stats.read, context: member}
+    - {permission: export.hours, context: member}
+
+  reviewer:  # все выдачи expert плюс:
+    - {inherit: expert}
+    - {permission: review.mark, context: member, scope: own_discipline,
+       note: на листе, где ревьюер — автор последней правки O/R/P/×N, ставится self_review (FR-REV-04)}
+
+  project_presale:
+    - {permission: project.read, context: member}
+    - {permission: outcome.write, context: member}
+    - {permission: money.read, context: member}
+    - {permission: notes.read, context: member}
+    - {permission: notes.write, context: member}
+    - {permission: docs.read, context: member}
+    - {permission: docs.write, context: member}
+    - {permission: docs.restore, context: member}
+    - {permission: journal.read, context: member}
+    - {permission: tree.read, context: member}
+    - {permission: trash.read, context: member, scope: documents_only}
+    - {permission: discussion.read, context: member}
+    - {permission: discussion.write, context: member}
+    - {permission: thread.resolve, context: member, scope: author_or_addressee}
+    - {permission: cq.read, context: member}
+    - {permission: cq.manage, context: member}
+    - {permission: cq.edit, context: member, scope: any}
+    - {permission: cq.withdraw, context: member, scope: any}
+    - {permission: cq.answer, context: member}
+    - {permission: cq.close, context: member, scope: any}
+    - {permission: cq.reopen, context: member}
+    - {permission: snapshot.read, context: member}
+    - {permission: snapshot.compare, context: member}
+    - {permission: stats.read, context: member}
+    - {permission: export.hours, context: member}
+    - {permission: export.money, context: member}
+
+# ---------------------------------------------------------------------------
+# 4. Правила вычисления (порядок проверки — permissions.md, раздел «Алгоритм»)
+# ---------------------------------------------------------------------------
+rules:
+  - id: R-DENY-DEFAULT
+    spec: [SEC-AUTHZ-02]
+    rule: Эндпоинт и WS-команда без объявленного права не регистрируются; право, которого нет в выдаче, запрещено.
+  - id: R-OBJECT-CHAIN
+    spec: [SEC-AUTHZ-03]
+    rule: >-
+      Доступ к объекту проекта проверяется по цепочке «объект → проект → членство или контекст
+      (support_session, any_project) → роль → дисциплина → статус (3.4)».
+      Нет членства и контекста — 404 (не 403). Есть членство или контекст, но нет права — 403.
+  - id: R-SUM
+    spec: [BR-ROLE-01]
+    rule: >-
+      Права нескольких системных и проектных ролей суммируются, КРОМЕ денег: money.*, notes.*,
+      export.money, portfolio.* дают только выдачи project_moderator, project_presale и
+      presale_head. Права системной роли admin никогда не включают деньги, в том числе в
+      support_session; администратор видит деньги только как участник проекта (BR-ADM-03).
+  - id: R-SESSION-TIMEOUT
+    spec: [BR-ROLE-01, FR-SESS-02]
+    rule: При нескольких ролях действует самый короткий тайм-аут бездействия.
+  - id: R-COMPAT
+    spec: [BR-ROLE-02]
+    rule: >-
+      superadmin несовместим с любой другой ролью и не может быть участником проекта;
+      security_auditor совместим только с user. Нарушение — 409 при выдаче роли или назначении.
+    incompatible:
+      superadmin: [admin, moderator, presale, presale_head, security_auditor, project_member]
+      security_auditor: [superadmin, admin, moderator, presale, presale_head, project_member]
+    note: >-
+      Запрет участия аудитора ИБ в проектах следует из 3.2 («не видит проекты, деньги,
+      пользователей … и настройки»).
+  - id: R-SUPERADMIN-COUNT
+    spec: [BR-ROLE-03]
+    rule: Активных суперадминистраторов 2–3; заблокировать или разжаловать последнего — 409 LAST_SUPERADMIN; создать четвёртого — 409.
+  - id: R-MOD-OVER-EXPERT
+    spec: [BR-ROLE-04]
+    rule: Модератор и эксперт одного проекта получает права модератора (выдачи суммируются, scope any покрывает own_discipline).
+  - id: R-LAST-MODERATOR
+    spec: [BR-ROLE-07]
+    rule: Удалить последнего модератора проекта — 409 LAST_MODERATOR.
+  - id: R-MOD-ROLE-REMOVED
+    spec: [BR-ROLE-08]
+    rule: Снятие системной роли moderator не отнимает project_moderator в существующих проектах, но отнимает project.create и project.copy.
+  - id: R-EXCLUDED
+    spec: [BR-ROLE-06, FR-SESS-05]
+    rule: Исключённый участник сразу теряет context member, в том числе для архива и как источник branch.copy_from; открытые WS получают access.revoked.
+  - id: R-TOTP-GATE
+    spec: [FR-2FA-05, SEC-AUTHZ-04, R-05]
+    rule: >-
+      Права с totp_gate действуют, только если в текущей сессии пройден TOTP
+      (sessions.mfa_passed). Иначе денежные поля и заметки отсутствуют в ответах и событиях
+      (нет ключа, не null), денежные эндпоинты отвечают 403 TOTP_REQUIRED, подписка на
+      project:{id}:money и project:{id}:notes не выдаётся.
+  - id: R-MONEY-FIELDS
+    spec: [SEC-AUTHZ-04, TC-SEC-03]
+    rule: >-
+      В ответах прав с money_fields денежные ключи (rate, cost, currency, exchange_rate, money,
+      vat, contract_amount, quote_rub, quote_cur, cost_rub) присутствуют только при действующем
+      money.read; иначе ключа нет.
+  - id: R-STEP-UP
+    spec: [SEC-AUTH-05]
+    rule: Права с step_up требуют step-up не старше 5 минут (sessions.step_up_until); иначе 403 STEP_UP_REQUIRED.
+  - id: R-NETWORK
+    spec: [FR-SA-06]
+    rule: >-
+      Если задан security.admin_networks, права с network, вход суперадминистраторов и их
+      WS-подключения доступны только из перечисленных сетей; из других — 404.
+  - id: R-PRE-MFA
+    spec: [FR-2FA-04]
+    rule: Сессия до обязательного подключения TOTP получает только session.pre_mfa; всё остальное — 403 TOTP_ENROLL_REQUIRED.
+  - id: R-SUPPORT
+    spec: [FR-ADM-06, Q-15]
+    rule: >-
+      Контекст support_session существует, пока support_sessions.expires_at > now (≤ 60 мин);
+      даёт только права read_only из выдачи admin, без money_fields и без заметок; любой запрос
+      на запись — 403. Открытие — аудит с причиной и уведомление модераторам в любом статусе.
+  - id: R-PRESALE-HEAD
+    spec: [FR-PORT-01, FR-PORT-03, R-02, R-06]
+    rule: >-
+      Контекст any_project даёт руководителю пресейла чтение любого проекта с деньгами и
+      notes.read; первое открытие каждого чужого проекта за сессию — событие аудита. Писать
+      заметки и править может, только став модератором проекта (тогда действует member).
+      join_as_moderator добавляет только себя; в статусе archived — 409.
+  - id: R-ROLE-GRANT-LIMITS
+    spec: [SEC-AUTHZ-06, FR-AUTH-AD-07]
+    rule: >-
+      Администратор выдаёт и снимает только moderator, presale, presale_head; admin и
+      security_auditor — только суперадминистратор; никто не меняет свои системные роли (403).
+      При включённом сопоставлении групп AD ручная выдача moderator и presale AD-пользователям
+      недоступна (409). Назначение администратором себя или созданной им учётки в проект
+      разрешено и пишется в аудит с пометкой added_by_admin_self (BR-ADM-03).
+  - id: R-STATUS
+    spec: [3.4]
+    rule: >-
+      Помимо выдачи право должно быть разрешено всеми строками matrix_3_4 (и derived_status_gates),
+      где оно перечислено, для субъекта из applies_to. Права, которых нет ни в одной строке,
+      от статуса проекта не зависят.
+
+# Ограничения по статусу, которых нет в таблице 3.4 явно, но которые следуют из текста SPEC
+derived_status_gates:
+  - id: D-01
+    spec: [4.2]
+    reason: >-
+      Таблица 4.2: «Завершена — только чтение для всех; модератор может переоткрыть; пресейл и
+      модератор продолжают вести вопросы заказчику и «Результат пресейла»»; «Архив — только
+      чтение и копирование веток». Загрузка документов и закрытые заметки в этот перечень не входят.
+    permissions: [docs.write, docs.restore, notes.write]
+    statuses: {preparation: allow, estimation: allow, consolidation: allow, completed: deny,
+               archived: deny}
+  - id: D-02
+    spec: [3.4 (строка «Уведомления о событиях оценки»), 4.2]
+    reason: Письмо «Напомнить не начавшим» — уведомление о событии оценки; в «Подготовке» эксперты проект не видят, в «Завершена» и «Архиве» такие письма не отправляются.
+    permissions: [team.remind]
+    statuses: {preparation: deny, estimation: allow, consolidation: allow, completed: deny,
+               archived: deny}
+  - id: D-03
+    spec: [FR-SNAP-02, 4.2]
+    reason: Пометка снимка «ошибочный» — запись; в «Архиве» только чтение. Строка 3.4 «Снимок» распространена и на неё.
+    permissions: [snapshot.invalidate]
+    statuses: {preparation: deny, estimation: allow, consolidation: allow, completed: allow,
+               archived: deny}
+  - id: D-04
+    spec: [FR-PRJ-05, 4.2]
+    reason: Переходы статуса разрешены только по стрелкам диаграммы 4.2; остальные — 409.
+    permissions: [project.status]
+    transitions:
+      preparation: [estimation]
+      estimation: [consolidation, archived]
+      consolidation: [estimation, completed]
+      completed: [estimation, archived]
+      archived: [completed]
+
+# ---------------------------------------------------------------------------
+# 5. Таблица SEC-AUTHZ-05, выраженная через записи файла (минимум для TC-SEC-02)
+# ---------------------------------------------------------------------------
+authz_examples:
+  - {who: expert(Бэкенд), action: PATCH O/R/P листа, branch: Бэкенд, expect: 200, by: [M3.3-23]}
+  - {who: expert(Бэкенд), action: PATCH O/R/P листа, branch: Фронтенд, expect: 403, by: [M3.3-23], scope: own_discipline}
+  - {who: expert(Бэкенд), action: перенос своего листа в ветку Фронтенда, expect: 403, by: [tree.move.cross_branch]}
+  - {who: expert(Бэкенд), action: GET /api/v1/projects/42/money, expect: 403, by: [M3.3-20]}
+  - {who: expert(Бэкенд), action: GET /api/v1/projects/42/notes, expect: 403, by: [M3.3-32]}
+  - {who: expert другого проекта, action: GET /api/v1/projects/42/tree, expect: 404, by: [R-OBJECT-CHAIN]}
+  - {who: project_presale, action: PATCH O/R/P любого листа, expect: 403, by: [M3.3-23]}
+  - {who: admin (не участник, без режима поддержки), action: GET /api/v1/projects/42/tree, expect: 404, by: [R-OBJECT-CHAIN, M3.3-22]}
+  - {who: admin (support_session), action: GET /api/v1/projects/42/money, expect: 403, by: [R-SUPPORT, R-SUM]}
+  - {who: admin (support_session), action: PATCH O/R/P листа, expect: 403, by: [R-SUPPORT]}
+  - {who: presale_head (не участник), action: GET /api/v1/projects/42/money, expect: 200, by: [M3.3-20, R-PRESALE-HEAD]}
+  - {who: presale_head (не участник), action: PATCH O/R/P листа, expect: 403, by: [M3.3-23]}
+  - {who: security_auditor, action: GET /api/v1/projects/42/tree, expect: 404, by: [M3.3-22, R-OBJECT-CHAIN]}
+  - {who: superadmin, action: GET /api/v1/projects/42/tree, expect: 404, by: [M3.3-22, R-OBJECT-CHAIN]}
+  - {who: project_moderator, action: PATCH O/R/P листа, branch: любая, expect: 200, by: [M3.3-23]}
+  - {who: project_moderator без TOTP в сессии, action: GET /api/v1/projects/42/money, expect: "403 TOTP_REQUIRED", by: [R-TOTP-GATE]}
+  - {who: presale_head, action: POST /api/v1/projects/42/join-as-moderator (archived), expect: 409, by: [M3.3-12, M3.4-14]}
+  - {who: presale_head (не модератор проекта), action: POST /api/v1/projects/42/notes, expect: 403, by: [M3.3-32]}
+  - {who: presale_head, action: PUT /api/v1/projects/42/members (добавить другого модератора), expect: 403, by: [M3.3-11]}
+  - {who: expert — автор вопроса заказчику, action: "POST /api/v1/threads/{id}/resolve (answered)", expect: 200, by: [M3.3-36]}
+  - {who: expert — не автор, action: "POST /api/v1/threads/{id}/resolve (вопрос заказчику answered)", expect: 403, by: [M3.3-36]}
+  - {who: project_moderator, action: GET /api/v1/projects/42/ad-search, expect: 200, by: [M3.3-08]}
+  - {who: expert, action: GET /api/v1/projects/42/ad-search, expect: 403, by: [M3.3-08]}
+
+# ---------------------------------------------------------------------------
+# 6. Матрица 3.3 (статус «Оценка»). Ячейки — дословно из SPEC (поле spec), толкование —
+# поля effect/scope/context/money/condition/flags; permissions — какими правами из
+# каталога реализуется разрешающая ячейка. Источник данных для TC-SEC-02.
+# ---------------------------------------------------------------------------
+matrix_3_3:
+- id: M3.3-01
+  action: Настроить аутентификацию (локально / AD)
+  cells:
+    superadmin:
+      spec: ✅
+      effect: allow
+      permissions: [system.auth.manage]
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator: {spec: ❌, effect: deny}
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [system.auth.manage]
+- id: M3.3-02
+  action: Политики безопасности, SMTP, сети, сроки хранения
+  cells:
+    superadmin:
+      spec: ✅
+      effect: allow
+      permissions: [system.settings.write]
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator: {spec: ❌, effect: deny}
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [system.settings.write]
+- id: M3.3-03
+  action: Создать / заблокировать администратора, суперадминистратора; выдать роль «Аудитор ИБ»
+  cells:
+    superadmin:
+      spec: ✅
+      effect: allow
+      permissions: [system.admins.manage]
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator: {spec: ❌, effect: deny}
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [system.admins.manage]
+- id: M3.3-04
+  action: Журнал аудита
+  cells:
+    superadmin:
+      spec: ✅
+      effect: allow
+      permissions: [audit.read.all, audit.export]
+    admin:
+      spec: 👁 (только события справочников и пользователей)
+      effect: view
+      scope: admin_audit_categories
+      permissions: [audit.read.admin_categories]
+    security_auditor:
+      spec: 👁 весь + выгрузка
+      effect: view
+      scope: all
+      flags: [export]
+      permissions: [audit.read.all, audit.export]
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator: {spec: ❌, effect: deny}
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [audit.export, audit.read.admin_categories, audit.read.all]
+- id: M3.3-05
+  action: Справочники (фазы, дисциплины, типы, профили, пороги, календарь, причины проигрыша)
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: ✅
+      effect: allow
+      permissions: [dict.read, dict.write]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: 👁
+      effect: view
+      permissions: [dict.read]
+    project_moderator:
+      spec: 👁
+      effect: view
+      permissions: [dict.read]
+    expert:
+      spec: 👁
+      effect: view
+      permissions: [dict.read]
+    reviewer:
+      spec: 👁
+      effect: view
+      permissions: [dict.read]
+    project_presale:
+      spec: 👁
+      effect: view
+      permissions: [dict.read]
+  permissions: [dict.read, dict.write]
+- id: M3.3-06
+  action: Выдать роли «Модератор», «Пресейл», «Руководитель пресейла»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: ✅
+      effect: allow
+      permissions: [users.roles.grant]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator: {spec: ❌, effect: deny}
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [users.roles.grant]
+- id: M3.3-07
+  action: Создать / заблокировать пользователя, заменить участника во всех проектах
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: ✅
+      effect: allow
+      permissions: [users.manage, users.replace_everywhere]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator: {spec: ❌, effect: deny}
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [users.manage, users.replace_everywhere]
+- id: M3.3-08
+  action: Найти человека в AD и добавить в команду (режим AD)
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: ✅
+      effect: allow
+      permissions: [ad.search, users.manage]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅ в своём проекте
+      effect: allow
+      scope: own_project
+      permissions: [project.ad_search]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [ad.search, project.ad_search, users.manage]
+- id: M3.3-09
+  action: Реестр всех проектов
+  cells:
+    superadmin:
+      spec: 👁 без денег
+      effect: view
+      money: false
+      permissions: [registry.read]
+    admin:
+      spec: 👁 без денег
+      effect: view
+      money: false
+      permissions: [registry.read]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: 👁 с деньгами + сводка
+      effect: view
+      money: true
+      flags: [portfolio_summary]
+      permissions: [portfolio.read]
+    project_moderator: {spec: ❌, effect: deny}
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [portfolio.read, registry.read]
+- id: M3.3-10
+  action: Открыть чужой проект без членства
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: 👁 режим поддержки, без денег
+      effect: view
+      context: [support_session]
+      money: false
+      permissions: [support.open, project.read]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: 👁 с деньгами (первое открытие за сессию — в аудит)
+      effect: view
+      money: true
+      context: [any_project]
+      flags: [audit_first_open_per_session]
+      permissions: [project.read, money.read]
+    project_moderator: {spec: —, effect: na}
+    expert: {spec: —, effect: na}
+    reviewer: {spec: —, effect: na}
+    project_presale: {spec: —, effect: na}
+  permissions: [money.read, project.read, support.open]
+- id: M3.3-11
+  action: Передать проект / добавить модератора
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: ✅
+      effect: allow
+      permissions: [project.moderators.transfer]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅ (добавить модератора)
+      effect: allow
+      flags: [add_moderator_only]
+      permissions: [team.write]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [project.moderators.transfer, team.write]
+- id: M3.3-12
+  action: «Стать модератором проекта» (только себя)
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: ✅ (кроме статуса «Архив»)
+      effect: allow
+      condition: status_not_archived
+      permissions: [project.join_as_moderator]
+    project_moderator: {spec: —, effect: na}
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [project.join_as_moderator]
+- id: M3.3-13
+  action: Заменить заблокированного участника в проекте
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: ✅ (во всех проектах)
+      effect: allow
+      scope: all_projects
+      permissions: [users.replace_everywhere]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [team.replace_member]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [team.replace_member, users.replace_everywhere]
+- id: M3.3-14
+  action: Добавить дисциплину в проект
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [project.disciplines.add]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [project.disciplines.add]
+- id: M3.3-15
+  action: Создать проект
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌ (если нет роли модератора), effect: deny, note: с системной ролью «Модератор» права
+        суммируются (BR-ROLE-01)}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌ (если нет роли модератора), effect: deny, note: с системной ролью «Модератор»
+        права суммируются (BR-ROLE-01)}
+    project_moderator:
+      spec: ✅ (системная роль)
+      effect: allow
+      condition: has_system_role_moderator
+      permissions: [project.create]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [project.create]
+- id: M3.3-16
+  action: Копировать проект
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅ (если есть системная роль «Модератор»)
+      effect: allow
+      condition: has_system_role_moderator
+      permissions: [project.copy]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [project.copy]
+- id: M3.3-17
+  action: Сменить статус проекта (запустить, завершить, переоткрыть, отменить, восстановить)
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [project.status]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [project.status]
+- id: M3.3-18
+  action: Настройки проекта, команда
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: 👁 в режиме поддержки, без денег
+      effect: view
+      context: [support_session]
+      money: false
+      permissions: [project.read]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: 👁
+      effect: view
+      permissions: [project.read]
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [project.read, project.settings.write, team.write]
+    expert:
+      spec: 👁 (без денег)
+      effect: view
+      money: false
+      permissions: [project.read]
+    reviewer:
+      spec: 👁 (без денег)
+      effect: view
+      money: false
+      permissions: [project.read]
+    project_presale:
+      spec: 👁
+      effect: view
+      permissions: [project.read]
+  permissions: [project.read, project.settings.write, team.write]
+- id: M3.3-19
+  action: «Результат пресейла»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: ✅
+      effect: allow
+      permissions: [outcome.write]
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [outcome.write]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [outcome.write]
+  permissions: [outcome.write]
+- id: M3.3-20
+  action: Ставки, валюта, курс, НДС, цифра для КП
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: 👁
+      effect: view
+      permissions: [money.read]
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [money.read, money.write]
+    expert: {spec: ❌ (не видит), effect: deny, hidden: true}
+    reviewer: {spec: ❌ (не видит), effect: deny, hidden: true}
+    project_presale:
+      spec: 👁
+      effect: view
+      permissions: [money.read]
+  permissions: [money.read, money.write]
+- id: M3.3-21
+  action: Документы заказчика (загрузить / удалить)
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: 👁
+      effect: view
+      permissions: [docs.read]
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [docs.read, docs.write]
+    expert:
+      spec: 👁 скачать
+      effect: view
+      flags: [download]
+      permissions: [docs.read]
+    reviewer:
+      spec: 👁 скачать
+      effect: view
+      flags: [download]
+      permissions: [docs.read]
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [docs.read, docs.write]
+  permissions: [docs.read, docs.write]
+- id: M3.3-22
+  action: Видеть дерево проекта
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: участник или режим поддержки
+      effect: view
+      context: [member, support_session]
+      permissions: [tree.read]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: ✅
+      effect: allow
+      permissions: [tree.read]
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [tree.read]
+    expert:
+      spec: ✅
+      effect: allow
+      permissions: [tree.read]
+    reviewer:
+      spec: ✅
+      effect: allow
+      permissions: [tree.read]
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [tree.read]
+  permissions: [tree.read]
+- id: M3.3-23
+  action: Менять структуру и O/R/P/×N
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅ любые ветки
+      effect: allow
+      scope: any
+      permissions: [tree.write]
+    expert:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [tree.write]
+    reviewer:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [tree.write]
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [tree.write]
+- id: M3.3-24
+  action: Профиль ветки дисциплины в проекте
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [branch.profile.write]
+    expert:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [branch.profile.write]
+    reviewer:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [branch.profile.write]
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [branch.profile.write]
+- id: M3.3-25
+  action: Создать локальный тип узла
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [node_type.create_local]
+    expert:
+      spec: ✅
+      effect: allow
+      permissions: [node_type.create_local]
+    reviewer:
+      spec: ✅
+      effect: allow
+      permissions: [node_type.create_local]
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [node_type.create_local]
+- id: M3.3-26
+  action: Копировать ветку из другого проекта
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [branch.copy_from]
+    expert:
+      spec: в свои ветки
+      effect: allow
+      scope: own_discipline
+      permissions: [branch.copy_from]
+    reviewer:
+      spec: в свои ветки
+      effect: allow
+      scope: own_discipline
+      permissions: [branch.copy_from]
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [branch.copy_from]
+- id: M3.3-27
+  action: Комментарий листа
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅ любые
+      effect: allow
+      scope: any
+      permissions: [comment.write]
+    expert:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [comment.write]
+    reviewer:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [comment.write]
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [comment.write]
+- id: M3.3-28
+  action: Статус ветки «черновик / готово»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [branch.status.draft_done]
+    expert:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [branch.status.draft_done]
+    reviewer:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [branch.status.draft_done]
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [branch.status.draft_done]
+- id: M3.3-29
+  action: Статус ветки «не нужно»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [branch.status.not_needed]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [branch.status.not_needed]
+- id: M3.3-30
+  action: Отметка «Проверено»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [review.mark]
+    expert: {spec: ❌, effect: deny}
+    reviewer:
+      spec: свои (на своих листьях — «самопроверка»)
+      effect: allow
+      scope: own_discipline
+      flags: [self_review_on_own_leaves]
+      permissions: [review.mark]
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [review.mark]
+- id: M3.3-31
+  action: Писать в обсуждениях
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [discussion.write]
+    expert:
+      spec: ✅
+      effect: allow
+      permissions: [discussion.write]
+    reviewer:
+      spec: ✅
+      effect: allow
+      permissions: [discussion.write]
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [discussion.write]
+  permissions: [discussion.write]
+- id: M3.3-32
+  action: Закрытые заметки (читать / писать)
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: 👁 только чтение (писать — после «Стать модератором»)
+      effect: view
+      note: писать — только став модератором проекта (FR-PORT-03)
+      permissions: [notes.read]
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [notes.read, notes.write]
+    expert: {spec: ❌ (не видит), effect: deny, hidden: true}
+    reviewer: {spec: ❌ (не видит), effect: deny, hidden: true}
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [notes.read, notes.write]
+  permissions: [notes.read, notes.write]
+- id: M3.3-33
+  action: Закрыть обсуждение
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅ любое
+      effect: allow
+      scope: any
+      permissions: [thread.resolve]
+    expert:
+      spec: автор или адресат
+      effect: allow
+      scope: author_or_addressee
+      permissions: [thread.resolve]
+    reviewer:
+      spec: автор или адресат
+      effect: allow
+      scope: author_or_addressee
+      permissions: [thread.resolve]
+    project_presale:
+      spec: автор или адресат
+      effect: allow
+      scope: author_or_addressee
+      permissions: [thread.resolve]
+  permissions: [thread.resolve]
+- id: M3.3-34
+  action: Статусы вопросов заказчику, выгрузка, правка и отзыв отправленного вопроса
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [cq.manage, cq.edit, cq.withdraw]
+    expert:
+      spec: ❌ (до отправки — свой вопрос)
+      effect: deny
+      exception:
+        effect: allow
+        scope: author
+        condition: cq_status_new
+        permissions: [cq.edit, cq.withdraw]
+    reviewer:
+      spec: ❌ (до отправки — свой вопрос)
+      effect: deny
+      exception:
+        effect: allow
+        scope: author
+        condition: cq_status_new
+        permissions: [cq.edit, cq.withdraw]
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [cq.manage, cq.edit, cq.withdraw]
+  permissions: [cq.edit, cq.manage, cq.withdraw]
+- id: M3.3-35
+  action: «Внести ответ заказчика»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [cq.answer]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [cq.answer]
+  permissions: [cq.answer]
+- id: M3.3-36
+  action: Закрыть отвеченный вопрос заказчику
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [cq.close]
+    expert:
+      spec: автор вопроса
+      effect: allow
+      scope: author
+      permissions: [cq.close]
+    reviewer:
+      spec: автор вопроса
+      effect: allow
+      scope: author
+      permissions: [cq.close]
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [cq.close]
+  permissions: [cq.close]
+- id: M3.3-37
+  action: «Напомнить не начавшим»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [team.remind]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [team.remind]
+- id: M3.3-38
+  action: Снимок оценки, пометка снимка «ошибочный»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [snapshot.create, snapshot.invalidate]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [snapshot.create, snapshot.invalidate]
+- id: M3.3-39
+  action: Сравнение со снимком
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: ✅ (с деньгами)
+      effect: allow
+      money: true
+      permissions: [snapshot.compare]
+    project_moderator:
+      spec: ✅ (с деньгами)
+      effect: allow
+      money: true
+      permissions: [snapshot.compare]
+    expert:
+      spec: ✅ (только часы)
+      effect: allow
+      money: false
+      permissions: [snapshot.compare]
+    reviewer:
+      spec: ✅ (только часы)
+      effect: allow
+      money: false
+      permissions: [snapshot.compare]
+    project_presale:
+      spec: ✅ (с деньгами)
+      effect: allow
+      money: true
+      permissions: [snapshot.compare]
+  permissions: [snapshot.compare]
+- id: M3.3-40
+  action: Статистика
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin:
+      spec: 👁 в режиме поддержки, без денег
+      effect: view
+      context: [support_session]
+      money: false
+      permissions: [stats.read]
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: ✅ (с деньгами)
+      effect: allow
+      money: true
+      permissions: [stats.read]
+    project_moderator:
+      spec: ✅ (с деньгами)
+      effect: allow
+      money: true
+      permissions: [stats.read]
+    expert:
+      spec: ✅ (без денег)
+      effect: allow
+      money: false
+      permissions: [stats.read]
+    reviewer:
+      spec: ✅ (без денег)
+      effect: allow
+      money: false
+      permissions: [stats.read]
+    project_presale:
+      spec: ✅ (с деньгами)
+      effect: allow
+      money: true
+      permissions: [stats.read]
+  permissions: [stats.read]
+- id: M3.3-41
+  action: Экспорт «часы»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: ✅
+      effect: allow
+      permissions: [export.hours]
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [export.hours]
+    expert:
+      spec: ✅
+      effect: allow
+      permissions: [export.hours]
+    reviewer:
+      spec: ✅
+      effect: allow
+      permissions: [export.hours]
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [export.hours]
+  permissions: [export.hours]
+- id: M3.3-42
+  action: Экспорт «с деньгами и допущениями»
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head:
+      spec: ✅
+      effect: allow
+      permissions: [export.money]
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [export.money]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [export.money]
+  permissions: [export.money]
+- id: M3.3-43
+  action: Восстановить из корзины
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [trash.restore]
+    expert:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [trash.restore]
+    reviewer:
+      spec: свои
+      effect: allow
+      scope: own_discipline
+      permissions: [trash.restore]
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [trash.restore]
+- id: M3.3-44
+  action: Восстановить документ заказчика из корзины ([Решение GAP-06])
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [docs.restore]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale:
+      spec: ✅
+      effect: allow
+      permissions: [docs.restore]
+  permissions: [docs.restore]
+- id: M3.3-45
+  action: Перевести проект в архив
+  cells:
+    superadmin: {spec: ❌, effect: deny}
+    admin: {spec: ❌, effect: deny}
+    security_auditor: {spec: ❌, effect: deny}
+    presale_head: {spec: ❌, effect: deny}
+    project_moderator:
+      spec: ✅
+      effect: allow
+      permissions: [project.status]
+    expert: {spec: ❌, effect: deny}
+    reviewer: {spec: ❌, effect: deny}
+    project_presale: {spec: ❌, effect: deny}
+  permissions: [project.status]
+
+# ---------------------------------------------------------------------------
+# 7. Таблица 3.4: ограничения по статусу проекта. Право разрешено, только если
+# выполнены выдача (раздел 3) И все строки 3.4, в которых оно перечислено
+# (для субъектов из applies_to). Источник данных для TC-SEC-06.
+# ---------------------------------------------------------------------------
+matrix_3_4:
+- id: M3.4-01
+  key: project.visibility
+  action: Проект виден в «Моих оценках»
+  permissions: [project.list_mine, project.read, tree.read, discussion.read]
+  applies_to: [project_moderator, project_member]
+  statuses:
+    preparation:
+      spec: модераторы
+      effect: allow
+      subjects: [project_moderator]
+    estimation:
+      spec: вся команда
+      effect: allow
+      subjects: [project_member]
+    consolidation:
+      spec: вся команда
+      effect: allow
+      subjects: [project_member]
+    completed:
+      spec: вся команда
+      effect: allow
+      subjects: [project_member]
+    archived:
+      spec: вся команда, по фильтру «Архив» ([Решение Q-44])
+      effect: allow
+      subjects: [project_member]
+      flags: [archive_filter]
+- id: M3.4-02
+  key: tree.edit.expert
+  action: Правка дерева и O/R/P экспертом
+  permissions: [tree.write, comment.write, branch.profile.write, node_type.create_local, branch.copy_from,
+    branch.status.draft_done, review.mark]
+  applies_to: [expert, reviewer]
+  statuses:
+    preparation: {spec: ❌, effect: deny}
+    estimation: {spec: ✅ свои, effect: allow, scope: own_discipline}
+    consolidation:
+      spec: ✅ свои (ветка «готово» → «черновик» с предупреждением до сохранения, [Решение GAP-10])
+      effect: allow
+      scope: own_discipline
+      flags: [warn_done_to_draft_once]
+    completed: {spec: ❌, effect: deny}
+    archived: {spec: ❌, effect: deny}
+- id: M3.4-03
+  key: tree.edit.moderator
+  action: Правка дерева модератором
+  permissions: [tree.write, tree.move.cross_branch, comment.write, branch.profile.write, node_type.create_local,
+    branch.copy_from, branch.status.draft_done, branch.status.not_needed, review.mark]
+  applies_to: [project_moderator]
+  statuses:
+    preparation: {spec: ✅, effect: allow}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ❌ (сначала «Переоткрыть»), effect: deny, note: сначала переход Завершена → Оценка}
+    archived: {spec: ❌ (сначала «Восстановить»), effect: deny, note: сначала переход Архив → Завершена}
+- id: M3.4-04
+  key: settings.team.rates
+  action: Настройки, команда, ставки
+  permissions: [project.settings.write, project.disciplines.add, team.write, team.replace_member, project.ad_search,
+    money.write]
+  applies_to: [project_moderator]
+  statuses:
+    preparation: {spec: ✅, effect: allow}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ❌, effect: deny}
+    archived: {spec: ❌, effect: deny}
+- id: M3.4-05
+  key: discussion.write
+  action: Писать в обсуждениях
+  permissions: [discussion.write, thread.resolve]
+  applies_to: [project_member]
+  statuses:
+    preparation:
+      spec: модераторы
+      effect: allow
+      subjects: [project_moderator]
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed:
+      spec: ❌ (чтение)
+      effect: deny
+      flags: [read_only]
+    archived:
+      spec: ❌ (чтение)
+      effect: deny
+      flags: [read_only]
+- id: M3.4-06
+  key: customer_questions
+  action: Статусы вопросов заказчику
+  permissions: [cq.manage, cq.edit, cq.withdraw, cq.answer, cq.close, cq.reopen]
+  applies_to: [project_member]
+  statuses:
+    preparation: {spec: ✅, effect: allow}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ✅ (ответы приходят и после КП), effect: allow}
+    archived: {spec: ❌, effect: deny}
+- id: M3.4-07
+  key: snapshot
+  action: Снимок
+  permissions: [snapshot.create, snapshot.invalidate]
+  applies_to: [project_moderator]
+  statuses:
+    preparation: {spec: ❌, effect: deny}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ✅, effect: allow}
+    archived: {spec: ❌, effect: deny}
+- id: M3.4-08
+  key: export.stats.compare
+  action: Экспорт, статистика, сравнение
+  permissions: [export.hours, export.money, stats.read, snapshot.read, snapshot.compare, cq.read]
+  applies_to: [project_member]
+  statuses:
+    preparation:
+      spec: модераторы
+      effect: allow
+      subjects: [project_moderator]
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ✅, effect: allow}
+    archived: {spec: ✅, effect: allow}
+- id: M3.4-09
+  key: branch.copy.source
+  action: Копировать ветку из проекта
+  evaluated_on: source_project
+  permissions: [branch.copy_from]
+  applies_to: [project_member]
+  statuses:
+    preparation: {spec: ❌, effect: deny}
+    estimation:
+      spec: ✅ участникам
+      effect: allow
+      subjects: [project_member]
+    consolidation:
+      spec: ✅ участникам
+      effect: allow
+      subjects: [project_member]
+    completed:
+      spec: ✅ участникам
+      effect: allow
+      subjects: [project_member]
+    archived:
+      spec: ✅ текущим участникам
+      effect: allow
+      subjects: [project_member]
+      flags: [current_members_only]
+- id: M3.4-10
+  key: trash.restore
+  action: Восстановление из корзины
+  permissions: [trash.restore, docs.restore]
+  applies_to: [project_moderator, expert, reviewer, project_presale]
+  statuses:
+    preparation: {spec: ✅, effect: allow}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ❌, effect: deny}
+    archived: {spec: ❌, effect: deny}
+- id: M3.4-11
+  key: outcome
+  action: «Результат пресейла»
+  permissions: [outcome.write]
+  applies_to: [project_moderator, project_presale, presale_head]
+  statuses:
+    preparation: {spec: ✅, effect: allow}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ✅, effect: allow}
+    archived: {spec: ✅, effect: allow}
+- id: M3.4-12
+  key: support.open
+  action: Открыть в режиме поддержки (администратор)
+  permissions: [support.open]
+  applies_to: [admin]
+  statuses:
+    preparation: {spec: ✅, effect: allow}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ✅, effect: allow}
+    archived: {spec: ✅, effect: allow}
+- id: M3.4-13
+  key: presale_head.read
+  action: Открыть на чтение (руководитель пресейла)
+  permissions: [project.read, tree.read, money.read, notes.read]
+  applies_to: [presale_head]
+  statuses:
+    preparation: {spec: ✅, effect: allow}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ✅, effect: allow}
+    archived: {spec: ✅, effect: allow}
+- id: M3.4-14
+  key: presale_head.join
+  action: «Стать модератором проекта» (руководитель пресейла)
+  permissions: [project.join_as_moderator]
+  applies_to: [presale_head]
+  statuses:
+    preparation: {spec: ✅, effect: allow}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ✅, effect: allow}
+    archived: {spec: ❌, effect: deny}
+- id: M3.4-15
+  key: notify.estimation
+  action: Уведомления о событиях оценки (правки, обсуждения, сводка)
+  notification_class: estimation
+  see: contracts/notifications.yaml → classes
+  statuses:
+    preparation: {spec: не отправляются, effect: deny}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed:
+      spec: только по вопросам заказчику
+      effect: allow
+      flags: [customer_questions_only]
+    archived: {spec: не отправляются, effect: deny}
+- id: M3.4-16
+  key: notify.service_security
+  action: Служебные уведомления и уведомления ИБ («Вас назначили», режим поддержки, «Стать модератором»,
+    «Проект без модератора», замена участника). Экспертам и пресейлу, назначенным в «Подготовке», письмо
+    «Вас назначили» уходит при переходе в «Оценку» (BR-PRJ-01)
+  notification_class: [service, security]
+  see: contracts/notifications.yaml → classes
+  statuses:
+    preparation: {spec: ✅, effect: allow}
+    estimation: {spec: ✅, effect: allow}
+    consolidation: {spec: ✅, effect: allow}
+    completed: {spec: ✅, effect: allow}
+    archived: {spec: ✅, effect: allow}
