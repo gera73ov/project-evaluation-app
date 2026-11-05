@@ -126,8 +126,6 @@ def test_operation_is_annotated(method: str, path: str, op: dict) -> None:
 
 @pytest.mark.spec("SEC-AUTHZ-01")
 def test_permissions_exist_in_matrix() -> None:
-    if not PERMISSIONS_FILE.exists():
-        pytest.skip("contracts/permissions.yaml (SEC-001) ещё не влит")
     data = yaml.safe_load(PERMISSIONS_FILE.read_text(encoding="utf-8"))["permissions"]
     known = set(data) | PSEUDO_PERMISSIONS
     used = set()
