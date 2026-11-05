@@ -1,6 +1,7 @@
 /** Точка входа SPA (INF-003). Роутинг, провайдеры и layout — трек FE (src/app). */
 import '@mantine/core/styles.css';
 import './shared/ui/app.css';
+import './shared/ui/ui.css';
 import './shared/i18n';
 
 import { StrictMode } from 'react';
