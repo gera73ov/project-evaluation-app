@@ -23,6 +23,7 @@ __pycache__/
 .coverage.*
 coverage.xml
 coverage.json
+.audit-requirements.txt
 htmlcov/
 *.egg-info/
 dist/

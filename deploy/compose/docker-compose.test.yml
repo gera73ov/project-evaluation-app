@@ -1,0 +1,95 @@
+# INF-004 · профиль test: эмуляторы корпоративных сервисов для dev и автотестов (SPEC 17.1,
+# 18.1; Q-50). Подключается вместе с основным файлом: `make up-test`.
+#   samba-ad  — Samba AD DC: LDAPS 636 и StartTLS 389, тестовые OU, вложенные группы,
+#               отключённые учётки (deploy/samba-ad/seed.sh)
+#   mailpit   — SMTP-ловушка с STARTTLS; веб-интерфейс писем http://127.0.0.1:8025
+#   syslog    — syslog-приёмник по TCP+TLS (RFC 5425), эмулятор SIEM (SEC-AUD-05)
+# Сертификаты всех трёх выпущены dev-УЦ (deploy/compose/certs/ca.crt): в настройках
+# приложения этот УЦ загружается как «сертификат УЦ» контроллера AD и SIEM.
+services:
+  samba-ad:
+    profiles: ["test"]
+    build:
+      context: ../..
+      dockerfile: deploy/samba-ad/Dockerfile
+    image: estimator-samba-ad:dev
+    hostname: dc1
+    domainname: test.estimator.local
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      SAMBA_REALM: TEST.ESTIMATOR.LOCAL
+      SAMBA_DOMAIN: ESTTEST
+      SAMBA_ADMIN_PASSWORD: ${SAMBA_ADMIN_PASSWORD:?}
+      SAMBA_TEST_PASSWORD: ${SAMBA_TEST_PASSWORD:?}
+    volumes:
+      - sambadata:/var/lib/samba
+      - ./certs:/certs:ro
+    networks:
+      backend:
+        aliases: [dc1.test.estimator.local]
+    ports:
+      - "127.0.0.1:${LDAPS_PORT:-1636}:636"
+      - "127.0.0.1:${LDAP_PORT:-1389}:389"
+    depends_on:
+      certs: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  mailpit:
+    profiles: ["test"]
+    image: axllent/mailpit:v1.33.0@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs: ["/tmp"]
+    user: "1000:1000"
+    environment:
+      MP_SMTP_TLS_CERT: /certs/mailpit.crt
+      MP_SMTP_TLS_KEY: /certs/mailpit.key
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "false"
+      MP_MAX_MESSAGES: "5000"
+    volumes: ["./certs:/certs:ro"]
+    networks: [backend]
+    ports: ["127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"]
+    depends_on:
+      certs: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+
+  syslog:
+    profiles: ["test"]
+    image: estimator-api:${APP_VERSION:-dev}
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs: ["/tmp"]
+    command: ["python", "/opt/syslog/receiver.py"]
+    environment:
+      SYSLOG_BIND: 0.0.0.0
+      SYSLOG_PORT: "6514"
+      SYSLOG_CERT: /certs/syslog.crt
+      SYSLOG_KEY: /certs/syslog.key
+      SYSLOG_CLIENT_CA: /certs/ca.crt
+      SYSLOG_REQUIRE_CLIENT_CERT: ${SYSLOG_REQUIRE_CLIENT_CERT:-0}
+      # журнал принятых событий для тестов: docker compose exec syslog cat /tmp/siem/messages.log
+      SYSLOG_OUTPUT: /tmp/siem/messages.log
+    volumes:
+      - ../syslog/receiver.py:/opt/syslog/receiver.py:ro
+      - ./certs:/certs:ro
+    networks: [backend]
+    ports: ["127.0.0.1:${SYSLOG_TLS_PORT:-6514}:6514"]
+    depends_on:
+      certs: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 6514), 3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+volumes:
+  sambadata: {}

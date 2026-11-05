@@ -81,10 +81,11 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]  # assert и фиктивные пароли в тестах
+"../deploy/**/test_*.py" = ["S101", "S105", "S106"]
 
 # --- Тесты и покрытие (NFR-MNT-01) ---
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "../deploy"]
 addopts = "-ra --strict-markers"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
