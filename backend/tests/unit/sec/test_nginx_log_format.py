@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parents[4] / "deploy" / "nginx"
 FORBIDDEN = re.compile(
     r"\$(request|request_uri|args|arg_\w+|query_string|is_args|request_body|http_cookie|"
     r"cookie_\w+|http_authorization|http_x_csrf_token|sent_http_set_cookie|"
