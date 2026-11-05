@@ -1,0 +1,393 @@
+%% DB-001 · ER-диаграмма всех таблиц контракта contracts/db/schema.md (SPEC v0.5, 14.1–14.2).
+%% Аудиторские поля created_by/updated_by (→ users) не рисуются, чтобы диаграмма читалась.
+%% totp_used_codes — в Redis, app_params — ключи method.* в system_settings (schema.md, DB-D01/DB-D02).
+erDiagram
+    USERS ||--o{ USER_ROLES : has
+    USERS ||--o{ PASSWORD_HISTORY : has
+    USERS ||--o{ BACKUP_CODES : has
+    USERS ||--o{ KNOWN_DEVICES : has
+    USERS ||--o{ SESSIONS : has
+    USERS ||--o{ AUTH_TOKENS : has
+    USERS ||--o{ NOTIFICATIONS : receives
+    USERS ||--o{ EXPORT_FILES : requests
+    USERS ||--o{ USER_VIEW_STATE : keeps
+    USERS ||--o{ SUPPORT_SESSIONS : "opens (admin)"
+    USERS ||--o{ PROJECT_MEMBERS : participates
+
+    DISCIPLINES ||--o{ DISCIPLINE_PROFILES : has
+    DISCIPLINE_PROFILES |o--o| DISCIPLINES : "default of"
+    DISCIPLINES ||--o{ CONTROL_RATIOS : "A of"
+    PROJECTS |o--o{ NODE_TYPES : "local types"
+    NODE_TYPES |o--o{ NODE_TYPES : merged_into
+    LOSS_REASONS |o--o{ PROJECTS : "loss reason"
+
+    PROJECTS ||--|| PROJECT_MONEY : "has (restricted)"
+    CURRENCIES ||--o{ PROJECT_MONEY : currency
+    VAT_RATES ||--o{ PROJECT_MONEY : vat
+    PROJECTS ||--o{ PROJECT_RATES : "has (restricted)"
+    DISCIPLINES |o--o{ PROJECT_RATES : "rate (NULL = PM)"
+    PROJECTS ||--o| PROJECT_TOTALS : caches
+    PROJECTS ||--o{ PROJECT_TOTALS_DAILY : "daily totals"
+    PROJECTS ||--o{ PROJECT_MEMBERS : has
+    DISCIPLINES |o--o{ PROJECT_MEMBERS : "expert of"
+    PROJECTS ||--o{ PROJECT_PHASES : enables
+    PHASES ||--o{ PROJECT_PHASES : used_in
+    PROJECTS ||--o{ PROJECT_DISCIPLINES : has
+    DISCIPLINES ||--o{ PROJECT_DISCIPLINES : added
+    DISCIPLINE_PROFILES ||--o{ PROJECT_DISCIPLINES : profile
+    PROJECTS ||--o{ BRANCH_STATUS : tracks
+    PHASES ||--o{ BRANCH_STATUS : phase
+    DISCIPLINES ||--o{ BRANCH_STATUS : discipline
+    PROJECTS ||--o{ SUPPORT_SESSIONS : "support mode"
+    PROJECTS |o--o{ PROJECTS : copied_from
+    PROJECTS ||--o{ PROJECT_JOURNAL : journal
+
+    PROJECTS ||--o{ NODES : contains
+    NODES |o--o{ NODES : parent_of
+    PHASES ||--o{ NODES : phase
+    DISCIPLINES |o--o{ NODES : discipline
+    NODE_TYPES |o--o{ NODES : typed
+    NODES ||--o{ NODE_HISTORY : changes
+    PROJECTS ||--o{ CHANGE_LOG : versions
+    PROJECTS ||--o{ USER_VIEW_STATE : "view of"
+
+    PROJECTS ||--o{ THREADS : has
+    NODES |o--o{ THREADS : "question on"
+    THREADS |o--o{ MESSAGES : contains
+    NODES |o--o{ MESSAGES : discussed_in
+    MESSAGES ||--o{ MESSAGE_ADDRESSEES : addressed_to
+    MESSAGES ||--o{ MESSAGE_HISTORY : edits
+    PROJECTS ||--o{ PROJECT_NOTES : "has (restricted)"
+    NODES |o--o{ PROJECT_NOTES : "note on"
+    PROJECTS ||--o{ CUSTOMER_DOCUMENTS : has
+
+    PROJECTS ||--o{ SNAPSHOTS : has
+    SNAPSHOTS |o--o{ EXPORT_FILES : source
+    PROJECTS |o--o{ EXPORT_FILES : "export of"
+    PROJECTS |o--o{ NOTIFICATIONS : about
+
+    USERS ||--o{ AUDIT_LOG : "acts (no FK)"
+    AUDIT_ANCHOR ||--o| AUDIT_LOG : "chain anchor"
+
+    USERS {
+        uuid id PK
+        citext login UK
+        citext email "partial UK"
+        varchar full_name
+        user_source source
+        uuid ad_object_guid UK
+        user_status status
+        user_block_reason block_reason
+        boolean totp_enabled
+    }
+    USER_ROLES {
+        uuid user_id PK
+        system_role role PK
+        role_source source
+    }
+    PASSWORD_HISTORY {
+        uuid id PK
+        uuid user_id FK
+        text password_hash
+    }
+    BACKUP_CODES {
+        uuid id PK
+        uuid user_id FK
+        text code_hash
+        timestamptz used_at
+    }
+    KNOWN_DEVICES {
+        uuid user_id PK
+        text ua_family PK
+        cidr subnet PK
+        timestamptz last_seen_at
+    }
+    SESSIONS {
+        bytea id_hash PK
+        uuid user_id FK
+        timestamptz expires_at
+        boolean mfa_passed
+        timestamptz step_up_until
+        timestamptz revoked_at
+    }
+    AUTH_TOKENS {
+        uuid id PK
+        uuid user_id FK
+        auth_token_kind kind
+        bytea token_hash UK
+        timestamptz expires_at
+        timestamptz used_at
+    }
+    SYSTEM_SETTINGS {
+        text key PK
+        jsonb value
+    }
+    PHASES {
+        uuid id PK
+        varchar name
+        int sort_order
+        boolean is_cross_cutting "one true"
+        boolean is_active
+    }
+    DISCIPLINES {
+        uuid id PK
+        varchar name UK
+        varchar short_name
+        varchar color
+        uuid default_profile_id FK
+    }
+    NODE_TYPES {
+        uuid id PK
+        varchar name
+        text icon
+        jsonb norms
+        boolean is_system "one true"
+        uuid project_id FK "NULL = global"
+        node_type_proposal proposal_status
+        uuid merged_into_id FK
+    }
+    DISCIPLINE_PROFILES {
+        uuid id PK
+        uuid discipline_id FK
+        varchar name
+        uuid_array type_chain
+    }
+    COMMENT_TAGS {
+        uuid id PK
+        varchar name
+        comment_tag_category category
+    }
+    CONTROL_RATIOS {
+        uuid id PK
+        uuid discipline_a_id FK
+        uuid_array disciplines_b
+        numeric min_pct
+        numeric max_pct
+    }
+    WORK_CALENDAR {
+        date date PK
+        boolean is_working
+        smallint year
+    }
+    LOSS_REASONS {
+        uuid id PK
+        varchar name
+        boolean is_other
+    }
+    VAT_RATES {
+        uuid id PK
+        varchar name
+        numeric percent "NULL = no VAT"
+        boolean is_default "one true"
+    }
+    CURRENCIES {
+        char code PK
+        varchar symbol
+        boolean is_active
+    }
+    PROJECTS {
+        uuid id PK
+        varchar name
+        varchar customer
+        project_status status
+        project_outcome outcome
+        quote_figure quote_figure
+        detail_level detail_level
+        numeric pm_percent
+        bigint version
+        int next_question_no
+        timestamptz completed_at
+    }
+    PROJECT_MONEY {
+        uuid project_id PK
+        char currency FK
+        numeric exchange_rate
+        uuid vat_rate_id FK
+        numeric vat_percent
+        numeric contract_amount
+    }
+    PROJECT_TOTALS {
+        uuid project_id PK
+        numeric e
+        numeric p80
+        numeric p90
+        numeric cost_rub
+        numeric quote_rub
+        numeric quote_cur
+    }
+    PROJECT_TOTALS_DAILY {
+        uuid project_id PK
+        date date PK
+        numeric e
+        numeric p80
+        numeric p90
+    }
+    PROJECT_RATES {
+        uuid id PK
+        uuid project_id FK
+        uuid discipline_id FK "NULL = PM"
+        numeric rate_rub
+    }
+    PROJECT_MEMBERS {
+        uuid id PK
+        uuid project_id FK
+        uuid user_id FK
+        project_role role
+        uuid discipline_id FK
+        boolean is_reviewer
+        boolean added_by_admin_self
+    }
+    PROJECT_PHASES {
+        uuid project_id PK
+        uuid phase_id PK
+        boolean is_enabled
+        boolean in_pm_base
+    }
+    PROJECT_DISCIPLINES {
+        uuid project_id PK
+        uuid discipline_id PK
+        uuid profile_id FK
+    }
+    BRANCH_STATUS {
+        uuid project_id PK
+        uuid phase_id PK
+        uuid discipline_id PK
+        branch_status_value status
+    }
+    SUPPORT_SESSIONS {
+        uuid id PK
+        uuid admin_id FK
+        uuid project_id FK
+        varchar reason
+        timestamptz expires_at
+    }
+    PROJECT_JOURNAL {
+        uuid id PK
+        uuid project_id FK
+        text action
+        boolean is_money
+        jsonb changes
+    }
+    NODES {
+        uuid id PK
+        uuid project_id FK
+        uuid parent_id FK
+        node_kind kind
+        uuid phase_id FK
+        uuid discipline_id FK
+        uuid type_id FK
+        varchar title
+        text position "COLLATE C"
+        numeric o
+        numeric r
+        numeric p
+        int multiplier
+        jsonb comment_lines
+        int version
+        jsonb field_versions
+        timestamptz deleted_at
+        uuid deleted_batch_id
+    }
+    NODE_HISTORY {
+        uuid id PK
+        uuid node_id FK
+        bigint project_version
+        node_action action
+        jsonb changes
+    }
+    CHANGE_LOG {
+        uuid project_id PK
+        bigint version PK
+        jsonb event
+    }
+    USER_VIEW_STATE {
+        uuid user_id PK
+        uuid project_id PK
+        jsonb state
+    }
+    THREADS {
+        uuid id PK
+        uuid project_id FK
+        uuid node_id FK
+        thread_status status
+        boolean is_customer
+        int customer_question_no "UK in project"
+        customer_question_status customer_status
+    }
+    MESSAGES {
+        uuid id PK
+        uuid project_id FK
+        uuid node_id FK
+        uuid thread_id FK
+        uuid author_id FK
+        varchar body
+        message_kind kind
+        boolean needs_answer
+    }
+    MESSAGE_ADDRESSEES {
+        uuid message_id FK
+        addressee_type target_type
+        uuid target_id
+    }
+    MESSAGE_HISTORY {
+        uuid id PK
+        uuid message_id FK
+        varchar body
+        message_history_reason reason
+    }
+    PROJECT_NOTES {
+        uuid id PK
+        uuid project_id FK
+        uuid node_id FK
+        varchar body
+    }
+    CUSTOMER_DOCUMENTS {
+        uuid id PK
+        uuid project_id FK
+        varchar file_name
+        uuid storage_key UK
+        bytea key_enc
+        scan_status scan_status
+        timestamptz deleted_at
+    }
+    NOTIFICATIONS {
+        uuid id PK
+        uuid user_id FK
+        uuid project_id FK
+        text kind
+        jsonb payload
+        timestamptz read_at
+        timestamptz emailed_at
+    }
+    SNAPSHOTS {
+        uuid id PK
+        uuid project_id FK
+        varchar name
+        boolean is_invalid
+        jsonb payload
+        jsonb money_payload "restricted"
+        bytea payload_sha256
+    }
+    EXPORT_FILES {
+        uuid id PK
+        uuid user_id FK
+        uuid project_id FK
+        text kind
+        export_status status
+        timestamptz expires_at
+    }
+    AUDIT_LOG {
+        bigint id PK
+        timestamptz ts PK
+        text event_type
+        audit_result result
+        uuid user_id
+        jsonb details
+        bytea prev_hash
+        bytea hash
+    }
+    AUDIT_ANCHOR {
+        smallint id PK
+        bigint last_purged_id
+        bytea last_purged_hash
+    }
