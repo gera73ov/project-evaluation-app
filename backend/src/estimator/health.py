@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from estimator.config import Settings
+from estimator.db.session import connect_args
 from estimator.logging import get_logger
 
 HealthCheck = Callable[[], Awaitable[None]]
@@ -70,7 +71,11 @@ def default_probes(settings: Settings) -> Probes:
     """Проверки PostgreSQL и Redis по настройкам процесса."""
     probes = Probes()
     engine: AsyncEngine = create_async_engine(
-        settings.database_url.get_secret_value(), pool_size=1, max_overflow=0, pool_pre_ping=True
+        settings.database_url.get_secret_value(),
+        pool_size=1,
+        max_overflow=0,
+        pool_pre_ping=True,
+        connect_args=connect_args(settings),
     )
     redis = Redis.from_url(
         settings.redis_url.get_secret_value(),

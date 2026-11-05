@@ -3,6 +3,8 @@
 !backend/pyproject.toml
 !backend/uv.lock
 !backend/src/**
+!backend/alembic.ini
+!backend/alembic/**
 !frontend/**
 !contracts/**
 !deploy/docker/**

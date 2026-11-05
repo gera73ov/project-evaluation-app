@@ -35,6 +35,9 @@ RUN groupadd --system --gid 10001 app \
     --shell /usr/sbin/nologin app
 COPY --from=build --chown=root:root /opt/venv /opt/venv
 WORKDIR /app
+# Миграции Alembic для `estimator migrate` (DB-002): /app/alembic.ini → /app/alembic
+COPY --chown=root:root backend/alembic.ini ./
+COPY --chown=root:root backend/alembic ./alembic
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

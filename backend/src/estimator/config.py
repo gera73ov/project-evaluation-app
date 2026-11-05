@@ -33,6 +33,13 @@ class AppEnv(StrEnum):
     PROD = "prod"
 
 
+class DbSslMode(StrEnum):
+    """Режим TLS до PostgreSQL (DB-011, SEC-WEB-05)."""
+
+    DISABLE = "disable"
+    VERIFY_FULL = "verify-full"
+
+
 class Settings(BaseSettings):
     """Параметры процесса. Имя переменной окружения = имя поля в верхнем регистре."""
 
@@ -61,6 +68,17 @@ class Settings(BaseSettings):
             "Строка подключения к PostgreSQL 16 (драйвер asyncpg); секрет — пароль внутри строки "
             "(Docker secret `database_url`)"
         ),
+    )
+    database_sslmode: DbSslMode = Field(
+        default=DbSslMode.DISABLE,
+        description=(
+            "TLS до PostgreSQL: `disable` (dev, одна сеть Docker) или `verify-full` "
+            "(stage, prod: проверка сертификата и имени сервера, DB-011)"
+        ),
+    )
+    database_sslrootcert: str = Field(
+        default="",
+        description="Файл корневого сертификата УЦ для `verify-full`; пусто — системные УЦ",
     )
     redis_url: SecretStr = Field(
         default=SecretStr("redis://redis:6379/0"),

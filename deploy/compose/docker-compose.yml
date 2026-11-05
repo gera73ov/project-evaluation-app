@@ -30,6 +30,8 @@ x-backend: &backend
     postgres: { condition: service_healthy }
     redis: { condition: service_healthy }
     certs: { condition: service_completed_successfully }
+    # Приложение работает от роли estimator_app, которую создают миграции (DB-002)
+    migrate: { condition: service_completed_successfully }
 
 services:
   # Выпуск dev-сертификатов в deploy/compose/certs (один раз; существующие не трогает)
@@ -100,6 +102,15 @@ services:
       start_period: 10m
       retries: 5
     restart: unless-stopped
+
+  # Миграции БД до старта api, worker и beat (DB-002; SPEC 18.3 шаг 3)
+  migrate:
+    <<: *backend
+    command: ["estimator", "migrate"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+      certs: { condition: service_completed_successfully }
 
   api:
     <<: *backend

@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import importlib
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -26,7 +27,7 @@ from estimator.logging import configure_logging
 QUEUES: tuple[str, ...] = ("default",)
 
 #: Модули с задачами треков (``estimator.<трек>.tasks``); подключаются при старте worker.
-TASK_MODULES: tuple[str, ...] = ("estimator.jobs.builtin",)
+TASK_MODULES: tuple[str, ...] = ("estimator.jobs.builtin", "estimator.db.tasks")
 
 
 def make_celery(settings: Settings | None = None) -> Celery:
@@ -55,6 +56,10 @@ def make_celery(settings: Settings | None = None) -> Celery:
     )
     from estimator.jobs.schedule import build_beat_schedule
 
+    # Модули треков регистрируют свои периодические задачи при импорте (register_periodic),
+    # поэтому импортируем их до сборки расписания, а не лениво при старте worker.
+    for module in TASK_MODULES:
+        importlib.import_module(module)
     app.conf.beat_schedule = build_beat_schedule()
     return app
 
