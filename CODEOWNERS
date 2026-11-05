@@ -41,6 +41,8 @@
 /frontend/package-lock.json                    @gera73ov
 /frontend/vite.config.ts                       @gera73ov
 /frontend/eslint.config.js                     @gera73ov
+/frontend/.npmrc                                @gera73ov
+/frontend/scripts/                             @gera73ov
 
 # Контракты (PLAN.md раздел 6): ревью треков-потребителей обязательно
 /contracts/                                    @gera73ov
