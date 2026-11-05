@@ -80,6 +80,7 @@ def test_markers_reach_traceability_dump(pytester: pytest.Pytester) -> None:
         "tc": ["TC-CALC-01"],
         "spec": ["BR-CALC-03", "6.5"],
         "gherkin": [],
+        "pending": False,
     }
     assert tests["test_multiplier"]["gherkin"] == ["G-07"]
     assert tests["test_plain"]["tc"] == []

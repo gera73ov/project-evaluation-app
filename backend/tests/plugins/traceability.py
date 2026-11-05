@@ -55,7 +55,14 @@ def item_ids(item: pytest.Item) -> dict[str, list[str]]:
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    records = [{"nodeid": item.nodeid, **item_ids(item)} for item in items]
+    records = [
+        {
+            "nodeid": item.nodeid,
+            **item_ids(item),
+            "pending": item.get_closest_marker("pending") is not None,
+        }
+        for item in items
+    ]
     path = config.getoption("--traceability-json")
     # под pytest-xdist тесты собирает каждый воркер — файл пишет только основной процесс
     if path and not hasattr(config, "workerinput"):

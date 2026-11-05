@@ -112,7 +112,7 @@ def build_report(dumps: list[dict], spec: SpecIndex) -> Report:
         source = dump.get("source", "?")
         for test in dump["tests"]:
             total += 1
-            name = f"{source}: {test['nodeid']}"
+            name = f"{source}: {test['nodeid']}" + (" (pending)" if test.get("pending") else "")
             for kind in by_kind:
                 for value in test.get(kind, []):
                     by_kind[kind][value].append(name)
@@ -122,12 +122,14 @@ def build_report(dumps: list[dict], spec: SpecIndex) -> Report:
     lines = ["# Трассировка требований к тестам", ""]
     tc_covered = sum(1 for tc in spec.tc if by_kind["tc"].get(tc))
     g_covered = sum(1 for g in spec.gherkin if by_kind["gherkin"].get(g))
+    pending = sum(1 for d in dumps for t in d["tests"] if t.get("pending"))
     lines += [
         f"Тестов собрано: {total}. С маркерами трассировки: "
         f"{sum(1 for d in dumps for t in d['tests'] if any(t.get(k) for k in by_kind))}.",
         "",
         f"- Тест-кейсы SPEC 17.1: {tc_covered} из {len(spec.tc)} имеют тесты.",
-        f"- Сценарии SPEC 17.2: {g_covered} из {len(spec.gherkin)} имеют тесты.",
+        f"- Сценарии SPEC 17.2: {g_covered} из {len(spec.gherkin)} имеют тесты "
+        f"(шаги не реализованы — pending: {pending}).",
         f"- Требований и разделов SPEC в маркерах: {len(by_kind['spec'])}.",
         "",
         "## Тест-кейсы SPEC 17.1",
