@@ -70,6 +70,21 @@ class Settings(BaseSettings):
         default=SecretStr("redis://redis:6379/1"),
         description="Брокер Celery в Redis (Docker secret `celery_broker_url`)",
     )
+    encryption_key: SecretStr | None = Field(
+        default=None,
+        description=(
+            "Мастер-ключ шифрования AES-256-GCM в виде `<id>:<base64url 32 байта>` "
+            "(SEC-CRYPT-01/02; Docker secret `encryption_key`). Новый ключ: "
+            "`estimator generate-key`"
+        ),
+    )
+    encryption_keys_old: SecretStr | None = Field(
+        default=None,
+        description=(
+            "Прежние мастер-ключи через запятую в том же формате — только на время "
+            "`estimator rotate-key` (SEC-CRYPT-02, SPEC 18.4); после ротации убрать"
+        ),
+    )
     app_timezone: str = Field(
         default="Europe/Moscow",
         description=(
@@ -134,6 +149,8 @@ def env_table() -> str:
         default = field.get_default(call_default_factory=True)
         if isinstance(default, SecretStr):
             default = default.get_secret_value()
+        if default is None:
+            default = ""
         if isinstance(default, list):
             default = ",".join(default)
         if isinstance(default, StrEnum):

@@ -1,0 +1,13 @@
+{% block subject %}Оповещение ИБ: {{ alert_label(alert) or alert }}{% endblock %}
+{% block body %}
+Оповещение службы ИБ (SEC-AUTH-07): {{ alert_label(alert) or alert }}.
+Время: {{ time }}
+{% if actor_login %}
+Кто: {{ actor_login }}
+{% endif %}
+{% if ip %}
+Адрес: {{ ip }}
+{% endif %}
+
+Подробности — в журнале аудита: {{ link }}
+{% endblock %}

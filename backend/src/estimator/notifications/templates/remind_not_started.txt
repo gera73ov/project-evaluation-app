@@ -1,0 +1,9 @@
+{% block subject %}Напоминание: оценка проекта «{{ project_name }}»{% endblock %}
+{% block body %}
+Модератор напоминает: ваша часть оценки проекта «{{ project_name }}» ещё не начата.
+{% if deadline %}
+Срок: {{ deadline }}.
+{% endif %}
+
+Открыть проект: {{ link }}
+{% endblock %}

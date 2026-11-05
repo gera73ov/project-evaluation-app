@@ -19,6 +19,7 @@ FROM ${NGINX_IMAGE} AS runtime
 RUN apk upgrade --no-cache \
  && rm -f /etc/nginx/conf.d/default.conf
 COPY deploy/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY deploy/nginx/log_format.conf /etc/nginx/log_format.conf
 COPY deploy/nginx/conf.d/ /etc/nginx/conf.d/
 COPY --from=build /src/frontend/dist /usr/share/nginx/html
 # Не root: пользователь nginx из базового образа (uid 101), порты выше 1024,
