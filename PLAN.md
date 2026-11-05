@@ -80,7 +80,7 @@
 | Этап | Веха | Задач | Подзадач | Готово задач | % |
 |---|---|---|---|---|---|
 | 0. Фундамент и контракты | M0 | 25 | 25 | 25 | 100% |
-| 1. Ядро: данные, расчёт, безопасность, вход | M1 | 50 | 37 | 0 | 0% |
+| 1. Ядро: данные, расчёт, безопасность, вход | M1 | 50 | 37 | 19 | 38% |
 | 2. Проекты и дерево | M2 | 49 | 46 | 0 | 0% |
 | 3. Обсуждения, вопросы, уведомления, документы | M3 | 24 | 20 | 0 | 0% |
 | 4. AD, админки, контур ИБ | M4 | 40 | 35 | 0 | 0% |
@@ -88,15 +88,15 @@
 | 6. Укрепление, НФТ, эксплуатация | M6 | 30 | 10 | 0 | 0% |
 | 7. Stage, ИБ-приёмка, UAT, релиз | M7 | 5 | 19 | 0 | 0% |
 | 8. Пилот | M8 | 3 | 0 | 0 | 0% |
-| **Итого** | | **254** | **216** | **25** | **9,8%** |
+| **Итого** | | **254** | **216** | **44** | **17,3%** |
 
 **По трекам**
 
 | Трек | Задач | Готово | В работе | Заблокировано |
 |---|---|---|---|---|
 | INF | 17 | 8 | 0 | 0 |
-| DB | 13 | 1 | 0 | 0 |
-| CORE | 45 | 1 | 0 | 0 |
+| DB | 13 | 5 | 0 | 0 |
+| CORE | 45 | 7 | 0 | 0 |
 | AUTH | 19 | 1 | 0 | 0 |
 | SEC | 17 | 5 | 0 | 0 |
 | ADM | 13 | 1 | 0 | 0 |
@@ -104,11 +104,11 @@
 | RT | 9 | 1 | 0 | 0 |
 | NTF | 7 | 2 | 0 | 0 |
 | EXP | 13 | 1 | 0 | 0 |
-| FE | 52 | 1 | 0 | 0 |
+| FE | 52 | 5 | 0 | 0 |
 | QA | 27 | 2 | 0 | 0 |
 | DOC | 7 | 1 | 0 | 0 |
 | PM | 8 | 2 | 0 | 0 |
-| **Итого** | **254** | **24** | **0** | **0** |
+| **Итого** | **254** | **44** | **0** | **0** |
 
 ---
 
@@ -478,21 +478,21 @@
 
 #### DB — схема и миграции
 
-- [ ] **DB-002** · Alembic, роли БД и базовые расширения · трек DB
+- [x] **DB-002** · Alembic, роли БД и базовые расширения · трек DB · ✔ #15
   - SPEC: NFR-MNT-02, SEC-AUD-03, SEC-AUD-04, SEC-CRYPT-05
   - Зависит: DB-001, INF-004
   - Сделать: Alembic (async), шаблон миграции с обязательным `downgrade`; расширения `citext`; роли БД: `estimator_app` (рабочая), `estimator_migrator`, `estimator_audit_purge`; схема `audit`; генератор UUID v7 в приложении; правила expand → migrate → contract в README миграций.
   - Артефакты: `backend/alembic/`, `backend/src/estimator/db/{base,uuid7}.py`
   - Готово, когда: `estimator migrate` и `alembic downgrade base` проходят на чистой БД; роль приложения не владеет схемой `audit`.
 
-- [ ] **DB-011** · Асинхронная сессия SQLAlchemy и unit of work · трек DB
+- [x] **DB-011** · Асинхронная сессия SQLAlchemy и unit of work · трек DB · ✔ #15
   - SPEC: 13.1, NFR-REL-04, SEC-WEB-05
   - Зависит: DB-002
   - Сделать: фабрика `AsyncSession`, транзакция на запрос (commit до ответа клиенту), хук after-commit (для шины событий RT-002), TLS-подключение `sslmode=verify-full` по конфигурации.
   - Артефакты: `backend/src/estimator/db/session.py`
   - Готово, когда: тест «ответ клиенту отправляется только после commit» зелёный; after-commit хук вызывается только при успешном commit.
 
-- [ ] **DB-003** · Таблицы пользователей, сессий и настроек · трек DB
+- [x] **DB-003** · Таблицы пользователей, сессий и настроек · трек DB · ✔ #15
   - SPEC: 14.2 `users`, `user_roles`, `password_history`, `backup_codes`, `totp_used_codes`, `known_devices`, `sessions`, `system_settings`; FR-AUTH-AD-06, FR-AUTH-AD-12
   - Зависит: DB-002, DB-011
   - Сделать: миграция и ORM-модели: `users` (CITEXT `login` UNIQUE, частичный уникальный индекс `email`, `status`, `block_reason`, `source`, `ad_object_guid` UNIQUE, `timezone`, `notify_digest`, `notify_questions`); `user_roles` (enum 6 ролей, `source`; CHECK `ad_group` только для moderator/presale); `password_history`; `backup_codes`; `known_devices`; `sessions` (`id_hash`, `mfa_passed`, `step_up_until`, `revoked_at`); `system_settings` (JSONB, шифрованные значения).
@@ -541,7 +541,7 @@
   - Артефакты: `alembic/versions/*_snapshots_files.py`, `db/models/files.py`
   - Готово, когда: попытка изменить `payload` снимка ролью приложения → ошибка прав.
 
-- [ ] **DB-009** · Журнал аудита: схема `audit`, партиции, функция записи · трек DB
+- [x] **DB-009** · Журнал аудита: схема `audit`, партиции, функция записи · трек DB · ✔ #15
   - SPEC: SEC-AUD-02, SEC-AUD-03, SEC-AUD-04, 14.2 `audit_log`
   - Зависит: DB-002
   - Сделать: `audit.audit_log` с полями SEC-AUD-02 (`ts` мкс, `event_type`, `result`, `user_id`, `login`, `ip`, `user_agent`, `session_hash`, `object_type`, `object_id`, `details`, `prev_hash`, `hash`), партиционирование по месяцам (+ создание партиций на 3 месяца вперёд периодической задачей); `REVOKE UPDATE, DELETE, TRUNCATE` у роли приложения; SQL-функция вставки под `pg_advisory_xact_lock(<константа>)`, которая читает последний `hash` и вставляет запись с переданным хэшем либо вычисляет его; отдельная таблица якоря для purge.

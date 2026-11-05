@@ -86,6 +86,8 @@ make traceability   # отчёт «требование → тест» в build/
 | `APP_VERSION` | Версия приложения для «Состояния системы» и логов; задаётся при сборке образа | `0.1.0` |
 | `LOG_LEVEL` | Уровень логов: DEBUG, INFO, WARNING, ERROR | `INFO` |
 | `DATABASE_URL` | Строка подключения к PostgreSQL 16 (драйвер asyncpg); секрет — пароль внутри строки (Docker secret `database_url`) | `postgresql+asyncpg://estimator@postgres:5432/estimator` |
+| `DATABASE_SSLMODE` | TLS до PostgreSQL: `disable` (dev, одна сеть Docker) или `verify-full` (stage, prod: проверка сертификата и имени сервера, DB-011) | `disable` |
+| `DATABASE_SSLROOTCERT` | Файл корневого сертификата УЦ для `verify-full`; пусто — системные УЦ | `` |
 | `REDIS_URL` | Redis 7: сессии, pub/sub, блокировки ячеек (Docker secret `redis_url`) | `redis://redis:6379/0` |
 | `CELERY_BROKER_URL` | Брокер Celery в Redis (Docker secret `celery_broker_url`) | `redis://redis:6379/1` |
 | `ENCRYPTION_KEY` | Мастер-ключ шифрования AES-256-GCM в виде `<id>:<base64url 32 байта>` (SEC-CRYPT-01/02; Docker secret `encryption_key`). Новый ключ: `estimator generate-key` | `` |
