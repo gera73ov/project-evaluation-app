@@ -1,0 +1,289 @@
+# contracts/notifications.yaml — каталог уведомлений в приложении и писем (NTF-001).
+# Владелец: трек NTF. Потребители: CORE, ADM, AUTH, FE (PLAN.md раздел 6), QA.
+# Источник правды — SPEC v0.5: 9.4 (FR-NOTIF-01..03), 3.4 (строки 15–16 → permissions.yaml
+# M3.4-15/16), BR-PRJ-01, BR-BR-02, FR-TREE-31/34, FR-ADM-05/06, FR-PORT-03, BR-PRJ-07,
+# SEC-AUTH-06/07, FR-CQ-03, Q-12, Q-37, Q-45.
+# До вехи M0 файл меняет трек NTF обычным PR; после M0 — только через CR (contracts/README.md).
+
+version: 0.1.0
+status: draft  # 1.0.0 после утверждения PM-001 (веха M0)
+spec: SPEC.md v0.5
+
+# ---------------------------------------------------------------------------
+# 1. Классы и статусы проекта (таблица 3.4, строки M3.4-15 и M3.4-16)
+# ---------------------------------------------------------------------------
+classes:
+  estimation:
+    title: Уведомления о событиях оценки (правки, обсуждения, сводка)
+    statuses: {preparation: deny, estimation: allow, consolidation: allow,
+               completed: customer_questions_only, archived: deny}
+    matrix_row: M3.4-15
+  service:
+    title: Служебные уведомления
+    statuses: {preparation: allow, estimation: allow, consolidation: allow, completed: allow,
+               archived: allow}
+    matrix_row: M3.4-16
+  security:
+    title: Уведомления ИБ
+    statuses: {preparation: allow, estimation: allow, consolidation: allow, completed: allow,
+               archived: allow}
+    matrix_row: M3.4-16
+
+# Значение customer_questions_only: в «Завершена» отправляются только виды с cq_related: true.
+# Уведомление, не отправленное из-за статуса, не создаётся и не копится (кроме assigned_to_project,
+# которое откладывается до перехода «Подготовка → Оценка», BR-PRJ-01).
+
+# ---------------------------------------------------------------------------
+# 2. Общие правила
+# ---------------------------------------------------------------------------
+rules:
+  - id: N-AUTHOR
+    rule: Автор события не получает уведомление о собственном действии.
+  - id: N-BLOCKED
+    spec: [7.5]
+    rule: Заблокированный пользователь не получает уведомлений и писем; пользователь в pending_password получает только письма установки пароля.
+  - id: N-MEMBERSHIP
+    spec: [BR-ROLE-06, 3.4]
+    rule: >-
+      Получатель проектного уведомления должен в момент создания иметь право project.read на
+      проект с учётом статуса (permissions.yaml M3.4-01): в «Подготовке» это только модераторы.
+  - id: N-NO-EMAIL
+    spec: [14.2 users.email]
+    rule: Пользователю без email письма не отправляются; уведомления в приложении создаются как обычно.
+  - id: N-INAPP-PAYLOAD
+    spec: [FR-NOTIF-01, SEC-AUTHZ-04, FR-2FA-05]
+    rule: >-
+      payload уведомления в приложении содержит только идентификаторы, счётчики и вид события —
+      без денег, без текста сообщений и заметок. Названия узлов и проекта клиент получает по
+      идентификаторам через API с проверкой прав (поэтому отзыв доступа сразу скрывает содержимое).
+  - id: N-EMAIL-CONTENT
+    spec: [FR-NOTIF-03, Q-37]
+    rule: >-
+      Письмо содержит только название проекта, счётчики событий и ссылку в приложение
+      (app.base_url). В письме нет денег, оценок, названий узлов и текста сообщений. Тема и тело —
+      шаблоны notifications/templates, подстановки — только поля email_fields.
+  - id: N-LINK
+    spec: [FR-NOTIF-01, 11.3 №6]
+    rule: Клик по уведомлению открывает рабочий экран на строке node_id и раскрывает обсуждение thread_id; ссылка письма ведёт туда же после входа.
+  - id: N-RETENTION
+    spec: [NFR-REL-06]
+    rule: Уведомления хранятся retention.periods.notifications_days (по умолчанию 365 дней).
+
+# ---------------------------------------------------------------------------
+# 3. Виды уведомлений в приложении (notifications.kind, 14.2). Поля:
+#    class, cq_related — гейт по статусу (раздел 1);
+#    recipients — кто получает; payload — поля notifications.payload;
+#    email — в какое письмо попадает (раздел 4) или null; store — хранится в колокольчике.
+# ---------------------------------------------------------------------------
+kinds:
+  question_to_me:
+    title: Вопрос мне
+    spec: [FR-NOTIF-01, FR-DISC-03]
+    class: estimation
+    cq_related: false
+    trigger: Создан вопрос (сообщение с флагом «нужен ответ»), где получатель — адресат
+    recipients: >-
+      Адресаты, развёрнутые до пользователей: @участник — он; @Дисциплина — эксперты
+      дисциплины; @модератор — все модераторы; без адресата — эксперты ветки узла, для фазы и
+      проекта — модераторы (FR-DISC-03); @заказчик — пресейл проекта, а если пресейла нет —
+      модераторы (толкование: вопросы заказчику ведёт пресейл, 3.2, 4.4)
+    payload: {project_id: uuid, node_id: "uuid?", thread_id: uuid, actor_id: uuid,
+              is_customer: bool}
+    email: questions_batch
+    store: true
+  answer_to_my_question:
+    title: Ответ на мой вопрос
+    spec: [FR-NOTIF-01, FR-CQ-03]
+    class: estimation
+    cq_related: true  # ответ заказчика приходит и после КП (3.4, M3.4-06)
+    trigger: >-
+      Новое сообщение в вопросе, который открыл получатель; для вопроса заказчику — «Внести
+      ответ заказчика» (FR-CQ-03). В «Завершена» отправляется только для вопросов заказчику.
+    recipients: Автор вопроса (threads.opened_by)
+    payload: {project_id: uuid, node_id: "uuid?", thread_id: uuid, actor_id: uuid,
+              is_customer: bool}
+    email: questions_batch
+    store: true
+  moderator_change:
+    title: Изменение модератора в моих листьях
+    spec: [FR-NOTIF-01, FR-TREE-34, 11.3 №5]
+    class: estimation
+    cq_related: false
+    trigger: Модератор сохранил правку структуры, O/R/P, ×N, комментария в ветке чужой ему дисциплины
+    recipients: Эксперты дисциплины ветки (кроме модератора-автора)
+    payload: {project_id: uuid, node_id: uuid, actor_id: uuid,
+              fields: "list[enum[title, type, o, r, p, multiplier, comment, structure, move]]"}
+    email: digest
+    store: true
+  branch_back_to_draft:
+    title: Ветка вернулась в черновик
+    spec: [FR-NOTIF-01, BR-BR-02, 17.2 Gherkin «Сброс «готово» при правке»]
+    class: estimation
+    cq_related: false
+    trigger: Статус ветки ушёл из «готово» в «черновик» (правка O/R/P, ×N, структуры, восстановление, перенос)
+    recipients: Модераторы проекта и эксперты дисциплины ветки (кроме автора правки)
+    payload: {project_id: uuid, phase_id: uuid, discipline_id: uuid, actor_id: uuid}
+    email: digest
+    store: true
+    text: "«Ветка <дисциплина> в фазе <фаза> возвращена в черновик»"
+  assigned_to_project:
+    title: Вас назначили в проект
+    spec: [FR-NOTIF-01, FR-NOTIF-02, BR-PRJ-01]
+    class: service
+    cq_related: false
+    trigger: >-
+      Назначение в проект. Экспертам, ревьюерам и пресейлу, назначенным в «Подготовке», —
+      в момент перехода «Подготовка → Оценка»; назначенным позже и модераторам — в момент
+      назначения.
+    recipients: Назначенный пользователь
+    payload: {project_id: uuid, actor_id: "uuid?", roles: "list[enum[moderator, expert, presale]]",
+              discipline_ids: "list[uuid]"}
+    email: assigned_to_project
+    store: true
+  member_replaced:
+    title: Замена участника
+    spec: [FR-NOTIF-01, FR-ADM-05]
+    class: service
+    cq_related: false
+    trigger: Администратор или модератор заменил участника
+    recipients: Замена (вы назначены вместо …) и модераторы затронутых проектов
+    payload: {project_id: uuid, replaced_user_id: uuid, replacement_user_id: uuid, actor_id: uuid,
+              redirected_threads: int}
+    email: null
+    store: true
+  question_redirected:
+    title: Мне переадресован вопрос
+    spec: [FR-NOTIF-01, FR-ADM-05]
+    class: service
+    cq_related: false
+    trigger: При замене участника открытые вопросы, адресованные исходному, переадресованы замене
+    recipients: Замена
+    payload: {project_id: uuid, thread_ids: "list[uuid]", from_user_id: uuid}
+    email: null
+    store: true
+  member_blocked:
+    title: Участник проекта заблокирован
+    spec: [FR-NOTIF-01, FR-ADM-05, 11.6 №12]
+    class: service
+    cq_related: false
+    trigger: Блокировка пользователя (вручную или проверкой AD), который участвует в проекте
+    recipients: Модераторы проекта
+    payload: {project_id: uuid, blocked_user_id: uuid}
+    email: null
+    store: true
+  presale_head_joined:
+    title: Руководитель пресейла вошёл модератором
+    spec: [FR-NOTIF-01, FR-PORT-03, R-06]
+    class: service
+    cq_related: false
+    trigger: «Стать модератором проекта»
+    recipients: Действующие модераторы проекта
+    payload: {project_id: uuid, actor_id: uuid}
+    email: null
+    store: true
+  support_session_opened:
+    title: Администратор открыл проект в режиме поддержки
+    spec: [FR-NOTIF-01, FR-ADM-06, Q-15, TC-ADM-02]
+    class: security
+    cq_related: false
+    trigger: Открытие режима поддержки
+    recipients: Модераторы проекта
+    payload: {project_id: uuid, actor_id: uuid, support_session_id: uuid,
+              reason: "string 10–500 — причину SPEC требует показать в уведомлении"}
+    email: null
+    store: true
+    text: "«Администратор открыл проект в режиме поддержки: <причина>»"
+  project_without_moderator:
+    title: Проект остался без модератора
+    spec: [FR-NOTIF-01, BR-PRJ-07, Q-30]
+    class: service
+    cq_related: false
+    trigger: Заблокирован последний активный модератор проекта (projects.no_moderator_since)
+    recipients: Все администраторы
+    payload: {project_id: uuid}
+    email: null
+    store: true
+  cell_taken_over:
+    title: Модератор перехватил вашу ячейку
+    spec: [FR-TREE-31]
+    class: service
+    cq_related: false
+    trigger: lock с force у ячейки, захваченной получателем
+    recipients: Прежний владелец захвата
+    payload: {project_id: uuid, node_id: uuid, field: "enum LockField", actor_id: uuid}
+    email: null
+    store: false  # всплывающее сообщение по WS (cell.unlocked reason forced), в колокольчик не пишется
+
+# ---------------------------------------------------------------------------
+# 4. Письма (FR-NOTIF-02). opt_out — поле users, которым пользователь отключает письмо.
+# ---------------------------------------------------------------------------
+emails:
+  digest:
+    title: Ежедневная сводка
+    spec: [FR-NOTIF-02, FR-NOTIF-03]
+    class: estimation
+    schedule: Ежедневно в digest.time (по умолчанию 09:00) по часовому поясу приложения
+    condition: Есть новые уведомления класса estimation с прошлого письма сводки
+    opt_out: users.notify_digest
+    email_fields: {projects: "list[{project_name, counters: map kind → int, link}]", total: int}
+    example: «Вам 3 вопроса по 2 проектам»
+  questions_batch:
+    title: Быстрое письмо о вопросах (пачка за 15 минут)
+    spec: [FR-NOTIF-02, Q-45]
+    class: estimation
+    kinds: [question_to_me, answer_to_my_question]
+    window_minutes: 15
+    condition: Первое уведомление открывает окно 15 минут; по его истечении уходит одно письмо со всем, что накопилось
+    opt_out: users.notify_questions
+    email_fields: {projects: "list[{project_name, questions: int, answers: int, link}]"}
+    example: "«Портал дилеров: 1 ответ на ваш вопрос»"
+  assigned_to_project:
+    title: Вас назначили в проект
+    spec: [FR-NOTIF-02, BR-PRJ-01, 4.5]
+    class: service
+    opt_out: null  # служебное, отключить нельзя
+    email_fields: {project_name: string, link: url}
+    note: Без дедлайна и других подробностей (FR-NOTIF-03)
+  password_setup:
+    title: Ссылка установки пароля (72 часа)
+    spec: [FR-AUTH-LOC-01, FR-AUTH-SW-01]
+    class: service
+    opt_out: null
+    email_fields: {link: url, expires_hours: int}
+  password_reset:
+    title: Сброс пароля (60 минут)
+    spec: [FR-AUTH-LOC-03]
+    class: service
+    opt_out: null
+    email_fields: {link: url, expires_minutes: int}
+  new_device_login:
+    title: Вход с нового устройства
+    spec: [FR-NOTIF-02, SEC-AUTH-06, Q-12]
+    class: service
+    opt_out: null
+    recipients: >-
+      Только те, кто видит деньги: суперадминистраторы, администраторы, руководители пресейла,
+      модераторы и пресейл хотя бы одного проекта. Экспертам не отправляется.
+    condition: Сочетание «семейство браузера + подсеть /24», с которого пользователь не входил последние 90 дней (known_devices)
+    email_fields: {browser: string, subnet: string, time: datetime, link: url}
+  remind_not_started:
+    title: «Напомнить не начавшим»
+    spec: [10.1, 11.8 №7]
+    class: estimation
+    opt_out: null  # явное действие модератора, не рассылка по подписке
+    recipients: Эксперты веток в статусе «не начато»
+    rate_limit: не чаще 1 раза в сутки на проект (иначе 429 RATE_LIMITED)
+    email_fields: {project_name: string, deadline: "date?", link: url}
+    note: Дедлайн — дата без часов и денег; SPEC не запрещает его в этом письме, и без него напоминание теряет смысл (толкование)
+  security_alert:
+    title: Оповещение ИБ
+    spec: [SEC-AUTH-07, FR-NOTIF-02]
+    class: security
+    opt_out: null
+    recipients: security.alert_email и все администраторы
+    triggers: contracts/audit-events.yaml → security_alerts (события с полем alert)
+    email_fields: {alert: "enum ключ security_alerts", time: datetime, actor_login: "string?",
+                   ip: "inet?", link: url}
+    note: >-
+      При смене SMTP письмо уходит через старый сервер до применения, затем через новый; сбой
+      старого не отменяет изменение, пишется system.alert.delivery_failed (TC-AUTH-06)
