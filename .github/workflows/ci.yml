@@ -63,8 +63,8 @@ jobs:
         run: |
           uv run pytest --cov --cov-report=term --cov-report=json:coverage.json
           uv run python scripts/check_coverage.py coverage.json
-      - name: Таблица переменных окружения собирается
-        run: uv run estimator config-env > /dev/null
+      - name: Таблица переменных окружения в README совпадает с конфигом (DOC-001)
+        run: uv run estimator config-env --check ../README.md
 
   frontend:
     name: frontend (eslint, tsc, vitest, build, npm audit)
