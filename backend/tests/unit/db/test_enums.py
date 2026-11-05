@@ -1,4 +1,5 @@
-"""DB-003, DB-009: перечисления моделей совпадают со сводкой contracts/db/schema.md раздел 7."""
+"""DB-003, DB-004, DB-005, DB-009: перечисления моделей совпадают со сводкой
+contracts/db/schema.md раздел 7."""
 
 from __future__ import annotations
 
@@ -22,6 +23,14 @@ MODEL_ENUMS: dict[str, type[StrEnum]] = {
     "role_source": enums.RoleSource,
     "auth_token_kind": enums.AuthTokenKind,
     "audit_result": enums.AuditResult,
+    "node_type_proposal": enums.NodeTypeProposal,
+    "comment_tag_category": enums.CommentTagCategory,
+    "project_status": enums.ProjectStatus,
+    "project_outcome": enums.ProjectOutcome,
+    "quote_figure": enums.QuoteFigure,
+    "detail_level": enums.DetailLevel,
+    "project_role": enums.ProjectRole,
+    "branch_status_value": enums.BranchStatusValue,
 }
 
 
