@@ -80,7 +80,7 @@
 | Этап | Веха | Задач | Подзадач | Готово задач | % |
 |---|---|---|---|---|---|
 | 0. Фундамент и контракты | M0 | 25 | 25 | 25 | 100% |
-| 1. Ядро: данные, расчёт, безопасность, вход | M1 | 50 | 37 | 22 | 44% |
+| 1. Ядро: данные, расчёт, безопасность, вход | M1 | 50 | 37 | 25 | 50% |
 | 2. Проекты и дерево | M2 | 49 | 46 | 0 | 0% |
 | 3. Обсуждения, вопросы, уведомления, документы | M3 | 24 | 20 | 0 | 0% |
 | 4. AD, админки, контур ИБ | M4 | 40 | 35 | 0 | 0% |
@@ -88,14 +88,14 @@
 | 6. Укрепление, НФТ, эксплуатация | M6 | 30 | 10 | 0 | 0% |
 | 7. Stage, ИБ-приёмка, UAT, релиз | M7 | 5 | 19 | 0 | 0% |
 | 8. Пилот | M8 | 3 | 0 | 0 | 0% |
-| **Итого** | | **254** | **216** | **47** | **18,5%** |
+| **Итого** | | **254** | **216** | **50** | **19,7%** |
 
 **По трекам**
 
 | Трек | Задач | Готово | В работе | Заблокировано |
 |---|---|---|---|---|
 | INF | 17 | 8 | 0 | 0 |
-| DB | 13 | 8 | 0 | 0 |
+| DB | 13 | 11 | 0 | 0 |
 | CORE | 45 | 7 | 0 | 0 |
 | AUTH | 19 | 1 | 0 | 0 |
 | SEC | 17 | 5 | 0 | 0 |
@@ -108,7 +108,7 @@
 | QA | 27 | 2 | 0 | 0 |
 | DOC | 7 | 1 | 0 | 0 |
 | PM | 8 | 2 | 0 | 0 |
-| **Итого** | **254** | **47** | **0** | **0** |
+| **Итого** | **254** | **50** | **0** | **0** |
 
 ---
 
@@ -517,24 +517,24 @@
   - [x] `project_members` и `branch_status`
   - [x] `project_totals`, `support_sessions`
 
-- [ ] **DB-006** · Таблицы дерева, истории и версий · трек DB
+- [x] **DB-006** · Таблицы дерева, истории и версий · трек DB · ✔ #21
   - SPEC: 14.2 `nodes`, `node_history`, `change_log`, `user_view_state`; 14.3; ARCH-02, ARCH-04, BR-CALC-03, NFR-LIM-01
   - Зависит: DB-005
   - Сделать: `nodes` (`kind`, денормализованные `phase_id`/`discipline_id`, `position TEXT COLLATE "C"`, `o/r/p NUMERIC(10,2)` CHECK 0–99 999,5, `multiplier` CHECK 1–10 000, `comment_lines JSONB`, `reviewed_by/at`, `self_review`, `version`, `field_versions JSONB`, `deleted_at`, `deleted_batch_id`, CHECK `kind <> 'item' OR (phase_id … AND discipline_id …)`); `node_history` (только INSERT для роли приложения); `change_log` PK (`project_id`, `version`); `user_view_state`; индексы 14.3.
   - Артефакты: `alembic/versions/*_tree.py`, `db/models/tree.py`
   - Готово, когда: `UPDATE node_history` ролью приложения → ошибка прав; EXPLAIN запроса 14.3 использует частичный индекс.
-  - [ ] `nodes` с CHECK и индексами 14.3
-  - [ ] `node_history` (только INSERT)
-  - [ ] `change_log`, `user_view_state`
+  - [x] `nodes` с CHECK и индексами 14.3
+  - [x] `node_history` (только INSERT)
+  - [x] `change_log`, `user_view_state`
 
-- [ ] **DB-007** · Таблицы обсуждений, заметок и уведомлений · трек DB
+- [x] **DB-007** · Таблицы обсуждений, заметок и уведомлений · трек DB · ✔ #21
   - SPEC: 14.2 `threads`, `messages`, `message_addressees`, `message_history`, `project_notes`, `notifications`; FR-DISC-09, BR-CQ-02, FR-CQ-02
   - Зависит: DB-006
   - Сделать: `threads` (`is_customer`, `customer_question_no` уникален в проекте (индекс `WHERE is_customer`), `customer_status`, `sent_at`, `answered_at`, `closed_by/at`, `withdraw_reason`, `edited_after_sent`); `messages` (`kind`, `body` до 4 000 / 10 000 для `customer_answer` — CHECK по `kind`); `message_history` (только INSERT); `message_addressees`; `project_notes`; `notifications`; индексы 14.3.
   - Артефакты: `alembic/versions/*_discussions.py`, `db/models/discussions.py`
   - Готово, когда: дубль номера вопроса заказчику в проекте отклоняется; `UPDATE message_history` ролью приложения → ошибка прав.
 
-- [ ] **DB-008** · Таблицы снимков, экспортов и документов · трек DB
+- [x] **DB-008** · Таблицы снимков, экспортов и документов · трек DB · ✔ #21
   - SPEC: 14.2 `snapshots`, `export_files`, `customer_documents`; FR-SNAP-02, SEC-CRYPT-06
   - Зависит: DB-005
   - Сделать: `snapshots` (`payload`, `money_payload` JSONB, `payload_sha256`, `is_invalid`; права роли приложения: только INSERT и UPDATE столбца `is_invalid`); `export_files`; `customer_documents` (`storage_key UUID`, `key_enc BYTEA`, `scan_status`, `deleted_at`).
