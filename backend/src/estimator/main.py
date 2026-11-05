@@ -14,8 +14,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from estimator import health
 from estimator.config import Settings, get_settings
+from estimator.jobs.celery_app import queue_lengths
 from estimator.logging import RequestIdMiddleware, configure_logging, get_logger
-from estimator.metrics import metrics_app
+from estimator.metrics import REGISTRY, QueueLengthCollector, metrics_app
 
 log = get_logger(__name__)
 
@@ -52,6 +53,17 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     return app
 
 
+_metrics_registered = False
+
+
+def register_metrics(settings: Settings) -> None:
+    """Подключить сборщик длины очередей Celery к реестру метрик (один раз на процесс)."""
+    global _metrics_registered
+    if not _metrics_registered:
+        REGISTRY.register(QueueLengthCollector(lambda: queue_lengths(settings)))
+        _metrics_registered = True
+
+
 def app_factory() -> FastAPI:
     """Точка входа Uvicorn: ``uvicorn --factory estimator.main:app_factory``.
 
@@ -59,4 +71,6 @@ def app_factory() -> FastAPI:
     (deploy/docker/api.Dockerfile),
     ``FORWARDED_ALLOW_IPS`` Uvicorn читает из окружения сам.
     """
-    return create_app(get_settings())
+    settings = get_settings()
+    register_metrics(settings)
+    return create_app(settings)
