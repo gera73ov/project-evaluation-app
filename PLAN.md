@@ -294,9 +294,9 @@
 - [ ] **INF-004** · Docker Compose для dev и test · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: 13.2, 18.1, 18.2, 17.1 (Samba AD), Q-47, Q-50
   - Зависит: INF-002, INF-003
-  - Сделать: `docker-compose.yml` с сервисами `nginx`, `api` (2 реплики), `worker`, `beat`, `redis`, `clamav`, `postgres:16`; профиль `test` с Samba AD DC (тестовые OU, вложенные группы, отключённые учётки) и SMTP-ловушкой; самоподписанный TLS для dev (нужен для `__Host-`-cookie); тома для файлов экспорта и документов.
-  - Артефакты: `deploy/compose/docker-compose.yml`, `deploy/compose/docker-compose.test.yml`, `deploy/samba-ad/`
-  - Готово, когда: `docker compose up` поднимает все сервисы, health зелёный; профиль test поднимает Samba AD с тестовыми данными и SMTP-ловушку.
+  - Сделать: `docker-compose.yml` с сервисами `nginx`, `api` (2 реплики), `worker`, `beat`, `redis`, `clamav`, `postgres:16`; профиль `test` с Samba AD DC (тестовые OU, вложенные группы, отключённые учётки), SMTP-ловушкой и syslog-приёмником по TCP+TLS — эмулятором SIEM для SEC-012 (PLAN-1.4); самоподписанный TLS для dev (нужен для `__Host-`-cookie); тома для файлов экспорта и документов.
+  - Артефакты: `deploy/compose/docker-compose.yml`, `deploy/compose/docker-compose.test.yml`, `deploy/samba-ad/`, `deploy/syslog/`
+  - Готово, когда: `docker compose up` поднимает все сервисы, health зелёный; профиль test поднимает Samba AD с тестовыми данными, SMTP-ловушку и syslog-приёмник TLS.
 
 - [ ] **INF-005** · CI-пайплайн с проверками безопасности · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: SEC-SDLC-01, SEC-SDLC-03, NFR-MNT-01, SEC-WEB-05
@@ -2981,3 +2981,4 @@ flowchart LR
 | PLAN-1.1 | 04.11.2026 | PM (владелец продукта) | Приняты решения по GAP-01…GAP-12 (раздел 11.2); сняты блоки `⛔`; в CORE-052 добавлена таблица `project_totals_daily` (CR в DB); PM-002 выполнена | CORE-052, FE-041, API-002, CORE-032, EXP-009, EXP-012, ADM-008, FE-072, PM-006, CORE-070, CORE-050, FE-040, CORE-020, FE-027, SEC-012, FE-029, CORE-090 | действует |
 | PLAN-1.2 | 04.11.2026 | PM | Источник правды — SPEC v0.5 (внесены решения GAP-01…GAP-12); обновлены ссылки на 15.2 и 14.2, матрица трассировки 13.2 и 13.3 | API-002, CORE-032, CORE-052 | действует |
 | PLAN-1.3 | 04.11.2026 | PM (владелец продукта) | Введён регламент работы агентов `AGENTS.md` v1.0 и журнал `agents/journal/`; в 1.3 добавлено правило 11 о старшинстве регламента по вопросам процесса; в раздел 5 добавлены новые пути | все | действует |
+| PLAN-1.4 | 05.11.2026 | INF (по согласованию с владельцем продукта) | Этапы 0–3 идут локально без SIEM компании, поэтому в INF-004 добавлен syslog-приёмник TCP+TLS как эмулятор SIEM для интеграционных тестов SEC-012; CI — GitHub Actions: лёгкие проверки на каждый PR, сборка образов, trivy и смоук стенда при изменении образов, раз в неделю и вручную (решение владельца 05.11.2026) | INF-004, INF-005, SEC-012 | действует |
