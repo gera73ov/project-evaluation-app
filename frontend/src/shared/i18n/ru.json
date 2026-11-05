@@ -1,5 +1,20 @@
 {
   "app": {
     "title": "Приложение оценки проектов"
+  },
+  "mock": {
+    "switcher": {
+      "title": "Моки API: вы вошли как",
+      "label": "Роль"
+    },
+    "persona": {
+      "expert": "Эксперт Бэкенда — {{name}}",
+      "moderator": "Модератор — {{name}}",
+      "presale": "Пресейл — {{name}}",
+      "presale_head": "Руководитель пресейла — {{name}}",
+      "admin": "Администратор — {{name}}",
+      "superadmin": "Суперадминистратор",
+      "auditor": "Аудитор ИБ — {{name}}"
+    }
   }
 }

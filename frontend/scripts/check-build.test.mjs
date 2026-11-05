@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 
-import { cssProblems, htmlProblems } from './check-build.mjs';
+import { cssProblems, htmlProblems, mockProblems } from './check-build.mjs';
 
 describe('check-build (SEC-WEB-03)', () => {
   it('пропускает чистую сборку', () => {
@@ -26,5 +26,13 @@ describe('check-build (SEC-WEB-03)', () => {
   it('ловит внешние шрифты в CSS', () => {
     expect(cssProblems('@import url("https://fonts.googleapis.com/css2?x");')).toHaveLength(1);
     expect(cssProblems("@font-face{src:url('//cdn.example/f.woff2')}")).toHaveLength(1);
+  });
+});
+
+describe('check-build (FE-001: моки не в сборке)', () => {
+  it('находит Service Worker и код MSW', () => {
+    expect(mockProblems('dist/mockServiceWorker.js', '')).toHaveLength(1);
+    expect(mockProblems('dist/assets/a.js', 'console.warn("[MSW] x")')).toHaveLength(1);
+    expect(mockProblems('dist/assets/a.js', 'export const x = 1;')).toEqual([]);
   });
 });

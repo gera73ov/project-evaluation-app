@@ -12,8 +12,20 @@ const container = document.getElementById('root');
 if (!container) {
   throw new Error('Нет элемента #root');
 }
-createRoot(container).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+
+/** FE-001: в режиме `npm run dev:mock` API отвечают моки MSW. В сборку для стендов модуль
+ *  моков не попадает: условие известно на этапе сборки, и Vite выбрасывает ветку целиком. */
+async function prepare(): Promise<void> {
+  if (import.meta.env.MODE === 'mock') {
+    const { startMocks } = await import('./shared/api/mocks/browser');
+    await startMocks();
+  }
+}
+
+void prepare().then(() => {
+  createRoot(container).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

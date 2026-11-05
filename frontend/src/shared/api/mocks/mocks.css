@@ -1,0 +1,8 @@
+/* FE-001 · плашка переключателя роли моков (только `npm run dev:mock`). */
+.mock-role-switcher {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  width: 280px;
+}
