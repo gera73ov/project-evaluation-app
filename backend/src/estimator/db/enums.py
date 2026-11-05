@@ -20,7 +20,7 @@ class UserSource(StrEnum):
 class UserStatus(StrEnum):
     ACTIVE = "active"
     BLOCKED = "blocked"
-    PENDING_PASSWORD = "pending_password"  # noqa: S105 — статус, не пароль
+    PENDING_PASSWORD = "pending_password"  # noqa: S105  # nosec B105 — статус, не пароль
     ANONYMIZED = "anonymized"
 
 
@@ -48,7 +48,7 @@ class RoleSource(StrEnum):
 
 class AuthTokenKind(StrEnum):
     ACTIVATION = "activation"
-    PASSWORD_RESET = "password_reset"  # noqa: S105 — вид токена, не пароль
+    PASSWORD_RESET = "password_reset"  # noqa: S105  # nosec B105 — вид токена, не пароль
 
 
 class AuditResult(StrEnum):
