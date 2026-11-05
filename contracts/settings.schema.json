@@ -978,8 +978,8 @@
       "x-note": "0 — автоархивация выключена; отсчёт от projects.completed_at"
     }
   },
-  "x-version": "0.1.0",
-  "x-status": "draft",
+  "x-version": "1.0.0",
+  "x-status": "approved",
   "x-spec-version": "SPEC.md v0.5",
   "x-sections": {
     "system": [

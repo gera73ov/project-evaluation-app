@@ -2,11 +2,11 @@
 openapi: 3.1.0
 info:
   title: Приложение оценки проектов — API v1
-  version: 0.1.0
-  description: 'Контракт API-002 (владелец — трек API), черновик до вехи M0. Основание — SPEC v0.5, 15.2–15.4. Соглашения
+  version: 1.0.0
+  description: 'Контракт API-002 (владелец — трек API), версия 1.0.0 утверждена PM-001 (веха M0). Основание — SPEC v0.5, 15.2–15.4. Соглашения
     — contracts/api-conventions.md, коды ошибок — contracts/errors.yaml, права x-permission — contracts/permissions.yaml (SEC-001).
     Расширения: x-permission — право или список «любое из»; x-error-codes — коды ошибок операции; x-spec — требования SPEC;
-    x-spec-gap — путь добавлен решением GAP-02; x-step-up, x-totp-gate, x-network-restricted — флаги прав. Денежные поля —
+    x-spec-gap — путь добавлен решением GAP-02 или GAP-13; x-step-up, x-totp-gate, x-network-restricted — флаги прав. Денежные поля —
     только в схемах *Money (ключ money отсутствует без права, SEC-AUTHZ-04).'
 servers:
 - url: /api/v1
@@ -3726,6 +3726,79 @@ paths:
           $ref: '#/components/responses/Problem404'
         '409':
           $ref: '#/components/responses/Problem409'
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '500':
+          $ref: '#/components/responses/Problem500'
+  /admin/method-settings:
+    get:
+      operationId: getMethodSettings
+      summary: Пороги и проценты методики
+      tags:
+      - Администратор
+      x-permission: dict.read
+      description: Ключи method.* из contracts/settings.schema.json (ADM-000) без префикса method.
+      x-spec:
+      - '7.5'
+      - BR-TREE-09
+      - BR-PRJ-03
+      x-spec-gap: GAP-13
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - FORBIDDEN
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MethodSettings'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '500':
+          $ref: '#/components/responses/Problem500'
+    put:
+      operationId: putMethodSettings
+      summary: Изменить пороги и проценты методики
+      tags:
+      - Администратор
+      x-permission: dict.write
+      description: '% УП по умолчанию действует на новые проекты, пороги подсказок и срок автоархивации — сразу
+        на все (7.5, x-applies в settings.schema.json). Изменение пишется в аудит (dict.changed, dictionary: method)'
+      x-spec:
+      - '7.5'
+      - BR-TREE-09
+      - BR-PRJ-03
+      x-spec-gap: GAP-13
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MethodSettings'
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - FORBIDDEN
+      - CSRF_FAILED
+      - RATE_LIMITED
+      - VALIDATION_FAILED
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MethodSettings'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '429':
           $ref: '#/components/responses/Problem429'
         '500':
@@ -8443,6 +8516,8 @@ components:
       description: RFC 9457 (api-conventions 5); расширения — по коду в errors.yaml
     UserRef:
       type: object
+      description: Ссылка на пользователя; та же форма, что UserRef в ws-events.schema.json. color — цвет
+        рамки захвата и аватара в «Кто сейчас в проекте» (FR-TREE-31, 8.2)
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -8454,9 +8529,13 @@ components:
           maxLength: 4
         is_active:
           type: boolean
+        color:
+          type: string
+          pattern: ^#[0-9a-fA-F]{6}$
       required:
       - id
       - full_name
+      - initials
       additionalProperties: false
     SystemRole:
       type: string
@@ -8882,6 +8961,53 @@ components:
       - app_version
       - schema_version
       - components
+      additionalProperties: false
+    MethodSettings:
+      type: object
+      description: 'Раздел «Пороги и проценты» админки (7.5); ключи method.* из contracts/settings.schema.json
+        без префикса (GAP-13)'
+      properties:
+        large_leaf_hours:
+          type: object
+          description: Порог «крупного листа» по E одной штуки для уровней Средне и Детально (BR-TREE-09)
+          properties:
+            medium:
+              $ref: '#/components/schemas/HoursString'
+            detailed:
+              $ref: '#/components/schemas/HoursString'
+          required:
+          - medium
+          - detailed
+          additionalProperties: false
+        medium_expected_units:
+          type: object
+          description: Ожидаемое число единиц в ветке при уровне «Средне» (5.2)
+          properties:
+            min:
+              type: integer
+              minimum: 1
+              maximum: 1000
+            max:
+              type: integer
+              minimum: 1
+              maximum: 1000
+          required:
+          - min
+          - max
+          additionalProperties: false
+        pm_percent_default:
+          $ref: '#/components/schemas/DecimalString'
+          description: '% УП по умолчанию для новых проектов, 0–50 с шагом 0,5; 0 — УП выключено (6.3)'
+        autoarchive_days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+          description: Срок автоархивации после «Завершена», дней; 0 — выключено (BR-PRJ-03)
+      required:
+      - large_leaf_hours
+      - medium_expected_units
+      - pm_percent_default
+      - autoarchive_days
       additionalProperties: false
     SettingsSection:
       type: object

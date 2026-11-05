@@ -1012,6 +1012,30 @@ export type paths = {
         patch: operations["updateLossReasons"];
         trace?: never;
     };
+    "/admin/method-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Пороги и проценты методики
+         * @description Ключи method.* из contracts/settings.schema.json (ADM-000) без префикса method.
+         */
+        get: operations["getMethodSettings"];
+        /**
+         * Изменить пороги и проценты методики
+         * @description % УП по умолчанию действует на новые проекты, пороги подсказок и срок автоархивации — сразу на все (7.5, x-applies в settings.schema.json). Изменение пишется в аудит (dict.changed, dictionary: method)
+         */
+        put: operations["putMethodSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/calendar": {
         parameters: {
             query?: never;
@@ -2323,11 +2347,13 @@ export type components = {
             error_id: string;
             instance?: string;
         };
+        /** @description Ссылка на пользователя; та же форма, что UserRef в ws-events.schema.json. color — цвет рамки захвата и аватара в «Кто сейчас в проекте» (FR-TREE-31, 8.2) */
         UserRef: {
             id: components["schemas"]["Uuid"];
             full_name: string;
-            initials?: string;
+            initials: string;
             is_active?: boolean;
+            color?: string;
         };
         /** @enum {string} */
         SystemRole: "superadmin" | "admin" | "moderator" | "presale" | "presale_head" | "security_auditor";
@@ -2469,6 +2495,23 @@ export type components = {
                 detail: string | null;
                 checked_at: components["schemas"]["Timestamp"];
             }[];
+        };
+        /** @description Раздел «Пороги и проценты» админки (7.5); ключи method.* из contracts/settings.schema.json без префикса (GAP-13) */
+        MethodSettings: {
+            /** @description Порог «крупного листа» по E одной штуки для уровней Средне и Детально (BR-TREE-09) */
+            large_leaf_hours: {
+                medium: components["schemas"]["HoursString"];
+                detailed: components["schemas"]["HoursString"];
+            };
+            /** @description Ожидаемое число единиц в ветке при уровне «Средне» (5.2) */
+            medium_expected_units: {
+                min: number;
+                max: number;
+            };
+            /** @description % УП по умолчанию для новых проектов, 0–50 с шагом 0,5; 0 — УП выключено (6.3) */
+            pm_percent_default: components["schemas"]["DecimalString"];
+            /** @description Срок автоархивации после «Завершена», дней; 0 — выключено (BR-PRJ-03) */
+            autoarchive_days: number;
         };
         SettingsSection: {
             section: string;
@@ -6176,6 +6219,58 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getMethodSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MethodSettings"];
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    putMethodSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MethodSettings"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MethodSettings"];
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
             422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

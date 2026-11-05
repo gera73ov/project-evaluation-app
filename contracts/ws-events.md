@@ -2,7 +2,7 @@
 
 Контракт RT-001 (трек RT). Потребители: FE, CORE, NTF, EXP, QA.
 Источник правды — SPEC v0.5: 15.4, 13.3, ARCH-01/02, SEC-AUTHZ-01/04, FR-TREE-30…33, FR-SESS-02/05, FR-2FA-05.
-Статус: черновик `0.1.0`; после утверждения PM-001 (веха M0) — `1.0.0`, дальше только через CR.
+Статус: `1.0.0`, утверждён PM-001 (веха M0, 05.11.2026); дальше изменения только через CR.
 
 ## Главное
 
@@ -25,7 +25,7 @@
 
 Коды в `error.code` — из `contracts/errors.yaml` (API-001): `FORBIDDEN`, `NOT_FOUND`, `CELL_LOCKED`
 (с `locked_by`, `expires_at`), `PROJECT_STATUS_CONFLICT` (с `project_status`), `RATE_LIMITED`
-(с `retry_after`), `VALIDATION_ERROR`.
+(с `retry_after`), `VALIDATION_FAILED`.
 
 ## Каналы и права
 

@@ -3,8 +3,8 @@
   "$id": "https://estimator.local/contracts/ws-events.schema.json",
   "title": "WebSocket /api/v1/ws: события и команды (RT-001)",
   "description": "Контракт RT-001, владелец — трек RT; потребители FE, CORE, NTF, EXP, QA. Источник — SPEC v0.5: 15.4, 13.3, ARCH-01/02, SEC-AUTHZ-01/04, FR-TREE-31/33, FR-SESS-02/05. Правила доставки и фильтрации — contracts/ws-events.md. До вехи M0 меняется трек-владельцем, после — через CR.",
-  "x-version": "0.1.0",
-  "x-status": "draft",
+  "x-version": "1.0.0",
+  "x-status": "approved",
   "x-spec-version": "SPEC.md v0.5",
   "x-limits": {
     "max_message_bytes": 65536,
@@ -69,21 +69,25 @@
       "additionalProperties": false,
       "required": [
         "id",
-        "name",
+        "full_name",
         "initials"
       ],
+      "description": "Ссылка на пользователя; та же форма, что UserRef в openapi.yaml. color — цвет рамки захвата и аватара в «Кто сейчас в проекте» (FR-TREE-31, 8.2)",
       "properties": {
         "id": {
           "type": "string",
           "format": "uuid"
         },
-        "name": {
+        "full_name": {
           "type": "string",
           "maxLength": 200
         },
         "initials": {
           "type": "string",
           "maxLength": 4
+        },
+        "is_active": {
+          "type": "boolean"
         },
         "color": {
           "type": "string",
