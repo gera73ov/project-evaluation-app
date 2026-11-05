@@ -11,8 +11,7 @@
 import { ws } from 'msw';
 
 import { resolveRef, type Schema } from './contract';
-import { PEOPLE, PROJECTS, type DemoProject } from './data';
-import { uuidFrom } from './ids';
+import { PEOPLE, PROJECTS, userRef, type DemoProject } from './data';
 import { NOW } from './ids';
 import { accessOf, currentPersona, personaId, type Persona } from './personas';
 import { sample } from './sample';
@@ -54,12 +53,8 @@ function leaf(project: DemoProject, title: string) {
 
 /** Данные событий сценария поверх примера по схеме. */
 function dataFor(name: string, project: DemoProject): Record<string, unknown> {
-  // UserRef контракта WS: name вместо full_name (ws-events.schema.json $defs.UserRef)
-  const petrov = {
-    id: uuidFrom('user', PEOPLE.petrov.login),
-    name: PEOPLE.petrov.fullName,
-    initials: PEOPLE.petrov.initials,
-  };
+  // UserRef одинаков в OpenAPI и WS (ws-events.schema.json $defs.UserRef)
+  const petrov = { ...userRef(PEOPLE.petrov), color: '#2f9e6e' };
   const dashboard = leaf(project, 'Дашборд');
   const wsNode = (n: Record<string, unknown>) => ({
     id: n.id,

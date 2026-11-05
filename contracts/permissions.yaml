@@ -6,8 +6,8 @@
 # Разделы 6–7 (матрицы 3.3 и 3.4) сверяются с SPEC тестом
 # backend/tests/unit/sec/test_permissions_contract.py: текст ячеек должен совпадать дословно.
 
-version: 0.1.0
-status: draft  # станет 1.0.0 после утверждения PM-001 (веха M0)
+version: 1.0.0
+status: approved  # PM-001, веха M0 (05.11.2026); дальше только через CR
 spec: SPEC.md v0.5
 
 # ---------------------------------------------------------------------------
@@ -233,6 +233,7 @@ permissions:
       - "GET /admin/vat-rates"
       - "GET /admin/loss-reasons"
       - "GET /admin/calendar"
+      - "GET /admin/method-settings"  # GAP-13
   dict.write:
     title: Вести справочники и «Пороги и проценты» (method.*)
     spec: [3.3, 7.5, BR-ADM-01]
@@ -247,6 +248,7 @@ permissions:
       - "/admin/vat-rates"
       - "/admin/loss-reasons"
       - "/admin/calendar"
+      - "PUT /admin/method-settings"  # GAP-13
   proposed_types.manage:
     title: Принять, объединить, отклонить предложенные локальные типы
     spec: [7.5, FR-TREE-03]
