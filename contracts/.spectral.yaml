@@ -1,0 +1,14 @@
+# Правила spectral lint для contracts/openapi.yaml (API-002).
+# Запуск из корня: npx @stoplight/spectral-cli@6.15.0 lint contracts/openapi.yaml -r contracts/.spectral.yaml
+extends: ["spectral:oas"]
+rules:
+  # summary у каждой операции обязателен (тест backend/tests/contract/test_openapi_contract.py);
+  # description пишется только там, где нужно пояснение сверх SPEC.
+  operation-description: off
+  # Контакты владельца — в contracts/README.md (трек API), не в документе.
+  info-contact: off
+overrides:
+  # /ws отвечает 101 Switching Protocols, 2xx у WebSocket-рукопожатия нет.
+  - files: ["openapi.yaml#/paths/~1ws/get/responses"]
+    rules:
+      operation-success-response: off

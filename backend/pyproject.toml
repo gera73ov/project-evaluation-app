@@ -40,6 +40,8 @@ dev = [
   "hypothesis>=6.170,<7",
   "httpx>=0.28,<0.29",
   "ruff>=0.17.1,<0.18",
+  "pyyaml>=6.0.3,<7",  # чтение контрактов contracts/*.yaml в контрактных тестах (API-001)
+  "openapi-spec-validator>=0.7.2,<0.8",  # проверка contracts/openapi.yaml (API-002)
 ]
 # Сканеры SEC-SDLC-01 — отдельная группа, чтобы не тянуть их в образ и в обычный dev.
 # semgrep конфликтует с FastAPI по opentelemetry, поэтому он закреплён отдельным

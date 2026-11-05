@@ -1,0 +1,2173 @@
+{
+  "schema_version": 1,
+  "id": "edge-cases",
+  "title": "Граничные случаи расчёта SPEC 6 (CORE-001)",
+  "spec": [
+    "6.1",
+    "6.2",
+    "6.3",
+    "6.4",
+    "BR-CALC-01",
+    "BR-CALC-02",
+    "BR-CALC-03",
+    "BR-CALC-04",
+    "BR-CALC-05",
+    "BR-MONEY-02",
+    "BR-MONEY-03",
+    "BR-MONEY-04",
+    "BR-MONEY-05",
+    "BR-TREE-02",
+    "BR-TREE-03",
+    "TC-CALC-02",
+    "TC-CALC-03",
+    "TC-CALC-04"
+  ],
+  "cases": [
+    {
+      "id": "multiplier-sigma-linear",
+      "spec": [
+        "6.1",
+        "G-07",
+        "TC-CALC-02"
+      ],
+      "title": "×N умножает σ на N, а не на √N: 12 экранов 4–6–8",
+      "input": {
+        "project": {
+          "pm_percent": "0",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-fe",
+            "name": "Фронтенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-fe",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-fe",
+            "type": null,
+            "title": "d-fe"
+          },
+          {
+            "id": "n-screen",
+            "parent_id": "n-ph-a-d-fe",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-fe",
+            "type": "Экран",
+            "title": "Создать типовой экран",
+            "multiplier": 12,
+            "o": "4",
+            "r": "6",
+            "p": "8"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-fe",
+            "status": "draft"
+          }
+        ]
+      },
+      "expected": {
+        "nodes": {
+          "n-screen": {
+            "e": "72.0",
+            "sigma": "8.0",
+            "e_unit": "6.0"
+          }
+        },
+        "not_expected": {
+          "nodes": {
+            "n-screen": {
+              "sigma": "2.3"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "collapse-suggestion",
+      "spec": [
+        "BR-TREE-03",
+        "6.2",
+        "G-24",
+        "TC-TREE-01"
+      ],
+      "title": "«Свернуть в лист» предлагает суммы детей с учётом ×N: 8–12–20 ×1 + 4–6–8 ×2 → 16–24–36 ×1",
+      "input": {
+        "project": {
+          "pm_percent": "0",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-group",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Узел",
+            "multiplier": 1
+          },
+          {
+            "id": "n-c1",
+            "parent_id": "n-group",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Лист 1",
+            "multiplier": 1,
+            "o": "8",
+            "r": "12",
+            "p": "20"
+          },
+          {
+            "id": "n-c2",
+            "parent_id": "n-group",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Лист 2",
+            "multiplier": 2,
+            "o": "4",
+            "r": "6",
+            "p": "8"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ]
+      },
+      "expected": {
+        "nodes": {
+          "n-group": {
+            "e": "24.67",
+            "sigma": "2.40",
+            "sum_o": "16",
+            "sum_r": "24",
+            "sum_p": "36"
+          }
+        },
+        "collapse_suggestion": {
+          "node_id": "n-group",
+          "o": "16",
+          "r": "24",
+          "p": "36",
+          "multiplier": 1
+        }
+      }
+    },
+    {
+      "id": "split-keeps-e",
+      "spec": [
+        "BR-TREE-02",
+        "G-23",
+        "TC-TREE-01"
+      ],
+      "title": "После «Разбить лист» E узла равно E прежнего листа 40–60–100",
+      "input": {
+        "project": {
+          "pm_percent": "0",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-int",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": "Интеграция",
+            "title": "Интеграция",
+            "multiplier": 1
+          },
+          {
+            "id": "n-int-1",
+            "parent_id": "n-int",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": "Интеграция",
+            "title": "Интеграция — часть 1",
+            "multiplier": 1,
+            "o": "40",
+            "r": "60",
+            "p": "100"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ]
+      },
+      "expected": {
+        "nodes": {
+          "n-int": {
+            "e": "63.33",
+            "sigma": "10.00"
+          },
+          "n-int-1": {
+            "e": "63.33",
+            "sigma": "10.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "invalid-and-empty-leaves",
+      "spec": [
+        "BR-CALC-02",
+        "FR-TREE-22",
+        "TC-CALC-03"
+      ],
+      "title": "Пустые и неверные листья не входят в суммы; предупреждение с их числом",
+      "input": {
+        "project": {
+          "pm_percent": "0",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-ok",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Верный",
+            "multiplier": 1,
+            "o": "8",
+            "r": "12",
+            "p": "20"
+          },
+          {
+            "id": "n-empty",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Пустой",
+            "multiplier": 1
+          },
+          {
+            "id": "n-o-gt-r",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "O больше R",
+            "multiplier": 1,
+            "o": "10",
+            "r": "8",
+            "p": "12"
+          },
+          {
+            "id": "n-r-gt-p",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "R больше P",
+            "multiplier": 1,
+            "o": "8",
+            "r": "12",
+            "p": "10"
+          },
+          {
+            "id": "n-partial",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Без P",
+            "multiplier": 1,
+            "o": "8",
+            "r": "12"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ]
+      },
+      "expected": {
+        "leaf_state": {
+          "n-ok": "valid",
+          "n-empty": "empty",
+          "n-o-gt-r": "invalid",
+          "n-r-gt-p": "invalid",
+          "n-partial": "empty"
+        },
+        "total": {
+          "e": "12.67",
+          "sigma": "2.00",
+          "unaccounted_leaves": 4
+        },
+        "warning": {
+          "unaccounted_leaves": 4,
+          "text": "4 листа без оценки не учтены"
+        }
+      }
+    },
+    {
+      "id": "zero-and-flat-leaves",
+      "spec": [
+        "BR-CALC-04"
+      ],
+      "title": "0–0–0, O = R = P и O = 0 допустимы; 0–0–0 — валидный лист «без трудозатрат»",
+      "input": {
+        "project": {
+          "pm_percent": "0",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-zero",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Переиспользуем модуль",
+            "multiplier": 1,
+            "o": "0",
+            "r": "0",
+            "p": "0"
+          },
+          {
+            "id": "n-flat",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Без разброса",
+            "multiplier": 1,
+            "o": "5",
+            "r": "5",
+            "p": "5"
+          },
+          {
+            "id": "n-o0",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "O равно нулю",
+            "multiplier": 1,
+            "o": "0",
+            "r": "2",
+            "p": "4"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ]
+      },
+      "expected": {
+        "leaf_state": {
+          "n-zero": "zero",
+          "n-flat": "valid",
+          "n-o0": "valid"
+        },
+        "nodes": {
+          "n-zero": {
+            "e": "0.00",
+            "sigma": "0.00"
+          },
+          "n-flat": {
+            "e": "5.00",
+            "sigma": "0.00"
+          },
+          "n-o0": {
+            "e": "2.00",
+            "sigma": "0.67"
+          }
+        },
+        "total": {
+          "e": "7.00",
+          "sigma": "0.67",
+          "unaccounted_leaves": 0
+        }
+      }
+    },
+    {
+      "id": "project-e-zero",
+      "spec": [
+        "BR-CALC-03",
+        "TC-CALC-04"
+      ],
+      "title": "E проекта = 0: деления на ноль нет, K_P80 и K_P90 не вычисляются, деньги по P80/P90 равны 0, доли «—»",
+      "input": {
+        "project": {
+          "pm_percent": "18",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-zero",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Переиспользуем модуль",
+            "multiplier": 1,
+            "o": "0",
+            "r": "0",
+            "p": "0"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ],
+        "money": {
+          "currency": "USD",
+          "exchange_rate": "92.5",
+          "vat_percent": "20",
+          "rates": [
+            {
+              "discipline_id": "d-be",
+              "rate_rub": "3000"
+            },
+            {
+              "discipline_id": null,
+              "rate_rub": "3200"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "total": {
+          "e": "0.00",
+          "sigma": "0.00",
+          "p80": "0.00",
+          "p90": "0.00",
+          "unaccounted_leaves": 0
+        },
+        "money": {
+          "by_figure": {
+            "e": {
+              "k": null,
+              "rows_rub": {
+                "d-be": "0",
+                "pm": "0"
+              },
+              "total_rub": "0",
+              "vat_rub": "0",
+              "total_with_vat_rub": "0",
+              "rows_cur": {
+                "d-be": "0",
+                "pm": "0"
+              },
+              "total_cur": "0",
+              "vat_cur": "0",
+              "total_with_vat_cur": "0"
+            },
+            "p80": {
+              "k": null,
+              "rows_rub": {
+                "d-be": "0",
+                "pm": "0"
+              },
+              "total_rub": "0",
+              "vat_rub": "0",
+              "total_with_vat_rub": "0",
+              "rows_cur": {
+                "d-be": "0",
+                "pm": "0"
+              },
+              "total_cur": "0",
+              "vat_cur": "0",
+              "total_with_vat_cur": "0"
+            },
+            "p90": {
+              "k": null,
+              "rows_rub": {
+                "d-be": "0",
+                "pm": "0"
+              },
+              "total_rub": "0",
+              "vat_rub": "0",
+              "total_with_vat_rub": "0",
+              "rows_cur": {
+                "d-be": "0",
+                "pm": "0"
+              },
+              "total_cur": "0",
+              "vat_cur": "0",
+              "total_with_vat_cur": "0"
+            }
+          }
+        },
+        "shares": "not_computed"
+      }
+    },
+    {
+      "id": "pm-base-subset",
+      "spec": [
+        "6.3",
+        "BR-CALC-05",
+        "Q-42",
+        "TC-CALC-04"
+      ],
+      "title": "УП считается только от фаз базы: «Гарантийная поддержка» вне базы, k = 10%",
+      "input": {
+        "project": {
+          "pm_percent": "10",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-w",
+            "name": "Гарантийная поддержка",
+            "is_cross_cutting": false,
+            "in_pm_base": false,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-base",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Лист базы",
+            "multiplier": 1,
+            "o": "60",
+            "r": "80",
+            "p": "120"
+          },
+          {
+            "id": "n-ph-w",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-w",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-w"
+          },
+          {
+            "id": "n-ph-w-d-be",
+            "parent_id": "n-ph-w",
+            "kind": "discipline",
+            "phase_id": "ph-w",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-warranty",
+            "parent_id": "n-ph-w-d-be",
+            "kind": "item",
+            "phase_id": "ph-w",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Лист вне базы",
+            "multiplier": 1,
+            "o": "6",
+            "r": "12",
+            "p": "30"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          },
+          {
+            "phase_id": "ph-w",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ]
+      },
+      "expected": {
+        "works": {
+          "e": "97.33",
+          "sigma": "10.77",
+          "p80": "106.40",
+          "p90": "111.14"
+        },
+        "pm": {
+          "e": "8.33",
+          "sigma": "1.00",
+          "base_e": "83.33"
+        },
+        "total": {
+          "e": "105.67",
+          "sigma": "11.77",
+          "p80": "115.57",
+          "p90": "120.75",
+          "unaccounted_leaves": 0
+        }
+      }
+    },
+    {
+      "id": "pm-base-without-hours",
+      "spec": [
+        "BR-CALC-05"
+      ],
+      "title": "В базе УП нет фаз с часами: E_УП = 0 при k = 18%",
+      "input": {
+        "project": {
+          "pm_percent": "18",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-w",
+            "name": "Гарантийная поддержка",
+            "is_cross_cutting": false,
+            "in_pm_base": false,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-empty",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Пустой лист базы",
+            "multiplier": 1
+          },
+          {
+            "id": "n-ph-w",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-w",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-w"
+          },
+          {
+            "id": "n-ph-w-d-be",
+            "parent_id": "n-ph-w",
+            "kind": "discipline",
+            "phase_id": "ph-w",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-warranty",
+            "parent_id": "n-ph-w-d-be",
+            "kind": "item",
+            "phase_id": "ph-w",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Лист вне базы",
+            "multiplier": 1,
+            "o": "6",
+            "r": "12",
+            "p": "30"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          },
+          {
+            "phase_id": "ph-w",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ]
+      },
+      "expected": {
+        "pm": {
+          "e": "0.00",
+          "sigma": "0.00"
+        },
+        "total": {
+          "e": "14.00",
+          "sigma": "4.00",
+          "p80": "17.37",
+          "p90": "19.13",
+          "unaccounted_leaves": 1
+        }
+      }
+    },
+    {
+      "id": "pm-disabled",
+      "spec": [
+        "6.3",
+        "FR-PRJ-01"
+      ],
+      "title": "Процент УП 0%: УП выключено, итог = работы",
+      "input": {
+        "project": {
+          "pm_percent": "0",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-1",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Лист",
+            "multiplier": 1,
+            "o": "8",
+            "r": "12",
+            "p": "20"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ]
+      },
+      "expected": {
+        "pm": {
+          "e": "0.00",
+          "sigma": "0.00"
+        },
+        "total": {
+          "e": "12.67",
+          "sigma": "2.00",
+          "p80": "14.35",
+          "p90": "15.23",
+          "unaccounted_leaves": 0
+        }
+      }
+    },
+    {
+      "id": "rates-missing",
+      "spec": [
+        "BR-MONEY-02",
+        "11.6"
+      ],
+      "title": "Ставки не заданы у QA (есть часы) и у УП (E_УП > 0): вместо сумм «не заданы ставки: QA, УП»; DevOps без часов и без ставки не мешает",
+      "input": {
+        "project": {
+          "pm_percent": "18",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          },
+          {
+            "id": "d-qa",
+            "name": "QA"
+          },
+          {
+            "id": "d-ops",
+            "name": "DevOps"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-1",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Лист",
+            "multiplier": 1,
+            "o": "8",
+            "r": "12",
+            "p": "20"
+          },
+          {
+            "id": "n-ph-a-d-qa",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-qa",
+            "type": null,
+            "title": "d-qa"
+          },
+          {
+            "id": "n-2",
+            "parent_id": "n-ph-a-d-qa",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-qa",
+            "type": null,
+            "title": "Тесты",
+            "multiplier": 1,
+            "o": "4",
+            "r": "6",
+            "p": "8"
+          },
+          {
+            "id": "n-ph-a-d-ops",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-ops",
+            "type": null,
+            "title": "d-ops"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          },
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-qa",
+            "status": "draft"
+          },
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-ops",
+            "status": "draft"
+          }
+        ],
+        "money": {
+          "currency": "RUB",
+          "exchange_rate": "1",
+          "vat_percent": "22",
+          "rates": [
+            {
+              "discipline_id": "d-be",
+              "rate_rub": "3000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "money": {
+          "rates_missing": [
+            "d-qa",
+            "pm"
+          ],
+          "text": "не заданы ставки: QA, УП"
+        }
+      }
+    },
+    {
+      "id": "rub-vat22-rate-missing-no-hours",
+      "spec": [
+        "BR-MONEY-02",
+        "BR-MONEY-03",
+        "BR-MONEY-05",
+        "C-31"
+      ],
+      "title": "RUB (курс 1, строки в валюте = строки в ₽), НДС 22% по умолчанию; DevOps без ставки и без часов на итог не влияет; «Цифра для КП» = E",
+      "input": {
+        "project": {
+          "pm_percent": "18",
+          "quote_figure": "e",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          },
+          {
+            "id": "d-ops",
+            "name": "DevOps"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-1",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Лист",
+            "multiplier": 1,
+            "o": "8",
+            "r": "12",
+            "p": "20"
+          },
+          {
+            "id": "n-ph-a-d-ops",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-ops",
+            "type": null,
+            "title": "d-ops"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          },
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-ops",
+            "status": "draft"
+          }
+        ],
+        "money": {
+          "currency": "RUB",
+          "exchange_rate": "1",
+          "vat_percent": "22",
+          "rates": [
+            {
+              "discipline_id": "d-be",
+              "rate_rub": "3000"
+            },
+            {
+              "discipline_id": null,
+              "rate_rub": "3200"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "money": {
+          "quote_figure": "e",
+          "by_figure": {
+            "e": {
+              "k": "1.000000",
+              "rows_rub": {
+                "d-be": "38000",
+                "d-ops": "0",
+                "pm": "7296"
+              },
+              "total_rub": "45296",
+              "vat_rub": "9965",
+              "total_with_vat_rub": "55261",
+              "rows_cur": {
+                "d-be": "38000",
+                "d-ops": "0",
+                "pm": "7296"
+              },
+              "total_cur": "45296",
+              "vat_cur": "9965",
+              "total_with_vat_cur": "55261"
+            },
+            "p80": {
+              "k": "1.132884",
+              "rows_rub": {
+                "d-be": "43050",
+                "d-ops": "0",
+                "pm": "8266"
+              },
+              "total_rub": "51316",
+              "vat_rub": "11290",
+              "total_with_vat_rub": "62606",
+              "rows_cur": {
+                "d-be": "43050",
+                "d-ops": "0",
+                "pm": "8266"
+              },
+              "total_cur": "51316",
+              "vat_cur": "11290",
+              "total_with_vat_cur": "62606"
+            },
+            "p90": {
+              "k": "1.202358",
+              "rows_rub": {
+                "d-be": "45690",
+                "d-ops": "0",
+                "pm": "8772"
+              },
+              "total_rub": "54462",
+              "vat_rub": "11982",
+              "total_with_vat_rub": "66444",
+              "rows_cur": {
+                "d-be": "45690",
+                "d-ops": "0",
+                "pm": "8772"
+              },
+              "total_cur": "54462",
+              "vat_cur": "11982",
+              "total_with_vat_cur": "66444"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "no-vat",
+      "spec": [
+        "BR-MONEY-05"
+      ],
+      "title": "«Без НДС»: строк НДС нет, выводится «НДС не облагается»; курс с 4 знаками",
+      "input": {
+        "project": {
+          "pm_percent": "18",
+          "quote_figure": "p80",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-1",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Лист",
+            "multiplier": 1,
+            "o": "8",
+            "r": "12",
+            "p": "20"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ],
+        "money": {
+          "currency": "EUR",
+          "exchange_rate": "100.1234",
+          "vat_percent": null,
+          "rates": [
+            {
+              "discipline_id": "d-be",
+              "rate_rub": "3000"
+            },
+            {
+              "discipline_id": null,
+              "rate_rub": "3200"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "money": {
+          "by_figure": {
+            "e": {
+              "k": "1.000000",
+              "rows_rub": {
+                "d-be": "38000",
+                "pm": "7296"
+              },
+              "total_rub": "45296",
+              "vat_rub": null,
+              "total_with_vat_rub": null,
+              "rows_cur": {
+                "d-be": "380",
+                "pm": "73"
+              },
+              "total_cur": "453",
+              "vat_cur": null,
+              "total_with_vat_cur": null
+            },
+            "p80": {
+              "k": "1.132884",
+              "rows_rub": {
+                "d-be": "43050",
+                "pm": "8266"
+              },
+              "total_rub": "51316",
+              "vat_rub": null,
+              "total_with_vat_rub": null,
+              "rows_cur": {
+                "d-be": "430",
+                "pm": "83"
+              },
+              "total_cur": "513",
+              "vat_cur": null,
+              "total_with_vat_cur": null
+            },
+            "p90": {
+              "k": "1.202358",
+              "rows_rub": {
+                "d-be": "45690",
+                "pm": "8772"
+              },
+              "total_rub": "54462",
+              "vat_rub": null,
+              "total_with_vat_rub": null,
+              "rows_cur": {
+                "d-be": "456",
+                "pm": "88"
+              },
+              "total_cur": "544",
+              "vat_cur": null,
+              "total_with_vat_cur": null
+            }
+          },
+          "vat_label": "НДС не облагается"
+        }
+      }
+    },
+    {
+      "id": "money-overflow-currency",
+      "spec": [
+        "BR-MONEY-04",
+        "14.2",
+        "BR-CALC-03"
+      ],
+      "title": "11 листов 99 999,5 × 10 000 по 1 000 000 ₽/ч, курс 0,0001: рубли помещаются в NUMERIC(20,0), сумма в валюте — нет; кэш денег не пишется, в списке «—»",
+      "input": {
+        "project": {
+          "pm_percent": "0",
+          "quote_figure": "e",
+          "detail_level": "medium"
+        },
+        "phases": [
+          {
+            "id": "ph-a",
+            "name": "Разработка",
+            "is_cross_cutting": false,
+            "in_pm_base": true,
+            "enabled": true
+          },
+          {
+            "id": "ph-pm",
+            "name": "Управление проектом",
+            "is_cross_cutting": true,
+            "in_pm_base": false,
+            "enabled": true
+          }
+        ],
+        "disciplines": [
+          {
+            "id": "d-be",
+            "name": "Бэкенд"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n-ph-a",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-a",
+            "discipline_id": null,
+            "type": null,
+            "title": "ph-a"
+          },
+          {
+            "id": "n-ph-a-d-be",
+            "parent_id": "n-ph-a",
+            "kind": "discipline",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "d-be"
+          },
+          {
+            "id": "n-max-01",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 1",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-02",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 2",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-03",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 3",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-04",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 4",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-05",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 5",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-06",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 6",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-07",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 7",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-08",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 8",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-09",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 9",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-10",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 10",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-max-11",
+            "parent_id": "n-ph-a-d-be",
+            "kind": "item",
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "type": null,
+            "title": "Максимальный лист 11",
+            "multiplier": 10000,
+            "o": "99999.5",
+            "r": "99999.5",
+            "p": "99999.5"
+          },
+          {
+            "id": "n-ph-pm",
+            "parent_id": null,
+            "kind": "phase",
+            "phase_id": "ph-pm",
+            "discipline_id": null,
+            "type": null,
+            "title": "Управление проектом"
+          }
+        ],
+        "branch_status": [
+          {
+            "phase_id": "ph-a",
+            "discipline_id": "d-be",
+            "status": "draft"
+          }
+        ],
+        "money": {
+          "currency": "USD",
+          "exchange_rate": "0.0001",
+          "vat_percent": "20",
+          "rates": [
+            {
+              "discipline_id": "d-be",
+              "rate_rub": "1000000"
+            },
+            {
+              "discipline_id": null,
+              "rate_rub": "1000000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "total": {
+          "e": "10999945000.00",
+          "sigma": "0.00",
+          "unaccounted_leaves": 0
+        },
+        "money": {
+          "by_figure": {
+            "e": {
+              "total_rub": "10999945000000000",
+              "total_cur": null,
+              "total_cur_overflow": true
+            }
+          }
+        },
+        "cache": {
+          "e": "10999945000.00",
+          "cost_rub": "10999945000000000",
+          "quote_cur": null
+        }
+      }
+    }
+  ],
+  "functions": {
+    "round_half_up": {
+      "spec": [
+        "BR-CALC-03",
+        "BR-MONEY-04",
+        "TC-CALC-04"
+      ],
+      "cases": [
+        {
+          "value": "0.05",
+          "places": 1,
+          "expected": "0.1"
+        },
+        {
+          "value": "3.45",
+          "places": 1,
+          "expected": "3.5"
+        },
+        {
+          "value": "0.04",
+          "places": 1,
+          "expected": "0.0"
+        },
+        {
+          "value": "83.3333333333",
+          "places": 1,
+          "expected": "83.3"
+        },
+        {
+          "value": "92.6666666667",
+          "places": 1,
+          "expected": "92.7"
+        },
+        {
+          "value": "0.15",
+          "places": 1,
+          "expected": "0.2"
+        },
+        {
+          "value": "208333.3333",
+          "places": 0,
+          "expected": "208333"
+        },
+        {
+          "value": "229359.6",
+          "places": 0,
+          "expected": "229360"
+        },
+        {
+          "value": "0.5",
+          "places": 0,
+          "expected": "1"
+        },
+        {
+          "value": "2.5",
+          "places": 0,
+          "expected": "3"
+        },
+        {
+          "value": "12397.5",
+          "places": 0,
+          "expected": "12398"
+        },
+        {
+          "value": "19.1666666667",
+          "places": 2,
+          "expected": "19.17"
+        }
+      ]
+    },
+    "normalize_hours": {
+      "spec": [
+        "BR-CALC-03",
+        "FR-TREE-21"
+      ],
+      "note": "Шаг 0,5 по ROUND_HALF_UP; разделитель — точка или запятая; диапазон 0–99 999,5 после округления; ответ — каноническая строка без лишних нулей",
+      "cases": [
+        {
+          "input": "12.3",
+          "expected": "12.5",
+          "rounded": true
+        },
+        {
+          "input": "12.2",
+          "expected": "12",
+          "rounded": true
+        },
+        {
+          "input": "12.25",
+          "expected": "12.5",
+          "rounded": true
+        },
+        {
+          "input": "12.75",
+          "expected": "13",
+          "rounded": true
+        },
+        {
+          "input": "0.24",
+          "expected": "0",
+          "rounded": true
+        },
+        {
+          "input": "0.25",
+          "expected": "0.5",
+          "rounded": true
+        },
+        {
+          "input": "12,5",
+          "expected": "12.5",
+          "rounded": false
+        },
+        {
+          "input": "12",
+          "expected": "12",
+          "rounded": false
+        },
+        {
+          "input": "0",
+          "expected": "0",
+          "rounded": false
+        },
+        {
+          "input": "99999.5",
+          "expected": "99999.5",
+          "rounded": false
+        },
+        {
+          "input": "-0.5",
+          "error": "VALUE_OUT_OF_RANGE"
+        },
+        {
+          "input": "100000",
+          "error": "VALUE_OUT_OF_RANGE"
+        },
+        {
+          "input": "abc",
+          "error": "VALIDATION_FAILED"
+        },
+        {
+          "input": "",
+          "error": "VALIDATION_FAILED"
+        }
+      ]
+    },
+    "multiplier": {
+      "spec": [
+        "BR-CALC-03",
+        "NFR-LIM-01"
+      ],
+      "cases": [
+        {
+          "input": 1,
+          "valid": true
+        },
+        {
+          "input": 10000,
+          "valid": true
+        },
+        {
+          "input": 0,
+          "error": "VALUE_OUT_OF_RANGE"
+        },
+        {
+          "input": 10001,
+          "error": "VALUE_OUT_OF_RANGE"
+        },
+        {
+          "input": "1.5",
+          "error": "VALIDATION_FAILED"
+        }
+      ]
+    },
+    "fits_cache": {
+      "spec": [
+        "14.2",
+        "BR-MONEY-04"
+      ],
+      "note": "Часы в кэше — NUMERIC(14,2), деньги — NUMERIC(20,0); не помещается — кэш не пишется, в списке «—»",
+      "cases": [
+        {
+          "type": "hours",
+          "value": "999999999999.99",
+          "fits": true
+        },
+        {
+          "type": "hours",
+          "value": "1000000000000.00",
+          "fits": false
+        },
+        {
+          "type": "money",
+          "value": "99999999999999999999",
+          "fits": true
+        },
+        {
+          "type": "money",
+          "value": "100000000000000000000",
+          "fits": false
+        }
+      ]
+    },
+    "quantiles": {
+      "spec": [
+        "6.2"
+      ],
+      "z80": "0.8416",
+      "z90": "1.2816"
+    }
+  }
+}
