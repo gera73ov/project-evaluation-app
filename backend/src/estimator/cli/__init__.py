@@ -30,6 +30,7 @@ from estimator.logging import configure_logging, get_logger
 COMMAND_MODULES: tuple[str, ...] = (
     "estimator.cli.migrate",
     "estimator.cli.config_cmd",
+    "estimator.cli.rotate_key",
 )
 
 #: Код выхода, когда команда запрещена в текущем окружении.
