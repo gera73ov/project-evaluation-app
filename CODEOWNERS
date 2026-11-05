@@ -1,0 +1,91 @@
+# INF-001 · владельцы зон (PLAN.md раздел 5, AGENTS.md 5.6)
+#
+# У проекта один человек с правом записи — владелец, он ревьюит каждый PR (AGENTS.md 5.6).
+# Поэтому ревьюер по каждому каталогу — @gera73ov, а трек-владелец зоны указан в комментарии
+# над правилом: его агент делает обязательное ревью до перевода PR в «готов к ревью».
+# Последнее совпавшее правило побеждает, поэтому общие правила идут выше частных.
+# Меняет файл только трек INF; правку своих прав агент не делает (AGENTS.md 5.9).
+
+# По умолчанию — владелец
+*                                              @gera73ov
+
+# PM: регламент, план, журнал решений (AGENTS.md — только по поручению владельца)
+/AGENTS.md                                     @gera73ov
+/PLAN.md                                       @gera73ov
+/agents/                                       @gera73ov
+# Спецификация и дизайн — только чтение для всех треков
+/docs/                                         @gera73ov
+/DESIGN.md                                     @gera73ov
+
+# DOC (+INF): README, руководства
+/README.md                                     @gera73ov
+/manuals/                                      @gera73ov
+
+# INF: сборка, CI, окружение, развёртывание
+/.github/                                      @gera73ov
+/CODEOWNERS                                    @gera73ov
+/.env.example                                  @gera73ov
+/Makefile                                      @gera73ov
+/deploy/                                       @gera73ov
+/backend/pyproject.toml                        @gera73ov
+/backend/uv.lock                               @gera73ov
+/backend/semgrep/                              @gera73ov
+/backend/tools/                                @gera73ov
+/backend/scripts/                              @gera73ov
+/.dockerignore                                 @gera73ov
+/backend/src/estimator/main.py                 @gera73ov
+/backend/src/estimator/config.py               @gera73ov
+/backend/src/estimator/logging.py              @gera73ov
+/backend/src/estimator/health.py               @gera73ov
+/backend/src/estimator/metrics.py              @gera73ov
+/backend/src/estimator/cli/                    @gera73ov
+/backend/src/estimator/jobs/                   @gera73ov
+/frontend/package.json                         @gera73ov
+/frontend/package-lock.json                    @gera73ov
+/frontend/vite.config.ts                       @gera73ov
+/frontend/eslint.config.js                     @gera73ov
+/frontend/.npmrc                                @gera73ov
+/frontend/scripts/                             @gera73ov
+
+# Контракты (PLAN.md раздел 6): ревью треков-потребителей обязательно
+/contracts/                                    @gera73ov
+# API
+/contracts/openapi.yaml                        @gera73ov
+/contracts/errors.yaml                         @gera73ov
+/backend/src/estimator/api/                    @gera73ov
+/frontend/src/shared/api/generated/            @gera73ov
+# RT
+/contracts/ws-events.schema.json               @gera73ov
+/backend/src/estimator/realtime/               @gera73ov
+# SEC (обязательное ревью SEC: auth, security, CI, Dockerfile, Nginx — AGENTS.md 5.6)
+/contracts/permissions.yaml                    @gera73ov
+/contracts/audit-events.yaml                   @gera73ov
+/backend/src/estimator/security/               @gera73ov
+# NTF
+/contracts/notifications.yaml                  @gera73ov
+/backend/src/estimator/notifications/          @gera73ov
+# EXP
+/contracts/exports.yaml                        @gera73ov
+/backend/src/estimator/exports/                @gera73ov
+/backend/src/estimator/documents/              @gera73ov
+# ADM
+/contracts/settings.schema.json                @gera73ov
+/backend/src/estimator/admin/                  @gera73ov
+# DB (миграции — обязательное ревью DB)
+/contracts/db/                                 @gera73ov
+/backend/alembic/                              @gera73ov
+/backend/src/estimator/db/                     @gera73ov
+# CORE
+/contracts/fixtures/calc/                      @gera73ov
+/backend/src/estimator/domain/                 @gera73ov
+/backend/src/estimator/services/               @gera73ov
+# AUTH (+ обязательное ревью SEC)
+/backend/src/estimator/auth/                   @gera73ov
+# FE
+/frontend/src/                                 @gera73ov
+# QA
+/backend/tests/security/                       @gera73ov
+/backend/tests/acceptance/                     @gera73ov
+/backend/tests/contract/                       @gera73ov
+/e2e/                                          @gera73ov
+/load/                                         @gera73ov

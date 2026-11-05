@@ -1,0 +1,116 @@
+# INF-005 · проверки на каждый PR и push в main (SEC-SDLC-01, NFR-MNT-01).
+# Бесплатный тариф GitHub: лёгкие проверки здесь, сборка образов, trivy и смоук стенда — в
+# images.yml (при изменении образов, раз в неделю и вручную). Решение владельца от 05.11.2026.
+# Действия закреплены по SHA коммита (AGENTS.md 6.5); права токена — только чтение.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+  UV_PYTHON: "3.12"
+  UV_NO_PROGRESS: "1"
+
+jobs:
+  backend:
+    name: backend (ruff, bandit, semgrep, pip-audit, pytest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: |
+            backend/uv.lock
+            backend/tools/semgrep/uv.lock
+      - name: Установить зависимости из uv.lock
+        run: uv sync --all-groups
+      - name: ruff
+        run: |
+          uv run ruff check --output-format=github . ../deploy
+          uv run ruff format --check . ../deploy
+      - name: bandit
+        run: uv run bandit -q -c pyproject.toml -r src ../deploy -x ../deploy/syslog/test_receiver.py
+      - name: semgrep (самопроверка правил и скан)
+        working-directory: .
+        run: |
+          uv run --project backend/tools/semgrep semgrep --test backend/semgrep/
+          uv run --project backend/tools/semgrep semgrep scan --error --metrics=off \
+            --disable-version-check --config backend/semgrep/ \
+            --exclude "backend/semgrep/*.py" backend/src deploy
+      - name: pip-audit (критичные и высокие блокируют)
+        run: |
+          uv export -q --all-groups --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/req.txt"
+          uv run pip-audit --strict --require-hashes --disable-pip -r "$RUNNER_TEMP/req.txt"
+      - name: pytest с покрытием (≥ 80 %, domain/calc и security/authz — 100 %)
+        run: |
+          uv run pytest --cov --cov-report=term --cov-report=json:coverage.json
+          uv run python scripts/check_coverage.py coverage.json
+      - name: Таблица переменных окружения собирается
+        run: uv run estimator config-env > /dev/null
+
+  frontend:
+    name: frontend (eslint, tsc, vitest, build, npm audit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit
+      - name: eslint + security
+        run: npm run lint
+      - name: tsc
+        run: npm run typecheck
+      - name: vitest
+        run: npm test
+      - name: build без inline-скриптов и внешних ресурсов
+        run: npm run build
+      - name: npm audit (критичные и высокие блокируют)
+        run: npm audit --omit=dev --audit-level=high
+
+  secrets:
+    name: gitleaks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Установить gitleaks (проверка контрольной суммы)
+        run: |
+          curl -fsSL --retry 4 -o "$RUNNER_TEMP/gitleaks.tgz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
+      - name: gitleaks по всей истории
+        run: '"$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 1 .'

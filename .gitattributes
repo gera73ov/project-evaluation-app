@@ -1,0 +1,10 @@
+# INF-001 · нормализация переводов строк (разработка ведётся и в Windows)
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.jpg binary
+*.pptx binary
+*.docx binary
+*.xlsx binary
+uv.lock linguist-generated=true
+package-lock.json linguist-generated=true

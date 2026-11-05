@@ -1,0 +1,69 @@
+# INF-005 · собственные правила semgrep (SEC-WEB-05, SEC-SDLC-01).
+# SQL — только через ORM и параметризованные запросы: строка запроса не собирается из значений.
+# Проверка правил: `semgrep --test backend/semgrep/` (случаи — в raw-sql.py рядом).
+rules:
+  - id: estimator-raw-sql-interpolation
+    languages: [python]
+    severity: ERROR
+    message: >-
+      SEC-WEB-05: SQL-строка собирается из значений ($SINK). Используйте ORM или
+      text("... :param").bindparams(...) / параметры execute().
+    metadata:
+      spec: SEC-WEB-05
+      cwe: "CWE-89: SQL Injection"
+    patterns:
+      - pattern-either:
+          - pattern: $SINK(f"...", ...)
+          - pattern: $OBJ.$SINK(f"...", ...)
+          - pattern: $SINK("..." % $X, ...)
+          - pattern: $OBJ.$SINK("..." % $X, ...)
+          - pattern: $SINK("...".format(...), ...)
+          - pattern: $OBJ.$SINK("...".format(...), ...)
+          - pattern: $SINK("..." + $X, ...)
+          - pattern: $OBJ.$SINK("..." + $X, ...)
+          - pattern: $SINK($X + "...", ...)
+          - pattern: $OBJ.$SINK($X + "...", ...)
+          - pattern: |
+              $Q = f"..."
+              ...
+              $SINK($Q, ...)
+          - pattern: |
+              $Q = f"..."
+              ...
+              $OBJ.$SINK($Q, ...)
+          - pattern: |
+              $Q = "..." % $X
+              ...
+              $SINK($Q, ...)
+          - pattern: |
+              $Q = "..." % $X
+              ...
+              $OBJ.$SINK($Q, ...)
+          - pattern: |
+              $Q = "...".format(...)
+              ...
+              $SINK($Q, ...)
+          - pattern: |
+              $Q = "...".format(...)
+              ...
+              $OBJ.$SINK($Q, ...)
+          - pattern: |
+              $Q = "..." + $X
+              ...
+              $SINK($Q, ...)
+          - pattern: |
+              $Q = "..." + $X
+              ...
+              $OBJ.$SINK($Q, ...)
+      - metavariable-regex:
+          metavariable: $SINK
+          regex: ^(text|execute|exec_driver_sql|executemany|executescript|fetch|fetchrow|fetchval|literal_column)$
+
+  - id: estimator-exec-driver-sql
+    languages: [python]
+    severity: ERROR
+    message: >-
+      SEC-WEB-05: exec_driver_sql обходит SQLAlchemy; допустим только со строковой константой.
+    patterns:
+      - pattern: $CONN.exec_driver_sql($Q, ...)
+      - pattern-not: $CONN.exec_driver_sql("...", ...)

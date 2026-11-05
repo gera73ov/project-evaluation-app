@@ -1,0 +1,163 @@
+# INF-004 · окружение dev (SPEC 13.2, 18.1, 18.2): nginx, api ×2, worker, beat, redis, clamav,
+# postgres:16. Запуск из корня репозитория: `make up` (см. Makefile и README).
+# Эмуляторы корпоративных сервисов (Samba AD, Mailpit, syslog TLS) — docker-compose.test.yml.
+#
+# Защита контейнеров (SEC-SDLC-04): процессы приложения не от root, файловая система только
+# для чтения, кроме /tmp и томов данных, no-new-privileges, все capabilities сброшены.
+# Секреты — из .env (dev) или Docker secrets (stage, prod — INF-011), в образах их нет.
+name: estimator
+
+x-hardening: &hardening
+  read_only: true
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+
+x-backend: &backend
+  <<: *hardening
+  image: estimator-api:${APP_VERSION:-dev}
+  env_file: ../../.env
+  environment:
+    DATABASE_URL: postgresql+asyncpg://estimator:${POSTGRES_PASSWORD:?}@postgres:5432/estimator
+    REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/0
+    CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/1
+  volumes:
+    - exports:/data/exports
+    - documents:/data/documents
+  networks: [backend]
+  restart: unless-stopped
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+    certs: { condition: service_completed_successfully }
+
+services:
+  # Выпуск dev-сертификатов в deploy/compose/certs (один раз; существующие не трогает)
+  certs:
+    <<: *hardening
+    image: estimator-api:${APP_VERSION:-dev}
+    build: &api-build
+      context: ../..
+      dockerfile: deploy/docker/api.Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    user: "${CERTS_UID:-10001}:${CERTS_GID:-10001}"
+    command: ["python", "/opt/certs/gen_dev_certs.py", "/certs"]
+    volumes:
+      - ../certs/gen_dev_certs.py:/opt/certs/gen_dev_certs.py:ro
+      - ./certs:/certs
+    network_mode: none
+    restart: "no"
+
+  postgres:
+    image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp", "/var/run/postgresql"]
+    environment:
+      POSTGRES_DB: estimator
+      POSTGRES_USER: estimator
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --encoding=UTF8 --locale=C.UTF-8"
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    networks: [backend]
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]  # только loopback: для psql и тестов
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U estimator -d estimator"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    <<: *hardening
+    user: "999:1000"
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?}", "--appendonly", "yes",
+              "--dir", "/data", "--protected-mode", "yes"]
+    volumes: ["redisdata:/data"]
+    networks: [backend]
+    ports: ["127.0.0.1:${REDIS_PORT:-6379}:6379"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    restart: unless-stopped
+
+  clamav:
+    # Официальный образ проекта ClamAV (Cisco Talos); базы скачиваются при первом старте
+    image: clamav/clamav:1.5.4@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a
+    security_opt: ["no-new-privileges:true"]
+    volumes: ["clamdb:/var/lib/clamav"]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10m
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    <<: *backend
+    build: *api-build
+    deploy:
+      replicas: 2
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).status != 200)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 6
+
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "estimator.jobs.celery_app", "worker", "--loglevel=INFO",
+              "--concurrency=2", "-Q", "default"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A estimator.jobs.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 | grep -q pong"]
+      interval: 30s
+      timeout: 15s
+      start_period: 20s
+      retries: 3
+
+  beat:
+    <<: *backend
+    # Один экземпляр: LockedScheduler держит блокировку в Redis, второй не стартует (INF-008)
+    command: ["celery", "-A", "estimator.jobs.celery_app", "beat", "--loglevel=INFO",
+              "-S", "estimator.jobs.schedule:LockedScheduler", "--pidfile="]
+
+  nginx:
+    <<: *hardening
+    image: estimator-nginx:${APP_VERSION:-dev}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/nginx.Dockerfile
+    volumes:
+      - ./certs/nginx.crt:/etc/nginx/certs/server.crt:ro
+      - ./certs/nginx.key:/etc/nginx/certs/server.key:ro
+    networks: [backend]
+    ports: ["127.0.0.1:${HTTPS_PORT:-8443}:8443"]
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/nginx-health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+
+networks:
+  backend: {}
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  clamdb: {}
+  # Файлы выгрузок (TTL 24 ч) и документы заказчика (зашифрованы) — SPEC 13.2
+  exports: {}
+  documents: {}
