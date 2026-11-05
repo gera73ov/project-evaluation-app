@@ -1,0 +1,10 @@
+{% block subject %}Сводка: {{ total }} {{ plural(total, "новое событие", "новых события", "новых событий") }} в {{ projects|length }} {{ plural(projects|length, "проекте", "проектах", "проектах") }}{% endblock %}
+{% block body %}
+С прошлой сводки в ваших проектах {{ total }} {{ plural(total, "новое событие", "новых события", "новых событий") }}.
+
+{% for p in projects %}
+«{{ p.project_name }}»: {% for kind, count in p.counters|dictsort %}{{ kind_label(kind) or kind }} — {{ count }}{{ ", " if not loop.last }}{% endfor %}
+
+  {{ p.link }}
+{% endfor %}
+{% endblock %}

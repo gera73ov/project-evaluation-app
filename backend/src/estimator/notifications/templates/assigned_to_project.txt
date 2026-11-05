@@ -1,0 +1,6 @@
+{% block subject %}Вас назначили в проект «{{ project_name }}»{% endblock %}
+{% block body %}
+Вас назначили в проект «{{ project_name }}».
+
+Открыть проект: {{ link }}
+{% endblock %}

@@ -1,0 +1,5 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p>Вас назначили в проект «{{ project_name }}».</p>
+{% with label = "Открыть проект" %}{% include "_button.html" %}{% endwith %}
+{% endblock %}

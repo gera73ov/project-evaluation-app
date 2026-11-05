@@ -1,0 +1,6 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p>Модератор напоминает: ваша часть оценки проекта «{{ project_name }}» ещё не начата.</p>
+{% if deadline %}<p>Срок: {{ deadline }}.</p>{% endif %}
+{% with label = "Открыть проект" %}{% include "_button.html" %}{% endwith %}
+{% endblock %}

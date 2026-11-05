@@ -1,0 +1,10 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p>С прошлой сводки в ваших проектах {{ total }} {{ plural(total, "новое событие", "новых события", "новых событий") }}.</p>
+{% for p in projects %}
+<p style="margin:16px 0 4px"><a href="{{ p.link }}" style="color:#0969da">«{{ p.project_name }}»</a></p>
+<ul style="margin:0;padding-left:20px">
+{% for kind, count in p.counters|dictsort %}<li>{{ kind_label(kind) or kind }} — {{ count }}</li>{% endfor %}
+</ul>
+{% endfor %}
+{% endblock %}
