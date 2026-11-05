@@ -94,7 +94,7 @@
 
 | Трек | Задач | Готово | В работе | Заблокировано |
 |---|---|---|---|---|
-| INF | 17 | 0 | 0 | 0 |
+| INF | 17 | 0 | 8 | 0 |
 | DB | 13 | 0 | 0 | 0 |
 | CORE | 45 | 0 | 0 | 0 |
 | AUTH | 19 | 0 | 0 | 0 |
@@ -108,7 +108,7 @@
 | QA | 27 | 0 | 0 | 0 |
 | DOC | 7 | 0 | 0 | 0 |
 | PM | 8 | 1 | 0 | 0 |
-| **Итого** | **254** | **1** | **0** | **0** |
+| **Итого** | **254** | **1** | **8** | **0** |
 
 ---
 
@@ -267,14 +267,14 @@
 
 #### INF — каркас
 
-- [ ] **INF-001** · Каркас монорепозитория · трек INF
+- [ ] **INF-001** · Каркас монорепозитория · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: 13.1, 13.2, 16.4
   - Зависит: —
   - Сделать: создать структуру каталогов раздела 5, `CODEOWNERS` по трекам, `.editorconfig`, `.gitignore`, шаблон MR с чек-листом DoD (раздел 3), каталог `contracts/` с README о порядке изменений (CR).
   - Артефакты: корень репозитория, `CODEOWNERS`, `contracts/README.md`, `.gitlab/merge_request_templates/default.md`
   - Готово, когда: структура совпадает с разделом 5; CODEOWNERS назначает ревьюера по каждому каталогу; шаблон MR содержит DoD.
 
-- [ ] **INF-002** · Каркас бэкенда (Python 3.12, FastAPI) · трек INF
+- [ ] **INF-002** · Каркас бэкенда (Python 3.12, FastAPI) · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: 13.1, NFR-MNT-03, NFR-MNT-04, NFR-MNT-05, SEC-SDLC-03
   - Зависит: INF-001
   - Сделать: `pyproject.toml` + `uv.lock` с хэшами; зависимости стека 13.1 с закреплёнными версиями; фабрика приложения FastAPI; конфигурация через переменные окружения (pydantic-settings); `structlog` JSON-логи с полями `time, level, request_id, user_id, project_id, event`; middleware `request_id`; `/health/live`, `/health/ready` (проверка БД и Redis); запуск Uvicorn.
@@ -284,42 +284,42 @@
   - [ ] Конфиг 12-factor, список переменных выгружается командой для README
   - [ ] structlog + request_id
 
-- [ ] **INF-003** · Каркас фронтенда (React 18, Vite, TypeScript) · трек INF
+- [ ] **INF-003** · Каркас фронтенда (React 18, Vite, TypeScript) · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: 13.1, FR-UI-01, SEC-WEB-02, SEC-WEB-03, SEC-SDLC-03
   - Зависит: INF-001
   - Сделать: Vite + React 18 + TS strict; зависимости Mantine 7, TanStack Table/Virtual/Query, Zustand, decimal.js, i18n-библиотека; `package-lock.json`; ESLint с `eslint-plugin-security` и правилом, запрещающим `dangerouslySetInnerHTML`; Vitest; сборка без inline-скриптов и без внешних CDN; подключение `docs/spec/mockups-src/app.css` копией в `frontend/src/shared/ui/app.css` (исходник в docs не изменять).
   - Артефакты: `frontend/package.json`, `frontend/package-lock.json`, `frontend/vite.config.ts`, `frontend/.eslintrc.*`
   - Готово, когда: `npm ci && npm run build && npm test` проходят; в собранном `index.html` нет inline-скриптов; линтер падает на `dangerouslySetInnerHTML`.
 
-- [ ] **INF-004** · Docker Compose для dev и test · трек INF
+- [ ] **INF-004** · Docker Compose для dev и test · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: 13.2, 18.1, 18.2, 17.1 (Samba AD), Q-47, Q-50
   - Зависит: INF-002, INF-003
   - Сделать: `docker-compose.yml` с сервисами `nginx`, `api` (2 реплики), `worker`, `beat`, `redis`, `clamav`, `postgres:16`; профиль `test` с Samba AD DC (тестовые OU, вложенные группы, отключённые учётки) и SMTP-ловушкой; самоподписанный TLS для dev (нужен для `__Host-`-cookie); тома для файлов экспорта и документов.
   - Артефакты: `deploy/compose/docker-compose.yml`, `deploy/compose/docker-compose.test.yml`, `deploy/samba-ad/`
   - Готово, когда: `docker compose up` поднимает все сервисы, health зелёный; профиль test поднимает Samba AD с тестовыми данными и SMTP-ловушку.
 
-- [ ] **INF-005** · CI-пайплайн с проверками безопасности · трек INF
+- [ ] **INF-005** · CI-пайплайн с проверками безопасности · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: SEC-SDLC-01, SEC-SDLC-03, NFR-MNT-01, SEC-WEB-05
   - Зависит: INF-002, INF-003
   - Сделать: стадии lint (`ruff`, `eslint`), SAST (`bandit`, `semgrep` с правилом запрета SQL-строк с подстановкой значений), зависимости (`pip-audit`, `npm audit --omit=dev`; критичные и высокие блокируют), `gitleaks`, `trivy` по образам, тесты (`pytest` с покрытием, `vitest`), пороги покрытия (бэкенд ≥ 80%, `domain/calc` и `security/authz` — 100% ветвлений), контрактный тест (подключается в API-004).
   - Артефакты: `.gitlab-ci.yml` (или `.github/workflows/*`), `backend/.semgrep.yml`
   - Готово, когда: MR с искусственной уязвимостью/секретом/сырым SQL блокируется; пороги покрытия применяются.
 
-- [ ] **INF-006** · Защищённые образы контейнеров · трек INF
+- [ ] **INF-006** · Защищённые образы контейнеров · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: SEC-SDLC-04, SEC-CRYPT-01
   - Зависит: INF-002, INF-003
   - Сделать: `python:3.12-slim` для api/worker/beat, `nginx:alpine` для фронта; процесс не от root; read-only FS кроме `/tmp`; `no-new-privileges`; секреты только через env / Docker secrets.
   - Артефакты: `deploy/docker/api.Dockerfile`, `deploy/docker/nginx.Dockerfile`
   - Готово, когда: `trivy` без критичных/высоких; контейнеры стартуют с read-only FS; в образах нет секретов (gitleaks/trivy secret scan).
 
-- [ ] **INF-007** · Каркас CLI `estimator` · трек INF
+- [ ] **INF-007** · Каркас CLI `estimator` · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: 18.2, FR-SA-01, SEC-AUD-01 («запуск любой консольной команды … с именем пользователя ОС»), 17.4
   - Зависит: INF-002
   - Сделать: точка входа `estimator` (Typer/Click) с реестром подкоманд, которые регистрируют треки; общий хук «до/после команды» для записи аудита (реализацию записи подключает SEC-004); флаг окружения `APP_ENV` и общий запрет запуска команд «только для стендов» на prod; команда `estimator migrate` (обёртка `alembic upgrade head`).
   - Артефакты: `backend/src/estimator/cli/__init__.py`, `cli/migrate.py`
   - Готово, когда: `estimator --help` показывает зарегистрированные команды; хук вызывается для каждой команды; команда с меткой «только стенд» отказывается работать при `APP_ENV=prod`.
 
-- [ ] **INF-008** · Каркас Celery и Celery Beat · трек INF
+- [ ] **INF-008** · Каркас Celery и Celery Beat · трек INF · 🔧 в работе @INF/claude с 05.11
   - SPEC: 13.1, 13.2, FR-UI-02 (ночные задачи по поясу приложения)
   - Зависит: INF-002, INF-004
   - Сделать: Celery-приложение с брокером Redis, реестр периодических задач (треки добавляют свои), расписания в часовом поясе приложения (`app.timezone`), защита от двойного запуска beat, метрика длины очереди.
