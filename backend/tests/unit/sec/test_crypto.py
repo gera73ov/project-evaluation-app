@@ -198,7 +198,8 @@ def test_file_roundtrip(size: int) -> None:
     key = new_data_key()
     enc = io.BytesIO()
     assert encrypt_stream(io.BytesIO(data), enc, key, DOC) == size
-    assert data[:64] not in enc.getvalue() or size == 0
+    if size >= 16:  # короткий открытый текст может случайно встретиться в шифротексте
+        assert data[:64] not in enc.getvalue()
     out = io.BytesIO()
     assert decrypt_stream(io.BytesIO(enc.getvalue()), out, key, DOC) == size
     assert out.getvalue() == data
