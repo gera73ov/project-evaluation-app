@@ -1,0 +1,263 @@
+# contracts/exports.yaml — каталог выгрузок (EXP-001).
+# Владелец: трек EXP. Потребители: CORE, FE, QA (PLAN.md раздел 6).
+# Источник правды — SPEC v0.5: 10.3 (FR-EXP-01..06), FR-CQ-02/04, FR-SNAP-05, FR-PORT-02, 11.9,
+# 11.10 №4, SEC-AUD-06, SEC-WEB-06/07, 6.4–6.5 (BR-MONEY-04..06, R-01), GAP-02.
+# До вехи M0 файл меняет трек EXP обычным PR; после M0 — только через CR (contracts/README.md).
+
+version: 0.1.0
+status: draft  # 1.0.0 после утверждения PM-001 (веха M0)
+spec: SPEC.md v0.5
+
+# ---------------------------------------------------------------------------
+# 1. Общие правила для всех выгрузок
+# ---------------------------------------------------------------------------
+common:
+  marks:  # FR-EXP-06, Q-36, TC-SEC-09
+    text: "Коммерческая тайна · <ФИО выгрузившего> · <ДД.ММ.ГГГГ ЧЧ:ММ>"
+    xlsx: Верхний и нижний колонтитулы каждого листа и строки 1–3 первого листа (гриф, ФИО, дата и время); данные начинаются со строки 5
+    docx: Верхний и нижний колонтитулы каждой страницы и первый абзац документа
+    csv: "Первая строка-комментарий «# Коммерческая тайна; <ФИО>; <дата и время>»"
+    timezone: Часовой пояс выгрузившего (users.timezone, иначе app.timezone, FR-UI-02)
+  values:  # FR-EXP-04, SEC-WEB-06, TC-SEC-05
+    - Ячейки Excel содержат значения, а не формулы.
+    - Текстовое значение, начинающееся с «=», «+», «-», «@», табуляции или возврата каретки, получает префикс «'».
+    - "Числа пишутся числовыми ячейками с форматом: часы — 0,0; деньги — # ##0; проценты — 0 % (BR-CALC-03); округление ROUND_HALF_UP только при выводе."
+    - Пользовательский текст в Word вставляется как текст, без интерпретации разметки (SEC-WEB-02).
+  money:  # SEC-AUTHZ-04, TC-SEC-04
+    rule: >-
+      Колонки, строки и листы с пометкой money: true формируются, только если у выгружающего
+      действует money.read (с TOTP в сессии). Иначе их нет в файле совсем — не пустые, а
+      отсутствующие. Вид с money_only: true недоступен без права (403).
+    keys: [Ставка, Стоимость, валюта КП, НДС, курс, сумма договора, «в КП» в деньгах]
+  delivery:  # FR-EXP-05
+    mode: Фоновая задача Celery; если дольше 3 секунд — клиент показывает «Готовим файл…» и скачивает по готовности (GET /exports/{id})
+    retention_hours: 24  # retention.periods.export_files_hours
+    access: Файл скачивает только пользователь, который его запросил (export_files.user_id)
+    rate_limit: 30 выгрузок в час на пользователя, превышение — 429 RATE_LIMITED (SEC-WEB-07)
+    audit: [export.created, export.downloaded]  # contracts/audit-events.yaml; audit_csv — audit.exported
+    performance: Выгрузка Excel проекта на 2 000 узлов ≤ 10 с (NFR-PERF-05)
+  file_name:  # FR-EXP-03
+    pattern: "<Название проекта>_<снимок или дата>_<вид>.<расширение>"
+    date_format: ДД.ММ.ГГГГ
+    invalid_chars: "Символы \\ / : * ? \" < > | и управляющие заменяются на «_»; повторяющиеся «_» схлопываются"
+    max_length: 150  # без расширения; название проекта обрезается, остальные части сохраняются
+    snapshot_part: Название снимка (по тем же правилам замены символов)
+  source:
+    current: Текущее состояние проекта
+    snapshot: Снимок — значения, названия справочников, ставки, курс и НДС из снимка (FR-SNAP-01, BR-ADM-02)
+
+# ---------------------------------------------------------------------------
+# 2. Виды выгрузок. Поля:
+#    permission — право из contracts/permissions.yaml; money_only — выгрузка целиком денежная;
+#    endpoint — операция 15.2; sources — current / snapshot / пара для сравнения;
+#    file_name — часть <вид> и расширение; sheets — листы с колонками в порядке вывода.
+# ---------------------------------------------------------------------------
+kinds:
+  hours_xlsx:
+    title: Excel «Часы»
+    spec: [FR-EXP-01, FR-EXP-03, BR-MONEY-06]
+    permission: export.hours
+    money_only: false
+    endpoint: "POST /projects/{id}/exports {kind: hours_xlsx, snapshot_id?}"
+    sources: [current, snapshot]
+    file_name: {kind_part: часы, ext: xlsx}
+    sheets:
+      - name: Оценка
+        rows: >-
+          Дерево в порядке position: фаза → дисциплина → узлы → листья; ветки «не нужно» —
+          одной строкой со статусом. После каждой фазы — итоговая строка фазы; в конце — строки
+          «Работы», «Управление проектом N %», «Итог E», «P80», «P90» и строка «Цифра для КП: P80»
+          (BR-MONEY-06).
+        columns:
+          - {name: Уровень, note: "1 — фаза, 2 — дисциплина, 3… — узлы; для группировки строк Excel"}
+          - {name: Узел, note: Название с отступом по уровню}
+          - {name: Тип, note: Тип узла; для фазы и дисциплины пусто}
+          - {name: ×N}
+          - {name: O, note: Часы на одну штуку}
+          - {name: R}
+          - {name: P}
+          - {name: E, note: "N × E_ед; у узла — сумма; пустой или неверный лист — «не учтён»"}
+          - {name: σ}
+          - {name: Комментарий, note: Строки комментария через перевод строки (R-03)}
+          - {name: Метка, note: Метки тех же строк в том же порядке, через перевод строки}
+          - {name: Статус ветки, note: У строки дисциплины — не начато / черновик / готово / не нужно}
+          - {name: Проверено, note: "✓, ◐ (самопроверка) или пусто"}
+      - name: Допущения и риски
+        rows: Строки комментариев с метками категорий assumption, constraint, risk, tech и обоснование процента УП (как вкладка статистики «Списки по меткам»)
+        columns:
+          - {name: Категория, note: Допущения / Ограничения / Риски / Технологии}
+          - {name: Метка}
+          - {name: Текст}
+          - {name: Путь узла, note: "Фаза › Дисциплина › … › Узел"}
+      - name: Параметры
+        rows: Пары «параметр — значение»
+        columns:
+          - {name: Параметр}
+          - {name: Значение}
+        parameters: [Проект, Заказчик, Уровень детализации, Процент УП, Фазы базы УП, Цифра для КП,
+                     Дата выгрузки, Кто выгрузил, Версия проекта или название снимка]
+
+  money_xlsx:
+    title: Excel «С деньгами»
+    spec: [FR-EXP-02, FR-EXP-03, R-01, BR-MONEY-04, BR-MONEY-05, BR-MONEY-06, TC-MONEY-01]
+    permission: export.money
+    money_only: true
+    endpoint: "POST /projects/{id}/exports {kind: money_xlsx, snapshot_id?}"
+    sources: [current, snapshot]
+    file_name: {kind_part: деньги, ext: xlsx}
+    sheets:
+      - name: Оценка
+        same_as: hours_xlsx.Оценка
+        extra_columns:  # добавляются после «σ»
+          - {name: Ставка, money: true, note: ₽/ч дисциплины; у строки УП — ставка УП}
+          - {name: "Стоимость, ₽", money: true, note: "По E: округл(E · ставка), у узлов — сумма округлённых строк"}
+          - {name: "Стоимость, <валюта КП>", money: true, note: "округл(Стоимость ₽ / курс) построчно (BR-MONEY-04)"}
+      - name: Для КП
+        money: true
+        rows: >-
+          Строки дисциплин проекта и УП, затем «Итог без НДС», «НДС N %» (или «НДС не облагается»),
+          «Итого с НДС»; ниже — «Цифра для КП» в часах и «Срок, недель»; ниже — блок сравнения
+          E / P80 / P90. Суммы столбцов сходятся с итогами до рубля и до единицы валюты.
+        columns:
+          - {name: Строка, note: Дисциплина или «Управление проектом»}
+          - {name: "По E, ₽", money: true}
+          - {name: "Для КП (<цифра>), ₽", money: true, note: "округл(стоимость строки по E без округления · K_F), K_F = F_итог / E_итог"}
+          - {name: "Для КП, <валюта КП>", money: true, note: "округл(строка ₽ / курс)"}
+        comparison_block:
+          rows: [E, P80, P90]  # строка, выбранная «Цифрой для КП», выделена
+          columns: [Часы, "Без НДС, ₽", "НДС, ₽", "С НДС, ₽", "Без НДС, <валюта КП>", "С НДС, <валюта КП>"]
+        example: "Пример 6.5 при P80: Бэкенд 291 017 ₽ и 3 146 USD; итог без НДС 1 200 495 ₽ и 12 978 USD; с НДС 1 440 594 ₽ и 15 574 USD (17.2)"
+      - name: Допущения и риски
+        same_as: hours_xlsx.Допущения и риски
+      - name: Параметры
+        same_as: hours_xlsx.Параметры
+        extra_parameters: [Валюта КП, Курс (₽ за единицу), Ставка НДС, Срок недель]
+
+  cq_xlsx:
+    title: Excel «Вопросы заказчику»
+    spec: [FR-CQ-02, FR-CQ-04, 11.11 №2, 11.11 №7]
+    permission: cq.manage
+    money_only: false
+    endpoint: "POST /projects/{id}/customer-questions/export {format: xlsx, thread_ids[]}"
+    sources: [current]
+    selection: Выбранные флажками вопросы; по умолчанию — все в статусе «новый»
+    side_effect: Выгруженные вопросы в статусе «новый» становятся «отправлен» с датой отправки (FR-CQ-02)
+    file_name: {kind_part: вопросы, ext: xlsx}
+    header: [Проект, Заказчик, Дата выгрузки]
+    sheets:
+      - name: Вопросы
+        columns:
+          - {name: №, note: В-NNN}
+          - {name: Раздел, note: "Фаза › Дисциплина › путь узла; для вопроса уровня проекта — «Проект»"}
+          - {name: Вопрос, note: Текущий текст вопроса}
+          - {name: Ответ, note: Пустая колонка для заказчика}
+    excluded: Деньги, внутренние обсуждения, автор, статус, закрытые заметки (FR-CQ-04)
+
+  cq_docx:
+    title: Word «Вопросы заказчику»
+    spec: [FR-CQ-04, 11.11 №2]
+    permission: cq.manage
+    money_only: false
+    endpoint: "POST /projects/{id}/customer-questions/export {format: docx, thread_ids[]}"
+    sources: [current]
+    selection: Как cq_xlsx
+    side_effect: Как cq_xlsx
+    file_name: {kind_part: вопросы, ext: docx}
+    header: [Проект, Заказчик, Дата]
+    table: [№, Раздел, Вопрос, Ответ (пустая колонка)]
+    excluded: Как cq_xlsx
+
+  snapshot_diff_xlsx:
+    title: Excel «Сравнение со снимком»
+    spec: [FR-SNAP-03, FR-SNAP-04, FR-SNAP-05, 11.12]
+    permission: export.hours
+    money_only: false
+    endpoint: "POST /snapshots/{id}/diff/export {with: current | snapshot_id}"
+    sources: [current_vs_snapshot, snapshot_vs_snapshot]
+    file_name: {kind_part: сравнение, ext: xlsx, note: "<снимок или дата> = «<левый> — <правый>»"}
+    sheets:
+      - name: Сводка
+        columns:
+          - {name: Показатель, note: Итог E; P80; «в КП» в ₽ и в валюте КП; вклад изменения курса}
+          - {name: Было}
+          - {name: Стало}
+          - {name: Разница}
+        money_rows: ["«в КП», ₽", "«в КП», валюта КП", "Вклад изменения курса"]  # только с money.read
+      - name: Изменения
+        rows: Узлы, сопоставленные по внутреннему идентификатору; строки параметров проекта (ставки, курс, НДС — только с money.read; процент и база УП, «Цифра для КП», включённые фазы — всем)
+        columns:
+          - {name: Вид изменения, note: добавлен / удалён / изменён / перемещён / параметр проекта}
+          - {name: Путь узла}
+          - {name: Узел}
+          - {name: Поле}
+          - {name: Было}
+          - {name: Стало}
+          - {name: ΔE, note: По листьям; изменение УП — отдельной строкой-пояснением}
+          - {name: "Δ, ₽", money: true}
+          - {name: "Δ, <валюта КП>", money: true}
+          - {name: Автор последнего изменения}
+
+  stats_tab_xlsx:
+    title: Excel вкладки статистики («⇩ Excel»)
+    spec: [11.9, 10.1, GAP-02]
+    permission: export.hours
+    money_only: false
+    endpoint: "GET /projects/{id}/stats/{tab}/export?format=xlsx"
+    sources: [current]
+    file_name: {kind_part: "статистика-<вкладка>", ext: xlsx}
+    tabs:  # одна вкладка — один файл; листы и колонки повторяют таблицы экрана
+      readiness: {title: Сетка готовности, columns: [Фаза, "<по дисциплине: E, статус, последняя правка, флажки>"], money_rows: [Стоимость]}
+      totals: {title: Итоги, columns: [Строка, E, σ, P80, P90, Доля, Ставка, Стоимость], money_columns: [Ставка, Стоимость], money_sheets: [Сумма для КП]}
+      shares: {title: Доли и соотношения, columns: [Дисциплина, "Доля, %", Соотношение, Норма, Факт, Оценка]}
+      volumes: {title: Объёмы по типам, columns: [Тип, Единиц с учётом ×N, E, E на единицу, Дисциплины]}
+      candidates: {title: Кандидаты на декомпозицию, columns: [Путь узла, Лист, E на единицу, ×N, E, σ/E, Пометка]}
+      labels: {title: Списки по меткам, columns: [Категория, Метка, Текст, Путь узла]}
+      discussions: {title: Обсуждения, columns: [Путь узла, Автор, Адресаты, Статус, Дата, Сообщений]}
+      customer_questions: {title: Вопросы заказчику, columns: [№, Раздел, Вопрос, Автор, Дата, Статус, Дата ответа]}
+      reviewed: {title: Проверено, columns: [Дисциплина, "Проверено, % E", "Самопроверка, % E"]}
+      snapshots: {title: Снимки, columns: [Название, Автор, Дата, E, P80, «в КП», Ошибочный, Описание], money_columns: [«в КП»]}
+      dynamics: {title: Динамика, columns: [Дата, E, P80, "Итог в валюте"], money_columns: ["Итог в валюте"]}
+    note: Тексты обсуждений в выгрузку вкладки «Обсуждения» не входят — только метаданные (толкование, FR-NOTIF-03 по духу)
+
+  assumptions_docx:
+    title: Word «Допущения и риски» (черновик раздела КП)
+    spec: [11.10 №4, GAP-02]
+    permission: export.money  # строка 3.3 «Экспорт „с деньгами и допущениями“»
+    money_only: true
+    endpoint: GET /projects/{id}/assumptions/export
+    sources: [current]
+    file_name: {kind_part: допущения, ext: docx}
+    sections: [Допущения, Ограничения, Риски, Технологии, Обоснование процента управления проектом]
+    item: "Текст строки комментария; путь узла мелким шрифтом"
+    note: Денег в документе нет; доступ ограничен строкой матрицы 3.3, а не составом файла
+
+  portfolio_xlsx:
+    title: Excel «Портфель» (реестр и сводка)
+    spec: [FR-PORT-01, FR-PORT-02, 11.13 №1]
+    permission: portfolio.export
+    money_only: true
+    endpoint: POST /portfolio/export {filters}
+    sources: [current]
+    file_name: {kind_part: портфель, ext: xlsx, note: "Вместо названия проекта — «Портфель», дата — дата выгрузки"}
+    sheets:
+      - name: Реестр
+        columns: [Проект, Заказчик, Модераторы, Пресейл, Статус, «Цифра для КП» (какая), "«в КП», ч", "«в КП», валюта", Валюта, "Итог без НДС, ₽", Результат, "Сумма договора", Дата изменения]
+      - name: Сводка
+        rows: [Проектов по статусам, Проектов по результатам, Сумма оценок выигранных и проигранных, Доля выигранных по числу, Доля выигранных по деньгам, Причины проигрыша, Медиана «договор / в КП», Медиана «создание проекта → первый снимок»]
+        columns: [Показатель, Значение]
+      - name: Параметры
+        columns: [Параметр, Значение]
+        parameters: [Период (по дате создания), Статус, Результат, Модератор, Поиск, Дата выгрузки, Кто выгрузил]
+
+  audit_csv:
+    title: CSV журнала аудита
+    spec: [SEC-AUD-06, FR-EXP-06, SEC-AUTH-05]
+    permission: audit.export  # step-up
+    money_only: false
+    endpoint: POST /system/audit/export {filters}
+    sources: [current]
+    file_name: {pattern: "Аудит_<ДД.ММ.ГГГГ>_<с>-<по>.csv"}
+    format: UTF-8 с BOM, разделитель «;», RFC 4180 (кавычки и переводы строк экранируются); формульные префиксы экранируются, как в Excel
+    first_line: "# Коммерческая тайна; <ФИО>; <дата и время>"
+    columns: [time, type, category, result, user_id, login, ip, user_agent, session_hash, object_type, object_id, details, prev_hash, hash]
+    note: Поля — SEC-AUD-02 (contracts/audit-events.yaml → record) плюс category из каталога; details — JSON одной строкой

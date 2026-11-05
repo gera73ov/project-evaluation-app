@@ -1,0 +1,1026 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://estimator.local/contracts/settings.schema.json",
+  "title": "Ключи system_settings (ADM-000)",
+  "description": "Контракт ADM-000, владелец — трек ADM; потребители AUTH, SEC, NTF, ADM, FE. Каждое свойство — ключ таблицы system_settings (14.2), его значение хранится в value JSONB. Значения по умолчанию — из SPEC v0.5 (ссылки в x-spec). Аннотации: x-owner — кто меняет (superadmin, admin или system — ведёт приложение); x-secret — значение хранится зашифрованным (SEC-CRYPT-03) и не отдаётся в API; x-step-up — запись требует step-up (SEC-AUTH-05); x-alert — изменение порождает оповещение ИБ (SEC-AUTH-07, contracts/audit-events.yaml); x-applies — для method.*: immediately или new_projects (7.5). До вехи M0 меняется трек-владельцем, после — через CR (contracts/README.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "app.base_url": {
+      "title": "Адрес приложения",
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "pattern": "^https://",
+      "maxLength": 2048,
+      "default": null,
+      "x-spec": [
+        "7.1 шаг 1",
+        "FR-SA-01",
+        "FR-NOTIF-03"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-note": "null до мастера: до него адрес ссылок берётся из переменной окружения APP_BASE_URL"
+    },
+    "app.timezone": {
+      "title": "Часовой пояс приложения (IANA)",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "default": "Europe/Moscow",
+      "x-spec": [
+        "7.1 шаг 1",
+        "FR-UI-02"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-note": "Значение по умолчанию — переменная APP_TIMEZONE (INF-002); по поясу считаются дедлайны, автоархивация, сводка и ночные задачи"
+    },
+    "app.setup": {
+      "title": "Состояние мастера первичной настройки",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "completed_at",
+        "steps_done"
+      ],
+      "properties": {
+        "completed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "steps_done": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "address_timezone",
+              "smtp",
+              "auth_mode",
+              "security_policies",
+              "first_admin"
+            ]
+          }
+        }
+      },
+      "default": {
+        "completed_at": null,
+        "steps_done": []
+      },
+      "x-spec": [
+        "7.1",
+        "FR-SA-02"
+      ],
+      "x-owner": "system",
+      "x-note": "Ключ ведёт приложение; пока completed_at = null, вход разрешён только суперадминистратору (FR-SA-02). В 14.2 не перечислен — добавлен контрактом"
+    },
+    "auth.mode": {
+      "title": "Способ аутентификации",
+      "type": "string",
+      "enum": [
+        "local",
+        "ad"
+      ],
+      "default": "local",
+      "x-spec": [
+        "7.2",
+        "FR-AUTH-SW-01",
+        "Q-20"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-alert": true,
+      "x-note": "В интерфейсе возможен только переход local → ad; ad → local — консольная команда estimator auth-mode local"
+    },
+    "auth.ad.connection": {
+      "title": "Подключение к AD",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "controllers",
+        "protocol",
+        "ca_cert_pem",
+        "base_dn",
+        "user_filter",
+        "login_attribute",
+        "attr_full_name",
+        "attr_email",
+        "attr_department",
+        "bind_dn",
+        "timeout_seconds"
+      ],
+      "properties": {
+        "controllers": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "host",
+              "port"
+            ],
+            "properties": {
+              "host": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              }
+            }
+          },
+          "description": "Перебираются по порядку при недоступности"
+        },
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "ldaps",
+            "starttls"
+          ],
+          "description": "Нешифрованного LDAP нет (FR-AUTH-AD-02)"
+        },
+        "ca_cert_pem": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^-----BEGIN CERTIFICATE-----",
+          "maxLength": 65536,
+          "description": "Сертификат(ы) X.509 в PEM; загрузка ≤ 64 КБ (SEC-WEB-08)"
+        },
+        "base_dn": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "user_filter": {
+          "type": "string",
+          "pattern": "\\{login\\}",
+          "maxLength": 1024
+        },
+        "login_attribute": {
+          "type": "string",
+          "enum": [
+            "sAMAccountName",
+            "userPrincipalName"
+          ]
+        },
+        "attr_full_name": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "attr_email": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "attr_department": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Подразделение в выдаче поиска (FR-AUTH-AD-10)"
+        },
+        "bind_dn": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        }
+      },
+      "default": {
+        "controllers": [],
+        "protocol": "ldaps",
+        "ca_cert_pem": null,
+        "base_dn": null,
+        "user_filter": "(&(objectClass=user)(sAMAccountName={login}))",
+        "login_attribute": "sAMAccountName",
+        "attr_full_name": "displayName",
+        "attr_email": "mail",
+        "attr_department": "department",
+        "bind_dn": null,
+        "timeout_seconds": 5
+      },
+      "x-spec": [
+        "FR-AUTH-AD-01",
+        "FR-AUTH-AD-02",
+        "FR-AUTH-AD-12",
+        "Q-19"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-alert": true,
+      "x-note": "Проверка сертификата сервера не отключается — такого поля нет. При auth.mode = ad обязательны controllers (≥ 1), ca_cert_pem, base_dn, bind_dn — проверка между ключами выполняется в коде ADM/AUTH. Сохранение возможно, только если после последнего изменения прошли обе проверки (auth.ad.verification)"
+    },
+    "auth.ad.bind_password": {
+      "title": "Пароль сервисной учётной записи AD",
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 512,
+      "default": null,
+      "x-spec": [
+        "FR-AUTH-AD-04",
+        "SEC-CRYPT-03"
+      ],
+      "x-owner": "superadmin",
+      "x-secret": true,
+      "x-step-up": true,
+      "x-alert": true,
+      "x-note": "Хранится зашифрованным (AES-256-GCM, идентификатор ключа в значении); в API отдаётся только признак «задан»"
+    },
+    "auth.ad.access_groups": {
+      "title": "Группы доступа AD",
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "default": [],
+      "x-spec": [
+        "FR-AUTH-AD-05",
+        "R-04"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-alert": true,
+      "x-note": "DN групп; членство с учётом вложенности (1.2.840.113556.1.4.1941). В режиме ad должна быть хотя бы одна группа"
+    },
+    "auth.ad.role_mapping": {
+      "title": "Сопоставление групп AD с ролями",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mappings"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "mappings": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "group_dn",
+              "role"
+            ],
+            "properties": {
+              "group_dn": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "moderator",
+                  "presale"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "default": {
+        "enabled": false,
+        "mappings": []
+      },
+      "x-spec": [
+        "FR-AUTH-AD-07",
+        "Q-17"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-alert": true,
+      "x-note": "Только роли moderator и presale; admin, presale_head, security_auditor, superadmin через группы не выдаются"
+    },
+    "auth.ad.verification": {
+      "title": "Результат проверок AD после последнего изменения параметров",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "params_sha256",
+        "connection_ok_at",
+        "login_ok_at"
+      ],
+      "properties": {
+        "params_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "connection_ok_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "login_ok_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      },
+      "default": {
+        "params_sha256": null,
+        "connection_ok_at": null,
+        "login_ok_at": null
+      },
+      "x-spec": [
+        "FR-AUTH-AD-03"
+      ],
+      "x-owner": "system",
+      "x-note": "Ведёт приложение: хэш параметров подключения без пароля и время успешных проверок; тестовые логин и пароль не сохраняются"
+    },
+    "security.password_policy": {
+      "title": "Политика паролей (режим local)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min_length",
+        "max_length",
+        "check_common_passwords",
+        "forbid_personal_data",
+        "history",
+        "expiry_days",
+        "require_uppercase",
+        "require_digit",
+        "require_special",
+        "max_sessions"
+      ],
+      "properties": {
+        "min_length": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 128
+        },
+        "max_length": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 128
+        },
+        "check_common_passwords": {
+          "type": "boolean",
+          "description": "Список 100 000 распространённых паролей"
+        },
+        "forbid_personal_data": {
+          "type": "boolean",
+          "description": "Запрет совпадения с логином, ФИО, email"
+        },
+        "history": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24
+        },
+        "expiry_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "null — срок не ограничен"
+        },
+        "require_uppercase": {
+          "type": "boolean"
+        },
+        "require_digit": {
+          "type": "boolean"
+        },
+        "require_special": {
+          "type": "boolean"
+        },
+        "max_sessions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 100,
+          "description": "null — не ограничено; при превышении завершается самая старая"
+        }
+      },
+      "default": {
+        "min_length": 12,
+        "max_length": 128,
+        "check_common_passwords": true,
+        "forbid_personal_data": true,
+        "history": 5,
+        "expiry_days": null,
+        "require_uppercase": false,
+        "require_digit": false,
+        "require_special": false,
+        "max_sessions": null
+      },
+      "x-spec": [
+        "FR-AUTH-LOC-02",
+        "Q-24"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-note": "Нижняя граница min_length 8 — минимум NIST SP 800-63B; SPEC задаёт только значение по умолчанию 12. В режиме ad не применяется"
+    },
+    "security.session": {
+      "title": "Тайм-ауты сессий",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idle_minutes_user",
+        "idle_minutes_admin",
+        "absolute_hours"
+      ],
+      "properties": {
+        "idle_minutes_user": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 480
+        },
+        "idle_minutes_admin": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 60,
+          "description": "Администраторы и суперадминистраторы"
+        },
+        "absolute_hours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24
+        }
+      },
+      "default": {
+        "idle_minutes_user": 60,
+        "idle_minutes_admin": 15,
+        "absolute_hours": 12
+      },
+      "x-spec": [
+        "FR-SESS-02",
+        "BR-ROLE-01"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-note": "Не настраиваются (константы SPEC): предупреждение за 2 минуты, сессия до подключения TOTP 15 минут, step-up 5 минут, режим поддержки 60 минут"
+    },
+    "security.lockout": {
+      "title": "Блокировка пары «логин + IP»",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_failures",
+        "lock_minutes"
+      ],
+      "properties": {
+        "max_failures": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 20
+        },
+        "lock_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1440
+        }
+      },
+      "default": {
+        "max_failures": 5,
+        "lock_minutes": 15
+      },
+      "x-spec": [
+        "FR-LOCK-01",
+        "R-07"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-note": "Не настраиваются (константы SPEC): 20 попыток в минуту с IP и блок на 5 минут (FR-LOCK-02); тревога при > 20 неудачах за час (FR-LOCK-01); для логина суперадминистратора задержка 1, 2, 4 … 60 с и тревога после 5 неудач (FR-LOCK-04). Текст «повторите через 15 минут» (FR-LOCK-05) подставляет lock_minutes"
+    },
+    "security.mfa_policy": {
+      "title": "Обязательность TOTP по системным ролям",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admin",
+        "moderator",
+        "presale",
+        "presale_head",
+        "security_auditor",
+        "user"
+      ],
+      "properties": {
+        "admin": {
+          "type": "string",
+          "enum": [
+            "optional",
+            "required"
+          ]
+        },
+        "moderator": {
+          "type": "string",
+          "enum": [
+            "optional",
+            "required"
+          ]
+        },
+        "presale": {
+          "type": "string",
+          "enum": [
+            "optional",
+            "required"
+          ]
+        },
+        "presale_head": {
+          "type": "string",
+          "enum": [
+            "optional",
+            "required"
+          ]
+        },
+        "security_auditor": {
+          "type": "string",
+          "enum": [
+            "optional",
+            "required"
+          ]
+        },
+        "user": {
+          "type": "string",
+          "enum": [
+            "optional",
+            "required"
+          ]
+        }
+      },
+      "default": {
+        "admin": "required",
+        "moderator": "required",
+        "presale": "required",
+        "presale_head": "required",
+        "security_auditor": "required",
+        "user": "optional"
+      },
+      "x-spec": [
+        "FR-2FA-02",
+        "FR-SA-04",
+        "Q-23",
+        "R-05"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-alert": "when a role changes required → optional",
+      "x-note": "Для superadmin TOTP всегда обязателен — ключа нет. При нескольких ролях обязателен, если обязателен хотя бы для одной"
+    },
+    "security.admin_networks": {
+      "title": "Разрешённые сети админки суперадминистратора (CIDR)",
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "maxLength": 43,
+        "pattern": "^[0-9a-fA-F:.]+/[0-9]{1,3}$"
+      },
+      "default": [],
+      "x-spec": [
+        "FR-SA-06"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-alert": true,
+      "x-note": "Пустой список — ограничения нет"
+    },
+    "security.alert_email": {
+      "title": "Адрес службы ИБ для оповещений",
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "email",
+      "maxLength": 254,
+      "default": null,
+      "x-spec": [
+        "SEC-AUTH-07",
+        "FR-NOTIF-02"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true
+    },
+    "smtp.server": {
+      "title": "Почтовый сервер",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "port",
+        "security",
+        "username",
+        "from_address",
+        "from_name",
+        "timeout_seconds"
+      ],
+      "properties": {
+        "host": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "security": {
+          "type": "string",
+          "enum": [
+            "starttls",
+            "tls",
+            "none"
+          ]
+        },
+        "username": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 254
+        },
+        "from_address": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "email",
+          "maxLength": 254
+        },
+        "from_name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120
+        }
+      },
+      "default": {
+        "host": null,
+        "port": 587,
+        "security": "starttls",
+        "username": null,
+        "from_address": null,
+        "from_name": "Оценка проектов",
+        "timeout_seconds": 10
+      },
+      "x-spec": [
+        "7.1 шаг 2",
+        "SEC-AUTH-07",
+        "Q-26"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-alert": true,
+      "x-note": "host = null — SMTP не настроен: ссылки установки пароля выдаются на экран (FR-AUTH-LOC-01). При изменении оповещение уходит через старый сервер, затем через новый. Вариант security = none — для внутреннего релея без TLS, выбор подсвечивается предупреждением"
+    },
+    "smtp.password": {
+      "title": "Пароль SMTP",
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512,
+      "default": null,
+      "x-spec": [
+        "SEC-CRYPT-03"
+      ],
+      "x-owner": "superadmin",
+      "x-secret": true,
+      "x-step-up": true,
+      "x-alert": true
+    },
+    "siem.connection": {
+      "title": "Передача аудита в SIEM (syslog RFC 5424, TCP + TLS)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "host",
+        "port",
+        "ca_cert_pem",
+        "client_cert_pem"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "host": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255,
+          "description": "Имя хоста проверяется по сертификату сервера"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "ca_cert_pem": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^-----BEGIN CERTIFICATE-----",
+          "maxLength": 65536,
+          "description": "Сертификат(ы) X.509 в PEM; загрузка ≤ 64 КБ (SEC-WEB-08)"
+        },
+        "client_cert_pem": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^-----BEGIN CERTIFICATE-----",
+          "maxLength": 65536,
+          "description": "mTLS, необязательно"
+        }
+      },
+      "default": {
+        "enabled": false,
+        "host": null,
+        "port": 6514,
+        "ca_cert_pem": null,
+        "client_cert_pem": null
+      },
+      "x-spec": [
+        "SEC-AUD-05",
+        "GAP-09",
+        "Q-39"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-note": "Проверка сертификата сервера обязательна и не отключается. Очередь до 100 000 событий — константа SEC-AUD-05. Порт 6514 — стандарт syslog over TLS (RFC 5425)"
+    },
+    "siem.client_key": {
+      "title": "Закрытый ключ клиентского сертификата SIEM (PEM)",
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 65536,
+      "default": null,
+      "x-spec": [
+        "SEC-AUD-05",
+        "GAP-09"
+      ],
+      "x-owner": "superadmin",
+      "x-secret": true,
+      "x-step-up": true
+    },
+    "retention.periods": {
+      "title": "Сроки хранения",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audit_months",
+        "app_logs_days",
+        "trash_days",
+        "export_files_hours",
+        "notifications_days",
+        "change_log_days"
+      ],
+      "properties": {
+        "audit_months": {
+          "type": "integer",
+          "minimum": 6,
+          "maximum": 120
+        },
+        "app_logs_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3650
+        },
+        "trash_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        },
+        "export_files_hours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 720
+        },
+        "notifications_days": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3650
+        },
+        "change_log_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 90
+        }
+      },
+      "default": {
+        "audit_months": 12,
+        "app_logs_days": 90,
+        "trash_days": 30,
+        "export_files_hours": 24,
+        "notifications_days": 365,
+        "change_log_days": 7
+      },
+      "x-spec": [
+        "NFR-REL-06",
+        "SEC-AUD-04",
+        "Q-38",
+        "FR-TREE-24",
+        "FR-EXP-05",
+        "ARCH-02"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true,
+      "x-note": "Проекты хранятся бессрочно (ключа нет). Срок бэкапов (30 дней) задаёт служба эксплуатации ИТ вне приложения. Удаление записей аудита — командой audit purge по этому сроку"
+    },
+    "digest.time": {
+      "title": "Время ежедневной сводки (часовой пояс приложения)",
+      "type": "string",
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+      "default": "09:00",
+      "x-spec": [
+        "FR-NOTIF-02"
+      ],
+      "x-owner": "superadmin",
+      "x-step-up": true
+    },
+    "method.large_leaf_hours": {
+      "title": "Порог «крупного листа» по E одной штуки, ч",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "medium",
+        "detailed"
+      ],
+      "properties": {
+        "medium": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 99999.5
+        },
+        "detailed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 99999.5
+        }
+      },
+      "default": {
+        "medium": 80,
+        "detailed": 40
+      },
+      "x-spec": [
+        "5.2",
+        "BR-TREE-09",
+        "C-27",
+        "7.5"
+      ],
+      "x-owner": "admin",
+      "x-applies": "immediately",
+      "x-note": "Для «Крупно» подсказок нет"
+    },
+    "method.medium_expected_units": {
+      "title": "Ожидаемое число единиц в ветке при уровне «Средне»",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min",
+        "max"
+      ],
+      "properties": {
+        "min": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
+      },
+      "default": {
+        "min": 5,
+        "max": 15
+      },
+      "x-spec": [
+        "5.2",
+        "7.5"
+      ],
+      "x-owner": "admin",
+      "x-applies": "immediately"
+    },
+    "method.pm_percent_default": {
+      "title": "Процент управления проектом по умолчанию",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 50,
+      "multipleOf": 0.5,
+      "default": 18,
+      "x-spec": [
+        "6.3",
+        "FR-PRJ-01",
+        "BR-CALC-03",
+        "7.5"
+      ],
+      "x-owner": "admin",
+      "x-applies": "new_projects",
+      "x-note": "0 — УП выключено"
+    },
+    "method.autoarchive_days": {
+      "title": "Срок автоархивации после «Завершена», дней",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3650,
+      "default": 180,
+      "x-spec": [
+        "BR-PRJ-03",
+        "Q-13",
+        "7.5"
+      ],
+      "x-owner": "admin",
+      "x-applies": "immediately",
+      "x-note": "0 — автоархивация выключена; отсчёт от projects.completed_at"
+    }
+  },
+  "x-version": "0.1.0",
+  "x-status": "draft",
+  "x-spec-version": "SPEC.md v0.5",
+  "x-sections": {
+    "system": [
+      "app.base_url",
+      "app.timezone"
+    ],
+    "auth": [
+      "auth.mode",
+      "auth.ad.connection",
+      "auth.ad.bind_password",
+      "auth.ad.access_groups",
+      "auth.ad.role_mapping",
+      "auth.ad.verification"
+    ],
+    "security": [
+      "security.password_policy",
+      "security.session",
+      "security.lockout",
+      "security.mfa_policy",
+      "security.admin_networks",
+      "security.alert_email"
+    ],
+    "smtp": [
+      "smtp.server",
+      "smtp.password"
+    ],
+    "siem": [
+      "siem.connection",
+      "siem.client_key"
+    ],
+    "retention": [
+      "retention.periods"
+    ],
+    "digest": [
+      "digest.time"
+    ],
+    "method": [
+      "method.large_leaf_hours",
+      "method.medium_expected_units",
+      "method.pm_percent_default",
+      "method.autoarchive_days"
+    ]
+  }
+}

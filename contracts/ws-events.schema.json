@@ -1,0 +1,2397 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://estimator.local/contracts/ws-events.schema.json",
+  "title": "WebSocket /api/v1/ws: события и команды (RT-001)",
+  "description": "Контракт RT-001, владелец — трек RT; потребители FE, CORE, NTF, EXP, QA. Источник — SPEC v0.5: 15.4, 13.3, ARCH-01/02, SEC-AUTHZ-01/04, FR-TREE-31/33, FR-SESS-02/05. Правила доставки и фильтрации — contracts/ws-events.md. До вехи M0 меняется трек-владельцем, после — через CR.",
+  "x-version": "0.1.0",
+  "x-status": "draft",
+  "x-spec-version": "SPEC.md v0.5",
+  "x-limits": {
+    "max_message_bytes": 65536,
+    "lock_ttl_seconds": 30,
+    "lock_renew_seconds": 10,
+    "close_after_session_end_seconds": 5
+  },
+  "x-channels": {
+    "project": {
+      "name": "project:{project_id}",
+      "requires": "tree.read",
+      "note": "Общий канал проекта; денежных ключей нет никогда"
+    },
+    "money": {
+      "name": "project:{project_id}:money",
+      "requires": "money.read",
+      "note": "Только при пройденном в сессии TOTP (FR-2FA-05)"
+    },
+    "notes": {
+      "name": "project:{project_id}:notes",
+      "requires": "notes.read",
+      "note": "Только при пройденном в сессии TOTP (FR-2FA-05)"
+    },
+    "user": {
+      "name": "user:{user_id}",
+      "requires": "authenticated",
+      "note": "Личный канал: подписывается автоматически при подключении"
+    }
+  },
+  "x-close-codes": {
+    "1000": "Нормальное закрытие (выход)",
+    "1009": "Сообщение больше 64 КБ (SEC-WEB-08)",
+    "1012": "Перезапуск экземпляра API (поочерёдный перезапуск 18.3) — переподключиться",
+    "4401": "Сессия недействительна, истекла или отозвана (после session.ended)",
+    "4403": "Заголовок Origin не из списка разрешённых (SEC-WEB-04)",
+    "4429": "Превышен лимит команд — переподключиться позже"
+  },
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "Decimal": {
+      "type": "string",
+      "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+      "description": "Десятичное число строкой (15.1)"
+    },
+    "LockField": {
+      "type": "string",
+      "enum": [
+        "title",
+        "multiplier",
+        "comment",
+        "o",
+        "r",
+        "p"
+      ],
+      "description": "Ячейка строки дерева, которую можно захватить (FR-TREE-31)"
+    },
+    "UserRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "initials"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "initials": {
+          "type": "string",
+          "maxLength": 4
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        }
+      }
+    },
+    "CommentLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tag_id",
+        "text"
+      ],
+      "properties": {
+        "tag_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "Node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "parent_id",
+        "kind",
+        "phase_id",
+        "discipline_id",
+        "title",
+        "position",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "parent_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "kind": {
+          "enum": [
+            "phase",
+            "discipline",
+            "item"
+          ]
+        },
+        "phase_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "discipline_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "type_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "position": {
+          "type": "string"
+        },
+        "o": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+              "description": "Десятичное число строкой (15.1)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "r": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+              "description": "Десятичное число строкой (15.1)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "p": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+              "description": "Десятичное число строкой (15.1)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "multiplier": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "comment_lines": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/CommentLine"
+          }
+        },
+        "reviewed_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "self_review": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "field_versions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        }
+      },
+      "description": "Узел без денежных полей и без вычисляемых сумм: суммы клиент считает сам (ARCH-03)"
+    },
+    "Addressee": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_type",
+        "target_id"
+      ],
+      "properties": {
+        "target_type": {
+          "enum": [
+            "user",
+            "discipline",
+            "moderators",
+            "customer"
+          ]
+        },
+        "target_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      }
+    },
+    "Message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "node_id",
+        "thread_id",
+        "author",
+        "kind",
+        "needs_answer",
+        "addressees",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "node_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "thread_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "author": {
+          "$ref": "#/$defs/UserRef"
+        },
+        "kind": {
+          "enum": [
+            "message",
+            "event",
+            "customer_answer"
+          ]
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "Нет ключа, если сообщение отозвано (FR-DISC-06)"
+        },
+        "needs_answer": {
+          "type": "boolean"
+        },
+        "addressees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Addressee"
+          }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "edited_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "revoked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "Thread": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "node_id",
+        "opened_by",
+        "status",
+        "is_customer",
+        "addressees"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "node_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "opened_by": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "resolved"
+          ]
+        },
+        "resolved_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "resolved_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "is_customer": {
+          "type": "boolean"
+        },
+        "customer_question_no": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "customer_status": {
+          "enum": [
+            "new",
+            "sent",
+            "answered",
+            "closed",
+            "withdrawn",
+            null
+          ]
+        },
+        "addressees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Addressee"
+          }
+        }
+      }
+    },
+    "Note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "node_id",
+        "author",
+        "body",
+        "created_at",
+        "edited_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "node_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "author": {
+          "$ref": "#/$defs/UserRef"
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "edited_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "MoneyTotals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cost_rub",
+        "quote_rub",
+        "quote_cur"
+      ],
+      "properties": {
+        "cost_rub": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+              "description": "Десятичное число строкой (15.1)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quote_rub": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+              "description": "Десятичное число строкой (15.1)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quote_cur": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+              "description": "Десятичное число строкой (15.1)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vat_rub": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+              "description": "Десятичное число строкой (15.1)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "total_with_vat_rub": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+              "description": "Десятичное число строкой (15.1)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rates_missing": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "description": "Дисциплины (null — УП) без ставки при E > 0 (BR-MONEY-02)"
+        }
+      }
+    },
+    "ServerEvent": {
+      "oneOf": [
+        {
+          "title": "Узел создан",
+          "x-spec": [
+            "15.4",
+            "FR-TREE-30"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "node.created"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "node",
+                "author"
+              ],
+              "properties": {
+                "node": {
+                  "$ref": "#/$defs/Node"
+                },
+                "author": {
+                  "$ref": "#/$defs/UserRef"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Поля узла изменены (в том числе «Проверено»)",
+          "x-spec": [
+            "15.4",
+            "FR-TREE-30",
+            "FR-TREE-32"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "node.updated"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "node",
+                "author"
+              ],
+              "properties": {
+                "node": {
+                  "$ref": "#/$defs/Node"
+                },
+                "author": {
+                  "$ref": "#/$defs/UserRef"
+                },
+                "changed_fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Узел перенесён",
+          "x-spec": [
+            "15.4",
+            "BR-BR-02"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "node.moved"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "node",
+                "from_parent_id",
+                "author"
+              ],
+              "properties": {
+                "node": {
+                  "$ref": "#/$defs/Node"
+                },
+                "from_parent_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "author": {
+                  "$ref": "#/$defs/UserRef"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Узлы ушли в корзину одним пакетом",
+          "x-spec": [
+            "15.4",
+            "FR-TREE-24"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "node.deleted"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "node_ids",
+                "batch_id",
+                "author"
+              ],
+              "properties": {
+                "node_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "batch_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "author": {
+                  "$ref": "#/$defs/UserRef"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Узлы восстановлены из корзины",
+          "x-spec": [
+            "15.4",
+            "FR-TREE-24"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "node.restored"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "nodes",
+                "batch_id",
+                "author"
+              ],
+              "properties": {
+                "nodes": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "$ref": "#/$defs/Node"
+                  }
+                },
+                "batch_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "author": {
+                  "$ref": "#/$defs/UserRef"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Статус ветки изменился",
+          "x-spec": [
+            "15.4",
+            "4.3",
+            "BR-BR-02"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "branch.status"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "phase_id",
+                "discipline_id",
+                "status",
+                "was",
+                "author"
+              ],
+              "properties": {
+                "phase_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "discipline_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "enum": [
+                    "not_started",
+                    "draft",
+                    "done",
+                    "not_needed"
+                  ]
+                },
+                "was": {
+                  "enum": [
+                    "not_started",
+                    "draft",
+                    "done",
+                    "not_needed"
+                  ]
+                },
+                "author": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/UserRef"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Ячейка захвачена",
+          "x-spec": [
+            "15.4",
+            "FR-TREE-31"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "cell.locked"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "node_id",
+                "field",
+                "user",
+                "expires_at",
+                "forced"
+              ],
+              "properties": {
+                "node_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "field": {
+                  "$ref": "#/$defs/LockField"
+                },
+                "user": {
+                  "$ref": "#/$defs/UserRef"
+                },
+                "expires_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "forced": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "Захват снят",
+          "x-spec": [
+            "15.4",
+            "FR-TREE-31"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "cell.unlocked"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "node_id",
+                "field",
+                "user_id",
+                "reason"
+              ],
+              "properties": {
+                "node_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "field": {
+                  "$ref": "#/$defs/LockField"
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reason": {
+                  "enum": [
+                    "released",
+                    "saved",
+                    "expired",
+                    "disconnected",
+                    "forced"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "Новое сообщение",
+          "x-spec": [
+            "15.4",
+            "FR-DISC-02..07"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "message.created"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "message"
+              ],
+              "properties": {
+                "message": {
+                  "$ref": "#/$defs/Message"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Сообщение изменено или отозвано",
+          "x-spec": [
+            "15.4",
+            "FR-DISC-02..07"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "message.updated"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "message"
+              ],
+              "properties": {
+                "message": {
+                  "$ref": "#/$defs/Message"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Открыт вопрос",
+          "x-spec": [
+            "15.4",
+            "FR-DISC-05",
+            "FR-DISC-09"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "thread.created"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "thread",
+                "author"
+              ],
+              "properties": {
+                "thread": {
+                  "$ref": "#/$defs/Thread"
+                },
+                "author": {
+                  "$ref": "#/$defs/UserRef"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Вопрос закрыт",
+          "x-spec": [
+            "15.4",
+            "FR-DISC-05",
+            "FR-DISC-09"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "thread.resolved"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "thread",
+                "author"
+              ],
+              "properties": {
+                "thread": {
+                  "$ref": "#/$defs/Thread"
+                },
+                "author": {
+                  "$ref": "#/$defs/UserRef"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Вопрос переоткрыт",
+          "x-spec": [
+            "15.4",
+            "FR-DISC-05",
+            "FR-DISC-09"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "thread.reopened"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "thread",
+                "author"
+              ],
+              "properties": {
+                "thread": {
+                  "$ref": "#/$defs/Thread"
+                },
+                "author": {
+                  "$ref": "#/$defs/UserRef"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Номер, статус и даты вопроса заказчику",
+          "x-spec": [
+            "15.4",
+            "FR-CQ-01..03",
+            "BR-CQ-01"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "customer_question.updated"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "thread_id",
+                "number",
+                "status",
+                "sent_at",
+                "answered_at",
+                "closed_at",
+                "edited_after_sent",
+                "withdraw_reason"
+              ],
+              "properties": {
+                "thread_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "number": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "status": {
+                  "enum": [
+                    "new",
+                    "sent",
+                    "answered",
+                    "closed",
+                    "withdrawn"
+                  ]
+                },
+                "sent_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "answered_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "closed_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "edited_after_sent": {
+                  "type": "boolean"
+                },
+                "withdraw_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 500
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Документ заказчика проверен антивирусом",
+          "x-spec": [
+            "15.4",
+            "11.7",
+            "SEC-WEB-10"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "document.scanned"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "document_id",
+                "scan_status"
+              ],
+              "properties": {
+                "document_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "scan_status": {
+                  "enum": [
+                    "clean",
+                    "infected",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "Новое уведомление для колокольчика",
+          "x-spec": [
+            "15.4",
+            "FR-NOTIF-01"
+          ],
+          "x-channel": "user",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "notification.created"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^user:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "notification",
+                "unread_count"
+              ],
+              "properties": {
+                "notification": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "kind",
+                    "project_id",
+                    "node_id",
+                    "payload",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "description": "Ключ из contracts/notifications.yaml"
+                    },
+                    "project_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "node_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "payload": {
+                      "type": "object"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                },
+                "unread_count": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "Команда или права изменились — перезапросить права, снять свои захваты без права правки",
+          "x-spec": [
+            "15.4",
+            "FR-SESS-05"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "member.updated"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "user_ids",
+                "change"
+              ],
+              "properties": {
+                "user_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "change": {
+                  "enum": [
+                    "added",
+                    "removed",
+                    "updated"
+                  ]
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Кто сейчас в проекте",
+          "x-spec": [
+            "15.4",
+            "11.4 №4"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "presence"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "users"
+              ],
+              "properties": {
+                "users": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/UserRef"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "Настройки проекта изменились (без денег)",
+          "x-spec": [
+            "15.4"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "project.updated"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "changes",
+                "author"
+              ],
+              "properties": {
+                "changes": {
+                  "type": "object",
+                  "description": "Изменённые настройки без денег: name, customer, description, status, detail_level, pm_percent, pm_percent_reason, pm_base_phase_ids, quote_figure, duration_weeks, deadline, phases, disciplines, outcome (без contract_amount)",
+                  "propertyNames": {
+                    "not": {
+                      "enum": [
+                        "rate",
+                        "rates",
+                        "cost",
+                        "currency",
+                        "exchange_rate",
+                        "money",
+                        "vat",
+                        "vat_percent",
+                        "contract_amount"
+                      ]
+                    }
+                  }
+                },
+                "author": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/UserRef"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Ставки, курс, итоги в деньгах (только канал money)",
+          "x-spec": [
+            "15.4",
+            "SEC-AUTHZ-04"
+          ],
+          "x-channel": "money",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "money.updated"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}:money$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "totals"
+              ],
+              "properties": {
+                "rates": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "discipline_id",
+                      "rate_rub"
+                    ],
+                    "properties": {
+                      "discipline_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "uuid"
+                      },
+                      "rate_rub": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+                            "description": "Десятичное число строкой (15.1)"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "exchange_rate": {
+                  "type": "string",
+                  "pattern": "^\\d{1,8}(\\.\\d{1,4})?$"
+                },
+                "vat_percent": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+                      "description": "Десятичное число строкой (15.1)"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "contract_amount": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
+                      "description": "Десятичное число строкой (15.1)"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "totals": {
+                  "$ref": "#/$defs/MoneyTotals"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Новая закрытая заметка",
+          "x-spec": [
+            "15.4",
+            "FR-NOTE-01"
+          ],
+          "x-channel": "notes",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "note.created"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}:notes$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "note"
+              ],
+              "properties": {
+                "note": {
+                  "$ref": "#/$defs/Note"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Заметка изменена",
+          "x-spec": [
+            "15.4",
+            "FR-NOTE-01"
+          ],
+          "x-channel": "notes",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data",
+            "project_version"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "note.updated"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}:notes$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "note"
+              ],
+              "properties": {
+                "note": {
+                  "$ref": "#/$defs/Note"
+                }
+              }
+            },
+            "project_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "title": "Доступ к проекту отозван — клиент закрывает проект",
+          "x-spec": [
+            "15.4",
+            "BR-ROLE-06",
+            "FR-SESS-05"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "access.revoked"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "project_id",
+                "reason"
+              ],
+              "properties": {
+                "project_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reason": {
+                  "enum": [
+                    "removed_from_team",
+                    "support_session_expired",
+                    "rights_changed",
+                    "project_purged",
+                    "project_hidden"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "Сессия истекла или отозвана — сервер закрывает соединение",
+          "x-spec": [
+            "15.4",
+            "FR-SESS-02"
+          ],
+          "x-channel": "user",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "session.ended"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^user:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reason"
+              ],
+              "properties": {
+                "reason": {
+                  "enum": [
+                    "idle_timeout",
+                    "absolute_timeout",
+                    "logged_out",
+                    "revoked",
+                    "password_changed",
+                    "user_blocked",
+                    "auth_mode_switched"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "Клиент слишком отстал (change_log 7 дней) — перезагрузить дерево",
+          "x-spec": [
+            "15.4",
+            "ARCH-02"
+          ],
+          "x-channel": "project",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "event",
+            "channel",
+            "ts",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "const": "resync.required"
+            },
+            "channel": {
+              "type": "string",
+              "pattern": "^project:[0-9a-f-]{36}$"
+            },
+            "ts": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "project_id",
+                "project_version"
+              ],
+              "properties": {
+                "project_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "project_version": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ClientCommand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "project_id"
+          ],
+          "properties": {
+            "op": {
+              "const": "subscribe"
+            },
+            "req_id": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Идентификатор запроса для ack/error"
+            },
+            "project_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "since": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "title": "subscribe"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "project_id"
+          ],
+          "properties": {
+            "op": {
+              "const": "unsubscribe"
+            },
+            "req_id": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Идентификатор запроса для ack/error"
+            },
+            "project_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "title": "unsubscribe"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "project_id",
+            "node_id",
+            "field"
+          ],
+          "properties": {
+            "op": {
+              "const": "lock"
+            },
+            "req_id": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Идентификатор запроса для ack/error"
+            },
+            "project_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "node_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "field": {
+              "$ref": "#/$defs/LockField"
+            },
+            "force": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "title": "lock"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "project_id",
+            "node_id",
+            "field"
+          ],
+          "properties": {
+            "op": {
+              "const": "unlock"
+            },
+            "req_id": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Идентификатор запроса для ack/error"
+            },
+            "project_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "node_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "field": {
+              "$ref": "#/$defs/LockField"
+            }
+          },
+          "title": "unlock"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op"
+          ],
+          "properties": {
+            "op": {
+              "const": "heartbeat"
+            },
+            "req_id": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Идентификатор запроса для ack/error"
+            },
+            "locks": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "node_id",
+                  "field"
+                ],
+                "properties": {
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "field": {
+                    "$ref": "#/$defs/LockField"
+                  }
+                }
+              }
+            }
+          },
+          "title": "heartbeat"
+        }
+      ]
+    },
+    "ServerReply": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "op"
+          ],
+          "properties": {
+            "type": {
+              "const": "ack"
+            },
+            "op": {
+              "enum": [
+                "subscribe",
+                "unsubscribe",
+                "lock",
+                "unlock",
+                "heartbeat"
+              ]
+            },
+            "req_id": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Идентификатор запроса для ack/error"
+            },
+            "result": {
+              "type": "object",
+              "description": "subscribe: {project_version, channels[], resync: bool}; lock: {expires_at}; heartbeat: {extended: [{node_id, field, expires_at}], lost: [{node_id, field}]}"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "code"
+          ],
+          "properties": {
+            "type": {
+              "const": "error"
+            },
+            "op": {
+              "type": "string"
+            },
+            "req_id": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Идентификатор запроса для ack/error"
+            },
+            "code": {
+              "type": "string",
+              "description": "Код из contracts/errors.yaml"
+            },
+            "detail": {
+              "type": "string"
+            },
+            "locked_by": {
+              "$ref": "#/$defs/UserRef"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "project_status": {
+              "type": "string"
+            },
+            "retry_after": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ServerEvent"
+    },
+    {
+      "$ref": "#/$defs/ServerReply"
+    },
+    {
+      "$ref": "#/$defs/ClientCommand"
+    }
+  ]
+}
