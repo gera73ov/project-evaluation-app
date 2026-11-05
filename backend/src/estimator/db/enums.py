@@ -57,6 +57,61 @@ class AuditResult(StrEnum):
     DENIED = "denied"
 
 
+class NodeTypeProposal(StrEnum):
+    NONE = "none"
+    PROPOSED = "proposed"
+    ACCEPTED = "accepted"
+    MERGED = "merged"
+    REJECTED = "rejected"
+
+
+class CommentTagCategory(StrEnum):
+    ASSUMPTION = "assumption"
+    CONSTRAINT = "constraint"
+    RISK = "risk"
+    TECH = "tech"
+
+
+class ProjectStatus(StrEnum):
+    PREPARATION = "preparation"
+    ESTIMATION = "estimation"
+    CONSOLIDATION = "consolidation"
+    COMPLETED = "completed"
+    ARCHIVED = "archived"
+
+
+class ProjectOutcome(StrEnum):
+    UNKNOWN = "unknown"
+    WON = "won"
+    LOST = "lost"
+    CANCELLED = "cancelled"
+
+
+class QuoteFigure(StrEnum):
+    E = "e"
+    P80 = "p80"
+    P90 = "p90"
+
+
+class DetailLevel(StrEnum):
+    COARSE = "coarse"
+    MEDIUM = "medium"
+    DETAILED = "detailed"
+
+
+class ProjectRole(StrEnum):
+    MODERATOR = "moderator"
+    EXPERT = "expert"
+    PRESALE = "presale"
+
+
+class BranchStatusValue(StrEnum):
+    NOT_STARTED = "not_started"
+    DRAFT = "draft"
+    DONE = "done"
+    NOT_NEEDED = "not_needed"
+
+
 def pg_enum(enum_cls: type[StrEnum], name: str) -> ENUM:
     """Тип PostgreSQL ``ENUM`` для модели: значения — ``value``, тип создаёт миграция."""
     return ENUM(

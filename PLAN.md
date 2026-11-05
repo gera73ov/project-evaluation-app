@@ -80,7 +80,7 @@
 | Этап | Веха | Задач | Подзадач | Готово задач | % |
 |---|---|---|---|---|---|
 | 0. Фундамент и контракты | M0 | 25 | 25 | 25 | 100% |
-| 1. Ядро: данные, расчёт, безопасность, вход | M1 | 50 | 37 | 19 | 38% |
+| 1. Ядро: данные, расчёт, безопасность, вход | M1 | 50 | 37 | 22 | 44% |
 | 2. Проекты и дерево | M2 | 49 | 46 | 0 | 0% |
 | 3. Обсуждения, вопросы, уведомления, документы | M3 | 24 | 20 | 0 | 0% |
 | 4. AD, админки, контур ИБ | M4 | 40 | 35 | 0 | 0% |
@@ -88,14 +88,14 @@
 | 6. Укрепление, НФТ, эксплуатация | M6 | 30 | 10 | 0 | 0% |
 | 7. Stage, ИБ-приёмка, UAT, релиз | M7 | 5 | 19 | 0 | 0% |
 | 8. Пилот | M8 | 3 | 0 | 0 | 0% |
-| **Итого** | | **254** | **216** | **44** | **17,3%** |
+| **Итого** | | **254** | **216** | **47** | **18,5%** |
 
 **По трекам**
 
 | Трек | Задач | Готово | В работе | Заблокировано |
 |---|---|---|---|---|
 | INF | 17 | 8 | 0 | 0 |
-| DB | 13 | 5 | 0 | 0 |
+| DB | 13 | 8 | 0 | 0 |
 | CORE | 45 | 7 | 0 | 0 |
 | AUTH | 19 | 1 | 0 | 0 |
 | SEC | 17 | 5 | 0 | 0 |
@@ -108,7 +108,7 @@
 | QA | 27 | 2 | 0 | 0 |
 | DOC | 7 | 1 | 0 | 0 |
 | PM | 8 | 2 | 0 | 0 |
-| **Итого** | **254** | **44** | **0** | **0** |
+| **Итого** | **254** | **47** | **0** | **0** |
 
 ---
 
@@ -499,23 +499,23 @@
   - Артефакты: `alembic/versions/*_users.py`, `db/models/users.py`, `db/models/settings.py`
   - Готово, когда: миграция вверх/вниз; ограничения проверены тестами (дубль логина в другом регистре отклоняется; `ad_group` для `admin` отклоняется).
 
-- [ ] **DB-004** · Таблицы справочников · трек DB
+- [x] **DB-004** · Таблицы справочников · трек DB · ✔ #16
   - SPEC: 14.2 `phases`, `disciplines`, `node_types`, `discipline_profiles`, `comment_tags`, `control_ratios`, `app_params`, `work_calendar`, `loss_reasons`, `vat_rates`, `currencies`; 7.5
   - Зависит: DB-002, DB-011
   - Сделать: миграции и модели; частичные уникальные индексы: ровно одна `phases.is_cross_cutting = true`, ровно одна `vat_rates.is_default = true`; `node_types.norms` JSONB, `project_id NULL` (локальный тип), `proposal_status`; `discipline_profiles.type_chain UUID[]`; `currencies.code CHAR(3) PK`.
   - Артефакты: `alembic/versions/*_dictionaries.py`, `db/models/dictionaries.py`
   - Готово, когда: вторая сквозная фаза и вторая ставка НДС «по умолчанию» отклоняются БД.
 
-- [ ] **DB-005** · Таблицы проектов, денег и команды · трек DB
+- [x] **DB-005** · Таблицы проектов, денег и команды · трек DB · ✔ #16
   - SPEC: 14.2 `projects`, `project_money`, `project_totals`, `project_rates`, `project_members`, `project_phases`, `project_disciplines`, `branch_status`, `support_sessions`; SEC-AUTHZ-04, BR-CALC-03
   - Зависит: DB-003, DB-004
   - Сделать: `projects` (все поля 14.2: `status`, `outcome`, `quote_figure`, `duration_weeks`, `no_moderator_since`, `detail_level`, `pm_percent NUMERIC(5,2)`, `version BIGINT`, `completed_at`, `archived_at`, `cancel_reason`, `next_question_no`); `project_money` и `project_rates` — отдельные таблицы (`rate_rub NUMERIC(12,0)`, `exchange_rate NUMERIC(12,4)`, `contract_amount NUMERIC(20,0)`; уникальность `NULLS NOT DISTINCT`); `project_totals` (`NUMERIC(14,2)` часы, `NUMERIC(20,0)` деньги); `project_members` (`NULLS NOT DISTINCT`, `added_by_admin_self`); `project_phases.in_pm_base`; `project_disciplines.profile_id`; `branch_status` PK из трёх полей; `support_sessions`.
   - Артефакты: `alembic/versions/*_projects.py`, `db/models/projects.py`, `db/models/money.py`
   - Готово, когда: две ставки УП (`discipline_id = NULL`) одного проекта отклоняются; денежные модели вынесены в отдельный модуль, импорт которого разрешён только сервису денег (правило линтера import-linter).
-  - [ ] `projects` и `project_phases`, `project_disciplines`
-  - [ ] `project_money`, `project_rates` (отдельный модуль, import-linter)
-  - [ ] `project_members` и `branch_status`
-  - [ ] `project_totals`, `support_sessions`
+  - [x] `projects` и `project_phases`, `project_disciplines`
+  - [x] `project_money`, `project_rates` (отдельный модуль, import-linter)
+  - [x] `project_members` и `branch_status`
+  - [x] `project_totals`, `support_sessions`
 
 - [ ] **DB-006** · Таблицы дерева, истории и версий · трек DB
   - SPEC: 14.2 `nodes`, `node_history`, `change_log`, `user_view_state`; 14.3; ARCH-02, ARCH-04, BR-CALC-03, NFR-LIM-01
@@ -548,7 +548,7 @@
   - Артефакты: `alembic/versions/*_audit.py`, `db/models/audit.py`
   - Готово, когда: `UPDATE audit.audit_log` ролью приложения → ошибка (CL-12); две параллельные транзакции вставки не дают одинаковый `prev_hash`.
 
-- [ ] **DB-010** · Справочники по умолчанию (миграция данных) · трек DB
+- [x] **DB-010** · Справочники по умолчанию (миграция данных) · трек DB · ✔ #16
   - SPEC: 5.2 (10 типов с нормами и иконками, профили дисциплин), 2 (6 фаз), 7.5, 6.6 (QA к Бэкенд+Фронтенд 25–35%), BR-PRJ-05 (причины проигрыша), BR-MONEY-03 (7 валют), BR-MONEY-05 и C-31 (ставки НДС, по умолчанию 22%), BR-PRJ-03 (180 дней), 5.2 (пороги 80/40 ч), 2 и 6.3 (УП 18%), «Работа» системный тип
   - Зависит: DB-004
   - Сделать: фазы «Анализ и проектирование», «Разработка», «Тестирование», «Внедрение», «Гарантийная поддержка», «Управление проектом» (сквозная); дисциплины Бэкенд, Фронтенд, Аналитика, QA, Архитектура, DevOps с профилями по умолчанию и альтернативами; типы Модуль, Функция, Экран, Интеграция, Отчёт, Сущность, Сервис, Тест-набор, Документ, Работа (иконки ▣ ƒ ▭ ⇄ ▤ ◇ ⚙ ✓ ✎ •, нормы 5.2); метки «Огр.», «Тех.», «Риск», «Допущение» с категориями; валюты RUB, USD, EUR, CNY, KZT, BYN, AED; НДС «без НДС», 0, 5, 7, 10, 20, 22 (по умолчанию 22); причины проигрыша «Цена», «Сроки», «Выбран конкурент», «Отказ от проекта», «Другое»; `method.*` в `system_settings`.
