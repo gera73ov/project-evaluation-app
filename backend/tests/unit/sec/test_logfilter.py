@@ -16,7 +16,7 @@ from estimator.security.logfilter import (
     redact_text,
 )
 
-pytestmark = [pytest.mark.spec("SEC-AUTH-04"), pytest.mark.spec("CL-11")]
+pytestmark = pytest.mark.spec("SEC-AUTH-04")
 
 PASSWORD = "Tr0ub4dor&3-very-secret"
 TOKEN = "Zk3q9V0pQd1sXz7yW2rT4uI6oP8aS0dF"
@@ -108,7 +108,6 @@ def _records(capsys: pytest.CaptureFixture[str]) -> str:
     return capsys.readouterr().out
 
 
-@pytest.mark.spec("CL-11")
 def test_login_and_reset_scenario_leaves_no_secrets(capsys: pytest.CaptureFixture[str]) -> None:
     """Сценарий входа и сброса пароля: всё, что могло попасть в лог, попадает без секретов."""
     configure_logging("DEBUG")
