@@ -17,6 +17,7 @@ from estimator.config import Settings, get_settings
 from estimator.jobs.celery_app import queue_lengths
 from estimator.logging import RequestIdMiddleware, configure_logging, get_logger
 from estimator.metrics import REGISTRY, QueueLengthCollector, metrics_app
+from estimator.redis_client import make_redis
 
 log = get_logger(__name__)
 
@@ -32,6 +33,7 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
         log.info("app_started", app_env=settings.app_env.value, version=settings.app_version)
         yield
         await probes.close()
+        await _app.state.redis.aclose()
         log.info("app_stopped")
 
     # Документация OpenAPI — только вне prod; источник правды — contracts/openapi.yaml
@@ -46,6 +48,7 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     )
     app.state.settings = settings
     app.state.probes = probes
+    app.state.redis = make_redis(settings)
     app.include_router(health.router)
     app.mount("/metrics", metrics_app())
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
