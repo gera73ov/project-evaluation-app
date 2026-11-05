@@ -1,0 +1,18 @@
+# INF-006 · в контекст сборки образов попадает только нужное (секреты и мусор — нет)
+**
+!backend/pyproject.toml
+!backend/uv.lock
+!backend/src/**
+!frontend/**
+!deploy/docker/**
+!deploy/nginx/**
+!deploy/syslog/**
+!deploy/samba-ad/**
+!deploy/certs/**
+**/__pycache__
+**/*.pyc
+frontend/node_modules
+frontend/dist
+frontend/coverage
+**/.env
+**/.env.*
