@@ -83,8 +83,11 @@ def add_base_fields(
     return event_dict
 
 
-def configure_logging(level: str = "INFO") -> None:
-    """Настроить structlog и стандартный logging на вывод JSON в stdout."""
+def configure_logging(level: str = "INFO", *, stream: str = "stdout") -> None:
+    """Настроить structlog и стандартный logging на вывод JSON.
+
+    ``stream="stderr"`` — для CLI, чтобы логи не смешивались с выводом команды.
+    """
     shared: list[Any] = [
         merge_contextvars,
         structlog.processors.add_log_level,
@@ -96,7 +99,7 @@ def configure_logging(level: str = "INFO") -> None:
     structlog.configure(
         processors=[*shared, structlog.processors.JSONRenderer(ensure_ascii=False)],
         wrapper_class=structlog.make_filtering_bound_logger(logging.getLevelName(level)),
-        logger_factory=structlog.PrintLoggerFactory(),  # sys.stdout на момент записи
+        logger_factory=_StreamLoggerFactory(stream),
         cache_logger_on_first_use=False,
     )
     # Сообщения библиотек (uvicorn, celery, sqlalchemy) — в тот же JSON-формат
@@ -107,7 +110,7 @@ def configure_logging(level: str = "INFO") -> None:
             structlog.processors.JSONRenderer(ensure_ascii=False),
         ],
     )
-    handler = logging.StreamHandler(sys.stdout)
+    handler = logging.StreamHandler(getattr(sys, stream))
     handler.setFormatter(formatter)
     root = logging.getLogger()
     root.handlers[:] = [handler]
@@ -116,6 +119,16 @@ def configure_logging(level: str = "INFO") -> None:
         lib = logging.getLogger(name)
         lib.handlers[:] = []
         lib.propagate = True
+
+
+class _StreamLoggerFactory:
+    """Берёт ``sys.stdout``/``sys.stderr`` в момент записи (важно для тестов и перенаправлений)."""
+
+    def __init__(self, stream: str) -> None:
+        self._stream = stream
+
+    def __call__(self, *_args: Any) -> structlog.PrintLogger:
+        return structlog.PrintLogger(file=getattr(sys, self._stream))
 
 
 def get_logger(name: str | None = None) -> Any:
