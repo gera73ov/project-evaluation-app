@@ -27,7 +27,11 @@ from estimator.logging import configure_logging
 QUEUES: tuple[str, ...] = ("default",)
 
 #: Модули с задачами треков (``estimator.<трек>.tasks``); подключаются при старте worker.
-TASK_MODULES: tuple[str, ...] = ("estimator.jobs.builtin", "estimator.db.tasks")
+TASK_MODULES: tuple[str, ...] = (
+    "estimator.jobs.builtin",
+    "estimator.db.tasks",
+    "estimator.notifications.tasks",
+)
 
 
 def make_celery(settings: Settings | None = None) -> Celery:

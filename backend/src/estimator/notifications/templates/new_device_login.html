@@ -1,0 +1,11 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p>В вашу учётную запись выполнен вход с нового устройства.</p>
+<table style="border-collapse:collapse">
+<tr><td style="padding:2px 16px 2px 0;color:#6e7781">Браузер</td><td>{{ browser }}</td></tr>
+<tr><td style="padding:2px 16px 2px 0;color:#6e7781">Сеть</td><td>{{ subnet }}</td></tr>
+<tr><td style="padding:2px 16px 2px 0;color:#6e7781">Время</td><td>{{ time }}</td></tr>
+</table>
+<p>Если это были не вы, смените пароль и завершите чужие сеансы в профиле.</p>
+{% with label = "Открыть профиль" %}{% include "_button.html" %}{% endwith %}
+{% endblock %}

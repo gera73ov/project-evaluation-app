@@ -1,0 +1,85 @@
+/**
+ * FE-003 · шапка приложения (DESIGN.md 5.1): логотип, пункты по ролям (без права — не рисуются),
+ * распорка, колокольчик (счётчик — FE-010), пользователь с меню «Профиль» и «Выйти».
+ */
+import { Menu } from '@mantine/core';
+import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { api } from '../shared/api/client';
+import { call } from '../shared/api/problem';
+import { Link, useNavigate } from './router';
+import { NAV, type NavKey } from './routeTable';
+import { hasRole, useSession, type Me } from './session';
+
+export function initials(fullName: string): string {
+  const [last = '', first = ''] = fullName.trim().split(/\s+/);
+  return (last.charAt(0) + first.charAt(0)).toUpperCase();
+}
+
+/** «Иванов Иван» → «Иванов И.» */
+export function shortName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  // Уже сокращённое имя («И. Иванов») показываем как есть.
+  if (parts.some((part) => part.endsWith('.'))) return parts.join(' ');
+  const [last = '', first = ''] = parts;
+  return first ? `${last} ${first.charAt(0)}.` : last;
+}
+
+export function AppShell({ me, active, children }: { me: Me; active?: NavKey | undefined; children: ReactNode }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { clear } = useSession();
+
+  async function logout() {
+    try {
+      await call(() => api.POST('/auth/logout'));
+    } finally {
+      clear();
+      navigate('/login', { replace: true });
+    }
+  }
+
+  return (
+    <div className="app-shell">
+      <header className="hdr">
+        <Link to="/" className="logo">
+          <i aria-hidden="true" />
+          {t('app.name')}
+        </Link>
+        <nav className="nav" aria-label={t('nav.label')}>
+          {NAV.filter((item) => hasRole(me, item.roles)).map((item) => (
+            <Link
+              key={item.key}
+              to={item.to}
+              className={item.key === active ? 'on' : undefined}
+              aria-current={item.key === active ? 'page' : undefined}
+            >
+              {t(`nav.${item.key}`)}
+            </Link>
+          ))}
+        </nav>
+        <span className="sp" />
+        {me.system_roles.includes('superadmin') ? <span className="pill bad">{t('roles.superadmin')}</span> : null}
+        <span className="bell" role="img" aria-label={t('nav.notifications')}>
+          🔔
+        </span>
+        <Menu position="bottom-end">
+          <Menu.Target>
+            <button type="button" className="user-menu" aria-label={t('nav.userMenu')}>
+              <span className="av" aria-hidden="true">
+                {initials(me.full_name)}
+              </span>
+              {shortName(me.full_name)} ▾
+            </button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item onClick={() => navigate('/profile')}>{t('nav.profile')}</Menu.Item>
+            <Menu.Item onClick={() => void logout()}>{t('nav.logout')}</Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      </header>
+      <main>{children}</main>
+    </div>
+  );
+}

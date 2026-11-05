@@ -1,0 +1,7 @@
+{% extends "_layout.html" %}
+{% block content %}
+{% for p in projects %}
+<p style="margin:16px 0 4px"><a href="{{ p.link }}" style="color:#0969da">«{{ p.project_name }}»</a>:
+{% if p.questions %}{{ p.questions }} {{ plural(p.questions, "вопрос вам", "вопроса вам", "вопросов вам") }}{% endif %}{% if p.questions and p.answers %}, {% endif %}{% if p.answers %}{{ p.answers }} {{ plural(p.answers, "ответ на ваш вопрос", "ответа на ваши вопросы", "ответов на ваши вопросы") }}{% endif %}</p>
+{% endfor %}
+{% endblock %}

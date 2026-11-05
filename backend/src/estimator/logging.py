@@ -4,7 +4,7 @@ NFR-MNT-04: одна JSON-строка на событие с полями ``tim
 project_id, event``. Контекст (``request_id``, ``user_id``, ``project_id``) хранится в
 contextvars и подставляется автоматически: ``request_id`` — middleware ниже, ``user_id`` и
 ``project_id`` — треки AUTH и CORE через :func:`bind_context`.
-SEC-AUTH-04: секреты в логи не попадают — значения ключей из :data:`SECRET_KEYS` заменяются.
+SEC-AUTH-04: секреты в логи не попадают — фильтры :mod:`estimator.security.logfilter` (SEC-009).
 """
 
 from __future__ import annotations
@@ -19,59 +19,28 @@ from typing import Any
 import structlog
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 
+from estimator.security.logfilter import (
+    REDACTED,
+    SECRET_KEYS,
+    AccessLogQueryFilter,
+    redact_secrets,
+)
+
+__all__ = [
+    "REDACTED",
+    "SECRET_KEYS",
+    "RequestIdMiddleware",
+    "bind_context",
+    "configure_logging",
+    "get_logger",
+    "new_request_id",
+]
+
 REQUEST_ID_HEADER = "x-request-id"
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 
-#: Подстроки имён полей, значения которых никогда не пишутся в лог (SEC-AUTH-04).
-SECRET_KEYS = (
-    "password",
-    "passwd",
-    "secret",
-    "token",
-    "authorization",
-    "cookie",
-    "totp",
-    "api_key",
-    "private_key",
-    "database_url",
-    "redis_url",
-    "broker_url",
-)
-REDACTED = "***"
-
 #: Поля, которые есть в каждой записи (NFR-MNT-04), даже если пусты.
 BASE_FIELDS = ("request_id", "user_id", "project_id")
-
-
-def _redact(value: Any, depth: int = 0) -> Any:
-    if depth > 5:
-        return value
-    if isinstance(value, dict):
-        return {
-            k: (REDACTED if _is_secret_key(k) else _redact(v, depth + 1)) for k, v in value.items()
-        }
-    if isinstance(value, list | tuple):
-        return type(value)(_redact(v, depth + 1) for v in value)
-    return value
-
-
-def _is_secret_key(key: object) -> bool:
-    lowered = str(key).lower()
-    return any(s in lowered for s in SECRET_KEYS)
-
-
-def redact_secrets(
-    _logger: Any, _method: str, event_dict: MutableMapping[str, Any]
-) -> MutableMapping[str, Any]:
-    """Процессор structlog: скрыть значения секретных полей (SEC-AUTH-04)."""
-    for key in list(event_dict):
-        if key == "event":
-            continue
-        if _is_secret_key(key):
-            event_dict[key] = REDACTED
-        else:
-            event_dict[key] = _redact(event_dict[key])
-    return event_dict
 
 
 def add_base_fields(
@@ -93,8 +62,8 @@ def configure_logging(level: str = "INFO", *, stream: str = "stdout") -> None:
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True, key="time"),
         add_base_fields,
-        redact_secrets,
         structlog.processors.format_exc_info,
+        redact_secrets,  # после format_exc_info: маскируется и текст трассировки
     ]
     structlog.configure(
         processors=[*shared, structlog.processors.JSONRenderer(ensure_ascii=False)],
@@ -119,6 +88,9 @@ def configure_logging(level: str = "INFO", *, stream: str = "stdout") -> None:
         lib = logging.getLogger(name)
         lib.handlers[:] = []
         lib.propagate = True
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, AccessLogQueryFilter) for f in access.filters):
+        access.addFilter(AccessLogQueryFilter())
 
 
 class _StreamLoggerFactory:

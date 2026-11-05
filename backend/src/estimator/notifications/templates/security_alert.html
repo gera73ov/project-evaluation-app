@@ -1,0 +1,10 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p><strong>Оповещение службы ИБ:</strong> {{ alert_label(alert) or alert }}.</p>
+<table style="border-collapse:collapse">
+<tr><td style="padding:2px 16px 2px 0;color:#6e7781">Время</td><td>{{ time }}</td></tr>
+{% if actor_login %}<tr><td style="padding:2px 16px 2px 0;color:#6e7781">Кто</td><td>{{ actor_login }}</td></tr>{% endif %}
+{% if ip %}<tr><td style="padding:2px 16px 2px 0;color:#6e7781">Адрес</td><td>{{ ip }}</td></tr>{% endif %}
+</table>
+{% with label = "Открыть журнал аудита" %}{% include "_button.html" %}{% endwith %}
+{% endblock %}
