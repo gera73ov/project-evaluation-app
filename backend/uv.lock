@@ -453,6 +453,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
+    { name = "pyyaml" },
     { name = "ruff" },
 ]
 security = [
@@ -488,6 +489,7 @@ dev = [
     { name = "pytest", specifier = ">=9.1,<10" },
     { name = "pytest-asyncio", specifier = ">=1.4,<1.5" },
     { name = "pytest-cov", specifier = ">=7.1,<8" },
+    { name = "pyyaml", specifier = ">=6.0.3,<7" },
     { name = "ruff", specifier = ">=0.17.1,<0.18" },
 ]
 security = [
