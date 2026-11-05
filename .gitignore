@@ -1,0 +1,51 @@
+# INF-001 · то, что не попадает в репозиторий (AGENTS.md 5.3.1, 6.3)
+
+# Секреты и локальные настройки окружения: в репозитории только .env.example
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+deploy/compose/certs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Node / фронтенд
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+e2e/test-results/
+e2e/playwright-report/
+
+# Данные и дампы
+*.dump
+*.sql.gz
+*.sqlite
+*.sqlite3
+
+# IDE и ОС
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db
