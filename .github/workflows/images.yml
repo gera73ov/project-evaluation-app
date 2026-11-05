@@ -1,0 +1,85 @@
+# INF-005/INF-006 · сборка образов, trivy и смоук стенда docker compose.
+# Запускается, когда меняются образы или зависимости, раз в неделю (новые CVE в базовых
+# образах) и вручную — так экономятся минуты Actions бесплатного тарифа (решение 05.11.2026).
+name: images
+
+on:
+  pull_request:
+    paths:
+      - "deploy/**"
+      - "backend/pyproject.toml"
+      - "backend/uv.lock"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - ".dockerignore"
+      - ".env.example"
+      - "Makefile"
+      - ".github/workflows/images.yml"
+  schedule:
+    - cron: "17 3 * * 1" # понедельник 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-scan-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TRIVY_VERSION: "0.76.1"
+      TRIVY_SHA256: "c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0"
+      APP_VERSION: ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Собрать образы api, nginx, samba-ad
+        run: |
+          python3 deploy/compose/make_env.py
+          mkdir -p deploy/compose/certs
+          docker compose --env-file .env -f deploy/compose/docker-compose.yml \
+            -f deploy/compose/docker-compose.test.yml --profile test build
+      - name: Установить trivy (проверка контрольной суммы)
+        run: |
+          curl -fsSL --retry 4 -o "$RUNNER_TEMP/trivy.tgz" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  $RUNNER_TEMP/trivy.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/trivy.tgz" -C "$RUNNER_TEMP" trivy
+      - name: trivy — критичные и высокие блокируют (SEC-SDLC-01)
+        run: |
+          for image in estimator-api:ci estimator-nginx:ci; do
+            "$RUNNER_TEMP/trivy" image --no-progress --scanners vuln,secret \
+              --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 "$image"
+          done
+      - name: trivy — образ эмулятора Samba AD (только dev/test, отчёт без блокировки)
+        run: |
+          "$RUNNER_TEMP/trivy" image --no-progress --scanners vuln --severity CRITICAL,HIGH \
+            --ignore-unfixed --exit-code 0 estimator-samba-ad:dev
+      - name: Поднять стенд с эмуляторами
+        run: |
+          export CERTS_UID=$(id -u) CERTS_GID=$(id -g)
+          C="docker compose --env-file .env -f deploy/compose/docker-compose.yml -f deploy/compose/docker-compose.test.yml --profile test"
+          # ClamAV качает базы до 10 минут — его готовность смоук не ждёт
+          $C up -d --wait --wait-timeout 300 nginx api worker beat postgres redis samba-ad mailpit syslog
+          $C ps
+      - name: Смоук-проверка (TLS, LDAPS, StartTLS, вложенные группы, SMTP, syslog)
+        run: |
+          docker run --rm --network estimator_backend --env-file .env \
+            -v "$PWD/deploy/compose/certs:/certs:ro" \
+            -v "$PWD/deploy/compose/smoke_test.py:/opt/smoke_test.py:ro" \
+            estimator-api:ci python /opt/smoke_test.py --test-profile
+      - name: Логи стенда при сбое
+        if: failure()
+        run: |
+          docker compose --env-file .env -f deploy/compose/docker-compose.yml \
+            -f deploy/compose/docker-compose.test.yml --profile test logs --no-color --tail=200
+      - name: Остановить стенд
+        if: always()
+        run: |
+          docker compose --env-file .env -f deploy/compose/docker-compose.yml \
+            -f deploy/compose/docker-compose.test.yml --profile test down -v

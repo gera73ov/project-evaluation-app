@@ -29,7 +29,10 @@
 /deploy/                                       @gera73ov
 /backend/pyproject.toml                        @gera73ov
 /backend/uv.lock                               @gera73ov
-/backend/.semgrep.yml                          @gera73ov
+/backend/semgrep/                              @gera73ov
+/backend/tools/                                @gera73ov
+/backend/scripts/                              @gera73ov
+/.dockerignore                                 @gera73ov
 /backend/src/estimator/main.py                 @gera73ov
 /backend/src/estimator/config.py               @gera73ov
 /backend/src/estimator/logging.py              @gera73ov
