@@ -9,7 +9,7 @@ UV := uv --directory backend
 SEMGREP := uv run --project backend/tools/semgrep --frozen semgrep
 
 .PHONY: help env certs build up up-test smoke smoke-test down ps logs \
-        lint test test-backend test-frontend security check
+        lint test test-backend test-frontend security check traceability
 
 help: ## список команд
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -53,18 +53,21 @@ logs: ## логи всех сервисов
 	$(COMPOSE_TEST) logs -f --tail=100
 
 lint: ## ruff и eslint
-	$(UV) run --frozen ruff check . ../deploy
-	$(UV) run --frozen ruff format --check . ../deploy
+	$(UV) run --frozen ruff check . ../deploy ../tools
+	$(UV) run --frozen ruff format --check . ../deploy ../tools
 	cd frontend && npm run -s lint && npm run -s typecheck
 
 test-backend: ## pytest с порогами покрытия NFR-MNT-01
-	$(UV) run --frozen pytest --cov --cov-report=term --cov-report=json:coverage.json
+	$(UV) run --frozen pytest -n auto --cov --cov-report=term --cov-report=json:coverage.json
 	$(UV) run --frozen python scripts/check_coverage.py coverage.json
 
 test-frontend: ## vitest и сборка без inline-скриптов
 	cd frontend && npm test && npm run -s build
 
 test: test-backend test-frontend ## все юнит-тесты
+
+traceability: ## отчёт «требование → тест» по маркерам tc/spec/gherkin в build/traceability.md
+	python3 tools/traceability.py
 
 security: ## bandit, semgrep, pip-audit, npm audit, gitleaks (если установлен)
 	$(UV) run --frozen --group security bandit -q -c pyproject.toml -r src ../deploy \

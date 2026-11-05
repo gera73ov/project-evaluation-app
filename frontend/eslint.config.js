@@ -13,7 +13,7 @@ import tseslint from 'typescript-eslint';
 const DANGER = 'SEC-WEB-02: dangerouslySetInnerHTML запрещён, текст выводится как текст';
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'node_modules', 'src/shared/api/generated'] },
+  { ignores: ['dist', 'coverage', 'node_modules', 'src/shared/api/generated', 'mock-public'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   security.configs.recommended,
@@ -55,6 +55,16 @@ export default tseslint.config(
     rules: {
       'security/detect-non-literal-fs-filename': 'off',
       'security/detect-unsafe-regex': 'off',
+    },
+  },
+  {
+    // FE-001: моки API работают только в `npm run dev:mock` и в тестах, в сборку не попадают.
+    // Ключи объектов и шаблоны pattern приходят из контрактов репозитория (contracts/*),
+    // а не от пользователя. Остальные правила безопасности для моков действуют.
+    files: ['src/shared/api/mocks/**/*.{ts,tsx}'],
+    rules: {
+      'security/detect-object-injection': 'off',
+      'security/detect-non-literal-regexp': 'off',
     },
   },
 );

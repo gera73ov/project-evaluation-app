@@ -4,6 +4,7 @@
 !backend/uv.lock
 !backend/src/**
 !frontend/**
+!contracts/**
 !deploy/docker/**
 !deploy/nginx/**
 !deploy/syslog/**

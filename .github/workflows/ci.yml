@@ -29,6 +29,21 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # QA-001: тесты с фикстурами БД получают свою базу на каждый процесс xdist. Сервер живёт
+    # только на время задания и доступен с раннера, поэтому вход без пароля (trust).
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+        env:
+          POSTGRES_USER: estimator
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U estimator" --health-interval 2s
+          --health-timeout 5s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://estimator@127.0.0.1:5432/postgres
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -44,8 +59,8 @@ jobs:
         run: uv sync --all-groups
       - name: ruff
         run: |
-          uv run ruff check --output-format=github . ../deploy
-          uv run ruff format --check . ../deploy
+          uv run ruff check --output-format=github . ../deploy ../tools
+          uv run ruff format --check . ../deploy ../tools
       - name: bandit
         run: uv run bandit -q -c pyproject.toml -r src ../deploy -x ../deploy/syslog/test_receiver.py
       - name: semgrep (самопроверка правил и скан)
@@ -59,12 +74,15 @@ jobs:
         run: |
           uv export -q --all-groups --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/req.txt"
           uv run pip-audit --strict --require-hashes --disable-pip -r "$RUNNER_TEMP/req.txt"
-      - name: pytest с покрытием (≥ 80 %, domain/calc и security/authz — 100 %)
+      - name: pytest параллельно, с покрытием (≥ 80 %, domain/calc и security/authz — 100 %)
         run: |
-          uv run pytest --cov --cov-report=term --cov-report=json:coverage.json
+          uv run pytest -n auto --cov --cov-report=term --cov-report=json:coverage.json
           uv run python scripts/check_coverage.py coverage.json
-      - name: Таблица переменных окружения собирается
-        run: uv run estimator config-env > /dev/null
+      - name: Отчёт трассировки «требование → тест» (QA-001)
+        working-directory: .
+        run: python3 tools/traceability.py --strict --output "$RUNNER_TEMP/traceability.md"
+      - name: Таблица переменных окружения в README совпадает с конфигом (DOC-001)
+        run: uv run estimator config-env --check ../README.md
 
   frontend:
     name: frontend (eslint, tsc, vitest, build, npm audit)

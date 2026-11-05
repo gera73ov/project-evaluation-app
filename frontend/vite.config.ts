@@ -6,8 +6,10 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  // FE-001: Service Worker MSW лежит отдельно и копируется только в режиме моков
+  publicDir: mode === 'mock' ? 'mock-public' : false,
   build: {
     outDir: 'dist',
     sourcemap: false,
@@ -21,13 +23,14 @@ export default defineConfig({
     strictPort: true,
     // при `npm run dev` API и WebSocket идут на dev-стенд в docker compose (deploy/compose).
     // Сертификат стенда проверяется: запуск с NODE_EXTRA_CA_CERTS=../deploy/compose/certs/ca.crt
-    proxy: {
-      '/api': { target: 'https://localhost:8443', ws: true },
-    },
+    // в режиме моков (`npm run dev:mock`) запросы перехватывает MSW, прокси не нужен
+    proxy: mode === 'mock' ? undefined : { '/api': { target: 'https://localhost:8443', ws: true } },
+    // моки читают контракты прямо из ../contracts (FE-001)
+    fs: { allow: ['.', '../contracts'] },
   },
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs'],
     restoreMocks: true,
   },
-});
+}));

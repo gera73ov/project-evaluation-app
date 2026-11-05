@@ -34,6 +34,12 @@ export function cssProblems(css) {
   return problems;
 }
 
+/** FE-001: моки MSW не должны попадать в сборку для стендов. */
+export function mockProblems(name, text) {
+  if (name.endsWith('mockServiceWorker.js')) return [`в сборке Service Worker моков ${name}`];
+  return /\[MSW\]|setupWorker/.test(text) ? [`в ${name} код моков MSW`] : [];
+}
+
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
@@ -49,11 +55,14 @@ function main() {
   for (const file of walk(dist).filter((f) => f.endsWith('.css'))) {
     problems.push(...cssProblems(readFileSync(file, 'utf8')).map((p) => `${file}: ${p}`));
   }
+  for (const file of walk(dist).filter((f) => f.endsWith('.js'))) {
+    problems.push(...mockProblems(file, readFileSync(file, 'utf8')));
+  }
   if (problems.length) {
-    console.error(`Сборка нарушает SEC-WEB-03:\n- ${problems.join('\n- ')}`);
+    console.error(`Сборка нарушает SEC-WEB-03 или FE-001:\n- ${problems.join('\n- ')}`);
     process.exit(1);
   }
-  console.log('check-build: inline-скриптов и внешних ресурсов нет');
+  console.log('check-build: inline-скриптов, внешних ресурсов и моков нет');
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();

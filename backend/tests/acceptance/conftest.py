@@ -1,0 +1,40 @@
+"""QA-002 · приёмочные сценарии SPEC 17.2 (pytest-bdd, уровень API).
+
+* Тег ``@G-NN`` становится маркером ``gherkin("G-NN")`` — сценарий попадает в отчёт
+  трассировки (tools/traceability.py).
+* Тег ``@pending`` — шаги сценария ещё не реализованы: тест пропускается со статусом
+  ``pending`` (итог прогона показывает «26 pending»). Трек, который реализует шаги
+  (QA-012…QA-017), снимает тег в том же PR; шаг без определения тогда роняет тест.
+* Теги ``@api`` и ``@ui`` — уровень проверки: ``@ui``-сценарии дополнительно проходят в
+  Playwright (e2e/features/README.md).
+"""
+
+from __future__ import annotations
+
+import re
+
+import pytest
+
+G_TAG = re.compile(r"G-\d{2}")
+LAYER_TAGS = {"api", "ui"}
+
+
+def pytest_bdd_apply_tag(tag: str, function):  # type: ignore[no-untyped-def]
+    """Превратить теги сценария в зарегистрированные маркеры (иначе --strict-markers упадёт)."""
+    if G_TAG.fullmatch(tag):
+        pytest.mark.gherkin(tag)(function)
+        return True
+    if tag == "pending":
+        pytest.mark.pending(function)
+        pytest.mark.skip(reason="pending: шаги сценария не реализованы")(function)
+        return True
+    if tag in LAYER_TAGS:
+        return True  # уровень проверки — только метка в .feature
+    return None
+
+
+def pytest_report_teststatus(report: pytest.TestReport, config: pytest.Config):  # type: ignore[no-untyped-def]
+    """Пропущенный ``@pending``-сценарий считается в итоге отдельно: «N pending»."""
+    if report.skipped and "pending" in report.keywords:
+        return "pending", "P", "PENDING"
+    return None
