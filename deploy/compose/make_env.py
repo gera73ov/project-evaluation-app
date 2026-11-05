@@ -12,6 +12,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
 def _encryption_key() -> str:
     """Мастер-ключ SEC-003 в формате ``<id>:<base64url 32 байта>``."""
     raw = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")
