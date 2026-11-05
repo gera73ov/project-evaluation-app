@@ -1,0 +1,108 @@
+# INF-002 · манифест бэкенда. Зона трека INF (PLAN.md раздел 5): зависимость другого трека
+# добавляется PR с ревью INF, для криптографии, аутентификации и парсинга — ещё и SEC
+# (AGENTS.md 6.5). Точные версии с хэшами закреплены в uv.lock (SEC-SDLC-03).
+[project]
+name = "estimator"
+version = "0.1.0"
+description = "Приложение оценки проектов: бэкенд (FastAPI)"
+requires-python = "==3.12.*"
+license = { text = "Proprietary" }
+# Стек SPEC 13.1
+dependencies = [
+  "fastapi>=0.159,<0.160",
+  "uvicorn[standard]>=0.54,<0.55",
+  "pydantic-settings>=2.16,<3",
+  "sqlalchemy[asyncio]>=2.1,<2.2",
+  "asyncpg>=0.32,<0.33",
+  "alembic>=1.20,<1.21",
+  "redis>=6.4,<6.5",  # верхняя граница — от kombu[redis] (Celery 5.6)
+  "celery[redis]>=5.6,<5.7",
+  "ldap3>=2.9.1,<2.10",
+  "openpyxl>=3.1.5,<3.2",
+  "python-docx>=1.2,<1.3",
+  "argon2-cffi>=25.1,<26",
+  "pyotp>=2.10,<2.11",
+  "cryptography>=50.0,<51",
+  "structlog>=26.1,<27",
+  "prometheus-client>=0.26,<0.27",
+  "typer>=0.27,<0.28",
+]
+
+[project.scripts]
+estimator = "estimator.cli:main"
+
+[dependency-groups]
+# Тесты и линтер — ставятся в dev и CI (`uv sync --frozen`)
+dev = [
+  "pytest>=9.1,<10",
+  "pytest-asyncio>=1.4,<1.5",
+  "pytest-cov>=7.1,<8",
+  "hypothesis>=6.170,<7",
+  "httpx>=0.28,<0.29",
+  "ruff>=0.17.1,<0.18",
+]
+# Сканеры SEC-SDLC-01 — отдельная группа, чтобы не тянуть их в образ и в обычный dev.
+# semgrep конфликтует с FastAPI по opentelemetry, поэтому он закреплён отдельным
+# проектом backend/tools/semgrep (свой uv.lock с хэшами).
+security = [
+  "bandit>=1.9.4,<1.10",
+  "pip-audit>=2.10,<2.11",
+]
+
+[tool.uv]
+# AGENTS.md 6.5 п. 4: версии моложе 14 дней не берутся. Дату сдвигает плановое обновление
+# зависимостей (NFR-MNT-06) отдельным PR `build(deps): …`.
+exclude-newer = "2026-10-22T00:00:00Z"
+# Исключение п. 4 для исправлений уязвимостей: pyasn1 0.6.5 (27.10.2026) закрывает
+# GHSA-2qm8-x737-gmw5, GHSA-fm9c-5rcf-2q5p, GHSA-mm57-4v3p-rchx, GHSA-9m75-vc3g-4x39 (через ldap3).
+exclude-newer-package = { pyasn1 = "2026-11-05T00:00:00Z" }
+constraint-dependencies = ["pyasn1>=0.6.5"]
+default-groups = ["dev"]
+package = true
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/estimator"]
+
+# --- Линтер (SEC-SDLC-01) ---
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "S", "BLE", "A", "C4", "SIM", "RUF", "ASYNC", "PT"]
+ignore = [
+  "RUF001", "RUF002", "RUF003",  # кириллица в строках и комментариях — норма проекта
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]  # assert и фиктивные пароли в тестах
+
+# --- Тесты и покрытие (NFR-MNT-01) ---
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "tc(id): ID тест-кейса SPEC 17.1 (PLAN.md 1.3 правило 8)",
+  "spec(id): ID требования SPEC (PLAN.md 1.3 правило 8)",
+  "integration: тест требует внешних сервисов (PostgreSQL, Redis, Samba AD…)",
+]
+
+[tool.coverage.run]
+source = ["estimator"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
