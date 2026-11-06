@@ -11,8 +11,8 @@ let signedIn = false;
 beforeEach(() => {
   signedIn = false;
   server.use(
-    // эндпоинта нет в контракте 1.0: режим берётся по умолчанию
-    http.get(api('/auth/options'), () => new HttpResponse(null, { status: 404 })),
+    // по умолчанию режим «Приложение»; тест AD переопределяет ответ
+    http.get(api('/auth/options'), () => HttpResponse.json({ auth_mode: 'app' })),
     http.get(api('/me'), ({ request }) => {
       return signedIn
         ? undefined
@@ -102,18 +102,11 @@ describe('экран входа (11.1)', () => {
     expect(screen.getByText('Учётная запись компании')).toBeTruthy();
   });
 
-  it('режим AD известен до входа из <meta name="auth-mode">', async () => {
-    const meta = document.createElement('meta');
-    meta.name = 'auth-mode';
-    meta.content = 'ad';
-    document.head.append(meta);
-    try {
-      await openLogin();
-      await screen.findByText('Учётная запись компании');
-      expect(screen.queryByRole('link', { name: 'Забыли пароль?' })).toBeNull();
-    } finally {
-      meta.remove();
-    }
+  it('режим AD известен до входа из GET /auth/options (CR-001)', async () => {
+    server.use(http.get(api('/auth/options'), () => HttpResponse.json({ auth_mode: 'ad' })));
+    await openLogin();
+    await screen.findByText('Учётная запись компании');
+    expect(screen.queryByRole('link', { name: 'Забыли пароль?' })).toBeNull();
   });
 
   it('блокировка и недоступный сервис аутентификации (FR-LOCK-05, FR-AUTH-AD-13)', async () => {
