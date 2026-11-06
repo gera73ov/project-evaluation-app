@@ -172,6 +172,15 @@ class LoadedSession:
 
 
 @dataclass(frozen=True)
+class SessionInfo:
+    """Строка списка «Мои сессии» (FR-SESS-04)."""
+
+    session_hash: bytes
+    record: SessionRecord
+    user_agent: str | None = None
+
+
+@dataclass(frozen=True)
 class SessionEnded:
     """Событие для RT: сессия завершена (истекла или отозвана)."""
 
@@ -217,6 +226,7 @@ _REVOKE_USER = text(
     "WHERE user_id = :user_id AND revoked_at IS NULL AND id_hash <> ALL(:keep) "
     "RETURNING id_hash"
 )
+_USER_AGENTS = text("SELECT id_hash, user_agent FROM sessions WHERE id_hash = ANY(:hashes)")
 _TOUCH = text("UPDATE sessions SET last_seen_at = :ts WHERE id_hash = :id_hash")
 _SET_FLAGS = text(
     "UPDATE sessions SET mfa_passed = :mfa_passed, step_up_until = :step_up_until "
@@ -412,6 +422,48 @@ class SessionService:
         if events:
             after_commit(db, lambda: _notify_ended(events))
         return len(hashes)
+
+    async def end_by_hash(
+        self, db: AsyncSession, user_id: uuid.UUID, hashed: bytes, reason: RevokeReason
+    ) -> bool:
+        """Завершить одну свою сессию по хэшу (список «Мои сессии», FR-SESS-04).
+
+        Чужой или неизвестный хэш — ``False``: в индексе пользователя его нет.
+        """
+        from estimator.db.session import after_commit
+
+        member = hashed.hex()
+        if await self._redis.zscore(_user_index(user_id), member) is None:
+            return False
+        await self._redis.delete(KEY_PREFIX + member)
+        await self._redis.zrem(_user_index(user_id), member)
+        await db.execute(_REVOKE, {"hashes": [hashed], "reason": reason.value})
+        event = SessionEnded(user_id, hashed, reason.value)
+        after_commit(db, lambda: _notify_ended([event]))
+        return True
+
+    async def list_user(self, db: AsyncSession, user_id: uuid.UUID) -> list[SessionInfo]:
+        """Живые сессии пользователя, от новых к старым: время и IP — из Redis, браузер — из БД."""
+        infos: list[SessionInfo] = []
+        for hashed in await self.active_hashes(user_id):
+            raw = await self._redis.hgetall(KEY_PREFIX + hashed.hex())
+            if not raw:
+                continue
+            record = SessionRecord.from_redis(raw)
+            if record.expiry(self._clock()) is not None:
+                continue
+            infos.append(SessionInfo(hashed, record))
+        agents = dict(
+            (
+                await db.execute(
+                    _USER_AGENTS, {"hashes": [i.session_hash for i in infos]}
+                )
+            ).all()
+        ) if infos else {}  # fmt: skip
+        return [
+            replace(i, user_agent=agents.get(i.session_hash))
+            for i in sorted(infos, key=lambda i: i.record.created_at, reverse=True)
+        ]
 
     async def active_hashes(self, user_id: uuid.UUID | str) -> list[bytes]:
         """Хэши живых сессий пользователя в Redis, от старых к новым."""

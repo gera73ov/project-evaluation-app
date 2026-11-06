@@ -5,9 +5,10 @@
 
 from fastapi import APIRouter
 
-from estimator.api.v1 import auth
+from estimator.api.v1 import auth, me
 
 PREFIX = "/api/v1"
 
 router = APIRouter()
 router.include_router(auth.router)
+router.include_router(me.router)
