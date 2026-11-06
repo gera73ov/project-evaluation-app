@@ -92,6 +92,7 @@ make traceability   # отчёт «требование → тест» в build/
 | `CELERY_BROKER_URL` | Брокер Celery в Redis (Docker secret `celery_broker_url`) | `redis://redis:6379/1` |
 | `ENCRYPTION_KEY` | Мастер-ключ шифрования AES-256-GCM в виде `<id>:<base64url 32 байта>` (SEC-CRYPT-01/02; Docker secret `encryption_key`). Новый ключ: `estimator generate-key` | `` |
 | `ENCRYPTION_KEYS_OLD` | Прежние мастер-ключи через запятую в том же формате — только на время `estimator rotate-key` (SEC-CRYPT-02, SPEC 18.4); после ротации убрать | `` |
+| `APP_BASE_URL` | Адрес приложения для ссылок в письмах до первичной настройки (`https://…`, без `/` в конце). После мастера настройки действует `app.base_url` | `https://localhost` |
 | `APP_TIMEZONE` | Часовой пояс приложения IANA до первичной настройки: по нему считаются ночные задачи (FR-UI-02). После мастера настройки действует `app.timezone` | `Europe/Moscow` |
 | `HEALTH_TIMEOUT_SECONDS` | Таймаут одной проверки `/health/ready`, секунды | `2.0` |
 | `TRUSTED_HOSTS` | Разрешённые значения заголовка Host через запятую; на stage и prod — имя сервера | `*` |

@@ -103,6 +103,13 @@ class Settings(BaseSettings):
             "`estimator rotate-key` (SEC-CRYPT-02, SPEC 18.4); после ротации убрать"
         ),
     )
+    app_base_url: str = Field(
+        default="https://localhost",
+        description=(
+            "Адрес приложения для ссылок в письмах до первичной настройки (`https://…`, без `/` "
+            "в конце). После мастера настройки действует `app.base_url`"
+        ),
+    )
     app_timezone: str = Field(
         default="Europe/Moscow",
         description=(
@@ -129,6 +136,13 @@ class Settings(BaseSettings):
         if level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
             raise ValueError(f"неизвестный уровень логов: {value}")
         return level
+
+    @field_validator("app_base_url")
+    @classmethod
+    def _check_base_url(cls, value: str) -> str:
+        if not value.startswith("https://"):
+            raise ValueError("APP_BASE_URL должен начинаться с https://")
+        return value.rstrip("/")
 
     @field_validator("app_timezone")
     @classmethod
