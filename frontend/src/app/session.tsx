@@ -3,6 +3,7 @@
  *
  * - 200 — пользователь вошёл (`me`);
  * - 401 UNAUTHENTICATED — нет сессии, экран входа;
+ * - 403 PASSWORD_CHANGE_REQUIRED — пароль истёк, доступны только смена пароля и выход (CR-003);
  * - 403 TOTP_ENROLL_REQUIRED — сессия до подключения TOTP, доступно только подключение и выход;
  * - 503 APP_SETUP_IN_PROGRESS — мастер первичной настройки не завершён.
  */
@@ -19,6 +20,7 @@ export type Session =
   | { state: 'loading' }
   | { state: 'anonymous' }
   | { state: 'enroll' }
+  | { state: 'password_change' }
   | { state: 'setup' }
   | { state: 'error'; error: unknown }
   | { state: 'ready'; me: Me };
@@ -30,6 +32,7 @@ export function sessionFrom(data: Me | undefined, error: unknown, pending: boole
   if (pending) return { state: 'loading' };
   if (error instanceof ApiError) {
     if (error.status === 401) return { state: 'anonymous' };
+    if (error.code === 'PASSWORD_CHANGE_REQUIRED') return { state: 'password_change' };
     if (error.code === 'TOTP_ENROLL_REQUIRED') return { state: 'enroll' };
     if (error.code === 'APP_SETUP_IN_PROGRESS') return { state: 'setup' };
   }

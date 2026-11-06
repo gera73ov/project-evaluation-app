@@ -223,7 +223,7 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Смена пароля (local) */
+        /** Смена пароля (local), в том числе истёкшего при входе */
         post: operations["changePassword"];
         delete?: never;
         options?: never;
@@ -2408,10 +2408,10 @@ export type components = {
             /** @enum {string} */
             auth_mode: "app" | "ad";
         };
-        /** @description step=done — сессия создана (Set-Cookie); totp — нужен код; enroll — сессия до подключения TOTP (FR-2FA-04) */
+        /** @description step=done — сессия создана (Set-Cookie); totp — нужен код; enroll — сессия до подключения TOTP (FR-2FA-04); password_change — пароль истёк, сессия только для смены пароля и выхода (FR-AUTH-LOC-02, CR-003) */
         LoginResponse: {
             /** @enum {string} */
-            step: "done" | "totp" | "enroll";
+            step: "done" | "totp" | "enroll" | "password_change";
             /** @description Временный токен шага TOTP, 5 минут; только при step = totp */
             login_token?: string;
             expires_in?: number;
@@ -3693,7 +3693,7 @@ export type components = {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Нет доступа. Коды: TOTP_ENROLL_REQUIRED, TOTP_REQUIRED, STEP_UP_REQUIRED, CSRF_FAILED, FORBIDDEN */
+        /** @description Нет доступа. Коды: PASSWORD_CHANGE_REQUIRED, TOTP_ENROLL_REQUIRED, TOTP_REQUIRED, STEP_UP_REQUIRED, CSRF_FAILED, FORBIDDEN */
         Problem403: {
             headers: {
                 [name: string]: unknown;

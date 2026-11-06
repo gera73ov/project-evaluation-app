@@ -191,6 +191,14 @@ errors:
     user_message: Неверный код. Проверьте время на телефоне и введите новый код.
     spec: [FR-2FA-01, FR-LOCK-03]
 
+  - code: PASSWORD_CHANGE_REQUIRED
+    status: 403
+    type: password-change-required
+    title: Смените пароль
+    when: Срок действия пароля истёк (`security.password_policy.expiry_days`); до смены доступны только `POST /me/password` и выход (FR-AUTH-LOC-02, CR-003).
+    user_message: Срок действия пароля истёк. Задайте новый пароль, чтобы продолжить.
+    spec: [FR-AUTH-LOC-02]
+
   - code: TOTP_ENROLL_REQUIRED
     status: 403
     type: totp-enroll-required

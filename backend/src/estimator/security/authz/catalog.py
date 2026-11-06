@@ -28,7 +28,14 @@ ENV_PATH = "ESTIMATOR_PERMISSIONS_FILE"
 
 #: Псевдоправа: эндпоинты без роли тоже объявляют право (TC-SEC-01); проверяют их зависимости AUTH.
 PSEUDO = frozenset(
-    {"public", "token.login_step", "token.activation", "session.pre_mfa", "authenticated"}
+    {
+        "public",
+        "token.login_step",
+        "token.activation",
+        "session.pre_mfa",
+        "session.password_change",
+        "authenticated",
+    }
 )
 STATUSES = ("preparation", "estimation", "consolidation", "completed", "archived")
 CONTEXTS = frozenset({"global", "member", "support_session", "any_project"})

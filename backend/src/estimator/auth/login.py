@@ -10,7 +10,9 @@
    временем (фиктивный хэш для неизвестных логинов); причина пишется только в аудит;
 6. успех: TOTP подключён → ``{step: "totp", login_token}`` (временный токен 5 минут в Redis
    ``auth:pending:{sha256}``); TOTP обязателен, но не подключён → сессия до подключения
-   (``step: "enroll"``, 15 минут); иначе — сессия (``step: "done"``).
+   (``step: "enroll"``, 15 минут); иначе — сессия (``step: "done"``). Если у локальной учётки
+   истёк срок пароля (FR-AUTH-LOC-02, CR-003), сессия ограничена сменой пароля и выходом
+   (``step: "password_change"``, 15 минут); это проверяется и после шага TOTP.
 
 Шаг 2 — ``POST /auth/totp``: код TOTP или резервный код по временному токену. Неверный код —
 неудачная попытка входа (FR-LOCK-03). Успех создаёт новую сессию с ``mfa_passed``.
@@ -48,7 +50,7 @@ from estimator.auth.providers.base import is_local_superadmin
 from estimator.auth.sessions import RevokeReason, SessionRecord, SessionService, id_hash
 from estimator.auth.setup_gate import SetupInProgressError, setup_completed
 from estimator.auth.totp import TotpVerifier, consume_backup_code, decrypt_secret
-from estimator.db.enums import SystemRole, UserStatus
+from estimator.db.enums import SystemRole, UserSource, UserStatus
 from estimator.db.models.users import User, UserRole
 from estimator.logging import get_logger
 from estimator.metrics import LOGIN_FAILURES
@@ -89,7 +91,7 @@ def login_failed(mode: str) -> AuthError:
 
 @dataclass(frozen=True)
 class LoginOutcome:
-    step: str  # done | totp | enroll
+    step: str  # done | totp | enroll | password_change
     session_id: str | None = None
     record: SessionRecord | None = None
     login_token: str | None = None
@@ -122,6 +124,21 @@ async def load_lockout_policy(db: AsyncSession) -> LockoutPolicy:
     return LockoutPolicy.from_setting(
         (await read_settings(db, "security.lockout")).get("security.lockout")
     )
+
+
+async def password_expired(db: AsyncSession, user: User) -> bool:
+    """Срок пароля истёк (FR-AUTH-LOC-02): только локальная учётка, срок из политики паролей.
+
+    Решение владельца 06.11.2026 (CR-003): вход с истёкшим паролем пускает только к смене пароля.
+    У пользователей AD действует политика AD, срок приложения к ним не применяется.
+    """
+    from estimator.auth.passwords.policy import PasswordPolicy  # пакет passwords импортирует login
+
+    if user.source is not UserSource.LOCAL or user.password_hash is None:
+        return False
+    values = await read_settings(db, "security.password_policy")
+    policy = PasswordPolicy.from_setting(values.get("security.password_policy"))
+    return policy.is_expired(user.password_changed_at)
 
 
 async def user_roles(db: AsyncSession, user_id: uuid.UUID) -> list[SystemRole]:
@@ -189,10 +206,13 @@ class LoginService:
         roles = await user_roles(db, user.id)
         enroll = (await load_mfa_policy(db)).required_for(roles)
         await guard.record_success(login, ip, superadmin=superadmin)
+        expired = await password_expired(db, user)
         session_id, record = await self._open_session(
-            db, user, roles, method, ip=ip, user_agent=user_agent, mfa=False, enroll=enroll
-        )
-        return LoginOutcome("enroll" if enroll else "done", session_id, record,
+            db, user, roles, method, ip=ip, user_agent=user_agent, mfa=False, enroll=enroll,
+            password_change=expired,
+        )  # fmt: skip
+        step = "password_change" if expired else "enroll" if enroll else "done"
+        return LoginOutcome(step, session_id, record,
                             expires_in=record.expires_in(record.created_at))  # fmt: skip
 
     # --- шаг 2: TOTP или резервный код ---
@@ -245,12 +265,15 @@ class LoginService:
             raise AuthError(401, "LOGIN_STEP_EXPIRED")
         await guard.record_success(pending.login, ip, superadmin=pending.superadmin)
         roles = await user_roles(db, user.id)
+        expired = await password_expired(db, user)
         session_id, record = await self._open_session(
-            db, user, roles, pending.method, ip=ip, user_agent=user_agent, mfa=True, enroll=False
-        )
+            db, user, roles, pending.method, ip=ip, user_agent=user_agent, mfa=True, enroll=False,
+            password_change=expired,
+        )  # fmt: skip
         return LoginOutcome(
-            "done", session_id, record, expires_in=record.expires_in(record.created_at)
-        )
+            "password_change" if expired else "done", session_id, record,
+            expires_in=record.expires_in(record.created_at),
+        )  # fmt: skip
 
     async def cancel(self, login_token: str) -> None:
         """«Назад» на экране кода: временный токен аннулируется."""
@@ -284,11 +307,12 @@ class LoginService:
         user_agent: str | None,
         mfa: bool,
         enroll: bool,
+        password_change: bool = False,
     ) -> tuple[str, SessionRecord]:
         policy = await load_session_policy(db)
         session_id, record = await self.sessions.create(
             db, user.id, roles, policy, ip=ip, user_agent=user_agent,
-            mfa_passed=mfa, enrollment_required=enroll,
+            mfa_passed=mfa, enrollment_required=enroll, password_change_required=password_change,
         )  # fmt: skip
         user.last_login_at = datetime.now(UTC)
         await audit.write(

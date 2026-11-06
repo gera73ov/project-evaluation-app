@@ -66,6 +66,7 @@ class Principal:
     mfa_passed: bool = False
     step_up_until: datetime | None = None
     enrollment_required: bool = False
+    password_change_required: bool = False
     support_projects: frozenset[uuid.UUID] = frozenset()
 
     @property
@@ -191,6 +192,7 @@ async def current_principal(
             datetime.fromtimestamp(record.step_up_until, UTC) if record.step_up_until else None
         ),
         enrollment_required=record.enrollment_required,
+        password_change_required=record.password_change_required,
         support_projects=await _support_projects(db, user.id, roles),
     )
     request.state.principal = principal

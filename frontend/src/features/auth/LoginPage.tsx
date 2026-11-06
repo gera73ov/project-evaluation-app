@@ -2,7 +2,7 @@
  * FE-005 · вход и второй фактор (SPEC 11.1 №1–7, FR-LOCK-05, FR-AUTH-AD-13, FR-AUTH-LOC-03, R-04).
  *
  * Шаги: логин и пароль → (код TOTP | резервный код) → вход; `step=enroll` ведёт на подключение
- * TOTP (FR-2FA-04). Тексты ошибок — дословно из errors.yaml; пароль после ошибки очищается.
+ * TOTP (FR-2FA-04), `step=password_change` — на смену истёкшего пароля (CR-003). Тексты ошибок — дословно из errors.yaml; пароль после ошибки очищается.
  */
 import { Button, PasswordInput, TextInput } from '@mantine/core';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -43,7 +43,8 @@ export function LoginPage() {
   const navigated = useRef(false);
 
   useEffect(() => {
-    if (!target || navigated.current || (session.state !== 'ready' && session.state !== 'enroll')) return;
+    const signedIn = ['ready', 'enroll', 'password_change'].includes(session.state);
+    if (!target || navigated.current || !signedIn) return;
     navigated.current = true; // переход один раз, даже если next указывает на сам вход
     navigate(target, { replace: true });
   }, [target, session.state, navigate]);
@@ -64,7 +65,8 @@ export function LoginPage() {
       return;
     }
     await refresh();
-    setTarget(result.step === 'enroll' ? '/enroll-totp' : next);
+    if (result.step === 'password_change') setTarget('/change-password');
+    else setTarget(result.step === 'enroll' ? '/enroll-totp' : next);
   }
 
   /** Один запрос за раз: повторное нажатие во время проверки игнорируется (11.1 №2). */

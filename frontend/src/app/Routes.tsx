@@ -1,6 +1,7 @@
 /**
  * FE-003 · выбор экрана по адресу и гарды доступа (FR-2FA-04, FR-SA-02):
- * нет сессии → /login?next=…; сессия до подключения TOTP → только /enroll-totp; мастер не
+ * нет сессии → /login?next=…; пароль истёк → только /change-password (CR-003); сессия до
+ * подключения TOTP → только /enroll-totp; мастер не
  * завершён → «Приложение настраивается»; системная роль не подходит → «Страница не найдена».
  */
 import { Loader } from '@mantine/core';
@@ -39,6 +40,9 @@ export function AppRoutes() {
   if (session.state === 'anonymous') {
     return <Redirect to={`/login?next=${encodeURIComponent(pathname + search)}`} />;
   }
+  if (session.state === 'password_change') {
+    return access === 'password' ? <>{found?.route.render(found.params)}</> : <Redirect to="/change-password" />;
+  }
   if (session.state === 'enroll') {
     return access === 'enroll' ? <>{found?.route.render(found.params)}</> : <Redirect to="/enroll-totp" />;
   }
@@ -50,7 +54,7 @@ export function AppRoutes() {
     );
   }
   const me = session.me;
-  if (access === 'enroll') return <Redirect to={DEFAULT_PATH} />;
+  if (access === 'enroll' || access === 'password') return <Redirect to={DEFAULT_PATH} />;
   if (!found || !hasRole(me, found.route.roles)) {
     return (
       <AppShell me={me}>

@@ -142,6 +142,7 @@ paths:
       x-permission:
       - authenticated
       - session.pre_mfa
+      - session.password_change
       x-spec:
       - FR-SESS-01
       x-error-codes:
@@ -168,6 +169,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
       responses:
@@ -204,6 +206,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
       - VALIDATION_FAILED
@@ -244,6 +247,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
       - VALIDATION_FAILED
@@ -373,6 +377,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       responses:
         '200':
           description: Успех
@@ -404,6 +409,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
       - VALIDATION_FAILED
@@ -437,6 +443,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       responses:
         '200':
           description: Успех
@@ -476,6 +483,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
       responses:
@@ -492,12 +500,15 @@ paths:
   /me/password:
     post:
       operationId: changePassword
-      summary: Смена пароля (local)
+      summary: Смена пароля (local), в том числе истёкшего при входе
       tags:
       - Вход и профиль
-      x-permission: authenticated
+      x-permission:
+      - authenticated
+      - session.password_change
       x-spec:
       - FR-AUTH-LOC-04
+      - FR-AUTH-LOC-02
       requestBody:
         required: true
         content:
@@ -549,6 +560,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
       - VALIDATION_FAILED
@@ -585,6 +597,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -612,6 +625,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
       responses:
@@ -641,6 +655,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       responses:
         '200':
           description: Успех
@@ -671,6 +686,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
       - VALIDATION_FAILED
@@ -709,6 +725,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -749,6 +766,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -798,6 +816,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -840,6 +859,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -881,6 +901,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -920,6 +941,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -967,6 +989,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1019,6 +1042,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1062,6 +1086,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1109,6 +1134,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1160,6 +1186,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1199,6 +1226,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -1246,6 +1274,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1306,6 +1335,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1355,6 +1385,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1397,6 +1428,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1439,6 +1471,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1477,6 +1510,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -1528,6 +1562,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CURSOR_INVALID
@@ -1622,6 +1657,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CURSOR_INVALID
       responses:
@@ -1672,6 +1708,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -1742,6 +1779,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CURSOR_INVALID
       responses:
@@ -1790,6 +1828,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -1845,6 +1884,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - NOT_FOUND
       responses:
@@ -1889,6 +1929,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -1937,6 +1978,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -1978,6 +2020,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2022,6 +2065,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2064,6 +2108,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2111,6 +2156,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2155,6 +2201,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - AUTH_SERVICE_UNAVAILABLE
       responses:
@@ -2200,6 +2247,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -2240,6 +2288,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2290,6 +2339,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2335,6 +2385,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2375,6 +2426,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -2415,6 +2467,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2465,6 +2518,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2510,6 +2564,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2550,6 +2605,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -2590,6 +2646,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2640,6 +2697,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2685,6 +2743,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2725,6 +2784,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -2765,6 +2825,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2815,6 +2876,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2860,6 +2922,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2900,6 +2963,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -2940,6 +3004,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -2990,6 +3055,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3035,6 +3101,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3075,6 +3142,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -3115,6 +3183,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3165,6 +3234,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3210,6 +3280,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3250,6 +3321,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -3290,6 +3362,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3341,6 +3414,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3387,6 +3461,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3427,6 +3502,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -3467,6 +3543,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3517,6 +3594,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3562,6 +3640,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3602,6 +3681,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -3642,6 +3722,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3692,6 +3773,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3737,6 +3819,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3773,6 +3856,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -3809,6 +3893,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3849,6 +3934,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -3900,6 +3986,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3954,6 +4041,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -3994,6 +4082,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -4023,6 +4112,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       responses:
         '200':
@@ -4063,6 +4153,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -4111,6 +4202,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -4156,6 +4248,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -4220,6 +4313,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CURSOR_INVALID
       responses:
@@ -4276,6 +4370,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -4337,6 +4432,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -4420,6 +4516,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - TOTP_REQUIRED
       - CURSOR_INVALID
@@ -4476,6 +4573,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - TOTP_REQUIRED
       responses:
@@ -4511,6 +4609,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -4554,6 +4653,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -4632,6 +4732,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CURSOR_INVALID
       responses:
@@ -4681,6 +4782,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CSRF_FAILED
       - RATE_LIMITED
@@ -4721,6 +4823,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -4763,6 +4866,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -4817,6 +4921,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -4871,6 +4976,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -4917,6 +5023,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -4969,6 +5076,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5032,6 +5140,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5090,6 +5199,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5139,6 +5249,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5187,6 +5298,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - AUTH_SERVICE_UNAVAILABLE
@@ -5240,6 +5352,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5308,6 +5421,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5369,6 +5483,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5415,6 +5530,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5462,6 +5578,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - TOTP_REQUIRED
@@ -5505,6 +5622,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5552,6 +5670,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -5593,6 +5712,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5640,6 +5760,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -5688,6 +5809,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5741,6 +5863,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - DOCUMENT_NOT_AVAILABLE
@@ -5780,6 +5903,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5820,6 +5944,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -5879,6 +6004,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CURSOR_INVALID
@@ -5937,6 +6063,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -6002,6 +6129,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - TOTP_REQUIRED
@@ -6060,6 +6188,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6113,6 +6242,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6161,6 +6291,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -6204,6 +6335,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - VERSION_TOO_OLD
@@ -6251,6 +6383,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6321,6 +6454,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6420,6 +6554,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6474,6 +6609,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6528,6 +6664,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6578,6 +6715,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -6620,6 +6758,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6673,6 +6812,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6718,6 +6858,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6772,6 +6913,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6822,6 +6964,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -6872,6 +7015,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -6934,6 +7078,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CURSOR_INVALID
@@ -7006,6 +7151,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7100,6 +7246,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CURSOR_INVALID
@@ -7158,6 +7305,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7219,6 +7367,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CURSOR_INVALID
@@ -7263,6 +7412,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7314,6 +7464,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7365,6 +7516,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7411,6 +7563,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7465,6 +7618,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7514,6 +7668,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7582,6 +7737,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CURSOR_INVALID
@@ -7641,6 +7797,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7692,6 +7849,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7746,6 +7904,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7800,6 +7959,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -7848,6 +8008,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -7909,6 +8070,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - PROJECT_STATUS_CONFLICT
@@ -7954,6 +8116,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - TOTP_REQUIRED
@@ -7997,6 +8160,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -8046,6 +8210,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -8091,6 +8256,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -8142,6 +8308,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       responses:
@@ -8190,6 +8357,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -8246,6 +8414,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
       - CSRF_FAILED
@@ -8298,6 +8467,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - NOT_FOUND
       - EXPORT_FAILED
@@ -8345,6 +8515,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - NOT_FOUND
       - EXPORT_EXPIRED
@@ -8398,6 +8569,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CURSOR_INVALID
       responses:
         '200':
@@ -8432,6 +8604,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
       - VALIDATION_FAILED
@@ -8462,6 +8635,7 @@ paths:
       x-error-codes:
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
       responses:
         '101':
           description: Switching Protocols
@@ -8675,6 +8849,7 @@ components:
           - done
           - totp
           - enroll
+          - password_change
         login_token:
           type: string
           description: Временный токен шага TOTP, 5 минут; только при step = totp
@@ -8683,7 +8858,7 @@ components:
       required:
       - step
       additionalProperties: false
-      description: step=done — сессия создана (Set-Cookie); totp — нужен код; enroll — сессия до подключения TOTP (FR-2FA-04)
+      description: step=done — сессия создана (Set-Cookie); totp — нужен код; enroll — сессия до подключения TOTP (FR-2FA-04); password_change — пароль истёк, сессия только для смены пароля и выхода (FR-AUTH-LOC-02, CR-003)
     TotpLoginRequest:
       type: object
       properties:
@@ -12843,7 +13018,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
     Problem403:
-      description: 'Нет доступа. Коды: TOTP_ENROLL_REQUIRED, TOTP_REQUIRED, STEP_UP_REQUIRED, CSRF_FAILED, FORBIDDEN'
+      description: 'Нет доступа. Коды: PASSWORD_CHANGE_REQUIRED, TOTP_ENROLL_REQUIRED, TOTP_REQUIRED, STEP_UP_REQUIRED, CSRF_FAILED, FORBIDDEN'
       content:
         application/problem+json:
           schema:

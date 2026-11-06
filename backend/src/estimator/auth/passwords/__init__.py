@@ -21,11 +21,13 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from estimator.auth.context import Principal
 from estimator.auth.login import AuthError
 from estimator.auth.passwords.policy import PasswordPolicy, common_passwords
-from estimator.auth.policy import read_settings
+from estimator.auth.policy import load_session_policy, read_settings
 from estimator.auth.providers.local import hash_password_async, verify_password_async
 from estimator.auth.sessions import RevokeReason, SessionService
+from estimator.auth.stepup import Rotated
 from estimator.auth.tokens import PAGES, TTL, find_valid, issue, link, mark_used
 from estimator.config import get_settings
 from estimator.db.enums import AuthTokenKind, UserSource, UserStatus
@@ -204,6 +206,25 @@ async def change(
     )  # fmt: skip
     await _audit_terminated(db, user, count, "password_changed")
     return count
+
+
+async def lift_password_change(
+    db: AsyncSession, sessions: SessionService, principal: Principal, user_agent: str | None
+) -> Rotated:
+    """Снять ограничение «пароль истёк» после смены (CR-003): новая сессия, полный срок.
+
+    Если подключение TOTP ещё обязательно, срок остаётся 15 минут (R-PRE-MFA).
+    """
+    record = principal.session
+    absolute_at = record.absolute_at
+    if not record.enrollment_required:
+        policy = await load_session_policy(db)
+        absolute_at = record.created_at + policy.absolute_seconds
+    new_id, new_record = await sessions.rotate(
+        db, principal.session_id, record, user_agent=user_agent,
+        password_change_required=False, absolute_at=absolute_at,
+    )  # fmt: skip
+    return Rotated(new_id, new_record, ())
 
 
 @dataclass(frozen=True)
