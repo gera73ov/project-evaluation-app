@@ -54,7 +54,8 @@ async def test_activation_link(api: httpx.AsyncClient, db_session: AsyncSession)
         "/api/v1/auth/activate", json={"token": token, "password": "password1234"}
     )
     assert weak.status_code == 422
-    assert (weak.json()["code"], weak.json()["violations"]) == ("PASSWORD_POLICY_VIOLATION", ["common"])
+    assert weak.json()["code"] == "PASSWORD_POLICY_VIOLATION"
+    assert weak.json()["violations"] == ["common"]
     ok = await api.post("/api/v1/auth/activate", json={"token": token, "password": NEW})
     assert ok.status_code == 204
     await db_session.refresh(user)
