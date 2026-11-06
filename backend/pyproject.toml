@@ -27,6 +27,7 @@ dependencies = [
   "prometheus-client>=0.26,<0.27",
   "typer>=0.27,<0.28",
   "jinja2>=3.1.6,<3.2",  # шаблоны писем с автоэкранированием (NTF-002)
+  "pyyaml>=6.0.3,<7",  # каталог прав contracts/permissions.yaml (SEC-005); уже был через uvicorn[standard]
 ]
 
 [project.scripts]
@@ -41,7 +42,6 @@ dev = [
   "hypothesis>=6.170,<7",
   "httpx>=0.28,<0.29",
   "ruff>=0.17.1,<0.18",
-  "pyyaml>=6.0.3,<7",  # чтение контрактов contracts/*.yaml в контрактных тестах (API-001)
   "openapi-spec-validator>=0.7.2,<0.8",  # проверка contracts/openapi.yaml (API-002)
   "pytest-xdist>=3.8,<4",  # параллельный прогон тестов в CI (QA-001)
   "pytest-bdd>=9.0,<10",  # приёмочные сценарии Gherkin SPEC 17.2 (QA-002)
@@ -107,6 +107,9 @@ markers = [
 [tool.coverage.run]
 source = ["estimator"]
 branch = true
+# SQLAlchemy asyncio переключает выполнение через greenlet: без этого строки после await в БД
+# не засчитываются (SEC-005, порог 100 % для security/authz)
+concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
 fail_under = 80

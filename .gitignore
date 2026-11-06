@@ -50,3 +50,6 @@ e2e/playwright-report/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Копия contracts/permissions.yaml кладётся в пакет только при сборке образа (SEC-005)
+backend/src/estimator/security/authz/permissions.yaml
