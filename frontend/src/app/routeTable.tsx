@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { ActivatePage } from '../features/auth/ActivatePage';
 import { ForgotPasswordPage, ResetPasswordPage } from '../features/auth/PasswordPages';
 import { LoginPage } from '../features/auth/LoginPage';
+import { PasswordExpiredPage } from '../features/auth/PasswordExpiredPage';
 import { SetupInProgressPage } from '../features/auth/SetupInProgressPage';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
@@ -15,7 +16,7 @@ import type { Params } from './router';
 import type { SystemRole } from './session';
 import { Placeholder } from './Placeholder';
 
-export type Access = 'public' | 'enroll' | 'private';
+export type Access = 'public' | 'enroll' | 'password' | 'private';
 
 export interface RouteDef {
   path: string;
@@ -56,6 +57,7 @@ export const ROUTES: readonly RouteDef[] = [
   { path: '/password/reset', access: 'public', render: () => <ResetPasswordPage /> },
   { path: '/setup-in-progress', access: 'public', render: () => <SetupInProgressPage /> },
   { path: '/enroll-totp', access: 'enroll', render: () => <TotpEnrollPage /> },
+  { path: '/change-password', access: 'password', render: () => <PasswordExpiredPage /> },
 
   { path: '/', access: 'private', nav: 'home', render: stub('Мои оценки', 'FE-010') },
   { path: '/projects/new', access: 'private', nav: 'home', roles: ['moderator'], render: stub('Создание проекта', 'FE-011') },

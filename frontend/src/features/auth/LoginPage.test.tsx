@@ -205,6 +205,60 @@ describe('экран входа (11.1)', () => {
     expect(window.location.pathname).toBe('/enroll-totp');
   });
 
+  it('step=password_change: только смена пароля, затем подключение TOTP (CR-003)', async () => {
+    let state: 'expired' | 'enroll' = 'expired';
+    let body: unknown = null;
+    server.use(
+      http.post(api('/auth/login'), () => {
+        signedIn = true;
+        return HttpResponse.json({ step: 'password_change', expires_in: 900 });
+      }),
+      http.get(api('/me'), () => {
+        if (!signedIn) return problem(401, 'UNAUTHENTICATED');
+        return problem(403, state === 'expired' ? 'PASSWORD_CHANGE_REQUIRED' : 'TOTP_ENROLL_REQUIRED');
+      }),
+      http.post(api('/me/password'), async ({ request }) => {
+        body = await request.json();
+        state = 'enroll';
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await openLogin();
+    fillCredentials();
+    submit();
+    await screen.findByRole('heading', { name: 'Срок действия пароля истёк' });
+    expect(window.location.pathname).toBe('/change-password');
+    const button = screen.getByRole('button', { name: 'Сменить пароль' });
+    fireEvent.change(screen.getByLabelText('Текущий пароль'), { target: { value: 'old password 1' } });
+    fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'new long password 2' } });
+    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'new long password' } });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'new long password 2' } });
+    fireEvent.click(button);
+    await screen.findByRole('heading', { name: 'Подключите вход по коду' });
+    expect(body).toEqual({ current_password: 'old password 1', new_password: 'new long password 2' });
+    expect(window.location.pathname).toBe('/enroll-totp');
+  });
+
+  it('с истёкшим паролем другие экраны недоступны, выход работает', async () => {
+    signedIn = true;
+    let loggedOut = false;
+    server.use(
+      http.get(api('/me'), () => (signedIn ? problem(403, 'PASSWORD_CHANGE_REQUIRED') : problem(401, 'UNAUTHENTICATED'))),
+      http.post(api('/auth/logout'), () => {
+        loggedOut = true;
+        signedIn = false;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderApp('/profile');
+    await screen.findByRole('heading', { name: 'Срок действия пароля истёк' });
+    expect(window.location.pathname).toBe('/change-password');
+    fireEvent.click(screen.getByRole('button', { name: 'Выйти' }));
+    await waitFor(() => expect(window.location.pathname).toBe('/login'));
+    expect(loggedOut).toBe(true);
+  });
+
   it('мастер не завершён — экран «Приложение настраивается»', async () => {
     server.use(http.post(api('/auth/login'), () => problem(503, 'APP_SETUP_IN_PROGRESS')));
     await openLogin();

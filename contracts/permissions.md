@@ -9,7 +9,7 @@
 | Раздел | Ключ | Что задаёт | Кто читает |
 |---|---|---|---|
 | 1 | `system_roles`, `project_roles`, `contexts`, `scopes` | Субъекты, контексты доступа (`member`, `support_session`, `any_project`) и области (`any`, `own_discipline`, `author`, …) | SEC (движок), QA |
-| 2 | `permissions` | Каталог из 83 прав: название, ссылки на SPEC, эндпоинты 15.2, флаги `totp_gate`, `step_up`, `network`, `money_fields`, `read_only` | API (`x-permission`), SEC, FE |
+| 2 | `permissions` | Каталог из 84 прав (с CR-003): название, ссылки на SPEC, эндпоинты 15.2, флаги `totp_gate`, `step_up`, `network`, `money_fields`, `read_only` | API (`x-permission`), SEC, FE |
 | 3 | `grants` | Какой субъект какое право получает, в каком контексте и с какой областью | SEC (движок), QA |
 | 4 | `rules`, `derived_status_gates` | Правила вычисления R-…: суммирование ролей, совместимость, TOTP-гейт, step-up, сети, режим поддержки, руководитель пресейла; ограничения по статусу, выведенные из 4.2 | SEC, CORE, QA |
 | 5 | `authz_examples` | Все 23 строки таблицы SEC-AUTHZ-05 со ссылками на записи файла | QA (TC-SEC-02) |
@@ -29,7 +29,7 @@ SEC-AUTHZ-03. Поэтому коды-примеры из PLAN.md `tree.write.an
 текста задачи SEC-001 сохранены как есть.
 
 Служебные псевдоправа `public`, `token.login_step`, `token.activation`, `session.pre_mfa`,
-`authenticated` нужны, чтобы и эндпоинты без роли явно объявляли право (SEC-AUTHZ-02, TC-SEC-01).
+`session.password_change` (CR-003), `authenticated` нужны, чтобы и эндпоинты без роли явно объявляли право (SEC-AUTHZ-02, TC-SEC-01).
 
 Один эндпоинт может требовать разные права в зависимости от объекта:
 
@@ -52,7 +52,9 @@ SEC-AUTHZ-03. Поэтому коды-примеры из PLAN.md `tree.write.an
 flowchart TD
     A["Запрос: право P, объект O"] --> S{"Сессия валидна?"}
     S -- нет --> E401["401"]
-    S -- да --> MFA{"Обязательный TOTP<br/>подключён? (R-PRE-MFA)"}
+    S -- да --> PWD{"Пароль не истёк?<br/>(R-PASSWORD-EXPIRED)"}
+    PWD -- нет --> E403p["403 PASSWORD_CHANGE_REQUIRED"]
+    PWD -- да --> MFA{"Обязательный TOTP<br/>подключён? (R-PRE-MFA)"}
     MFA -- нет --> E403e["403 TOTP_ENROLL_REQUIRED"]
     MFA -- да --> NET{"P.network и IP<br/>вне admin_networks?"}
     NET -- да --> E404n["404"]

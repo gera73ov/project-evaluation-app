@@ -55,6 +55,7 @@ _SPECS = (
     ),
     ErrorSpec("LOGIN_STEP_EXPIRED", 401, "login-step-expired", "Время на ввод кода истекло", ()),
     ErrorSpec("TOTP_INVALID", 401, "totp-invalid", "Неверный код", ()),
+    ErrorSpec("PASSWORD_CHANGE_REQUIRED", 403, "password-change-required", "Смените пароль", ()),
     ErrorSpec("TOTP_ENROLL_REQUIRED", 403, "totp-enroll-required", "Подключите второй фактор", ()),
     ErrorSpec("TOTP_REQUIRED", 403, "totp-required", "Подтвердите вход кодом", ()),
     ErrorSpec("STEP_UP_REQUIRED", 403, "step-up-required", "Подтвердите действие", ()),

@@ -17,8 +17,19 @@ from redis.asyncio import Redis
 
 from estimator.auth.context import SessionServiceDep
 from estimator.auth.login import AuthError, LoginOutcome, LoginService
-from estimator.auth.mfa_policy import ActivePrincipal, PreMfaPrincipal
-from estimator.auth.passwords import activate, change, request_reset, reset
+from estimator.auth.mfa_policy import (
+    ActivePrincipal,
+    AnySessionPrincipal,
+    PasswordChangePrincipal,
+    PreMfaPrincipal,
+)
+from estimator.auth.passwords import (
+    activate,
+    change,
+    lift_password_change,
+    request_reset,
+    reset,
+)
 from estimator.auth.policy import load_auth_mode
 from estimator.auth.providers import Credentials
 from estimator.auth.sessions import SessionRecord, clear_session_cookie, set_session_cookie
@@ -145,10 +156,10 @@ async def login_totp(
 @router.post(
     "/auth/logout",
     status_code=204,
-    openapi_extra=_perm(["authenticated", "session.pre_mfa"]),
+    openapi_extra=_perm(["authenticated", "session.pre_mfa", "session.password_change"]),
 )
 async def logout(
-    principal: PreMfaPrincipal, db: DbSession, redis: RedisDep, sessions: SessionServiceDep
+    principal: AnySessionPrincipal, db: DbSession, redis: RedisDep, sessions: SessionServiceDep
 ) -> Response:
     await LoginService(redis, sessions).logout(db, principal.session_id, principal.user_id)
     response = Response(status_code=204)
@@ -246,9 +257,17 @@ async def password_reset(
     return Response(status_code=204)
 
 
-@router.post("/me/password", status_code=204, openapi_extra=_perm("authenticated"))
+@router.post(
+    "/me/password",
+    status_code=204,
+    openapi_extra=_perm(["authenticated", "session.password_change"]),
+)
 async def change_password(
-    body: PasswordChange, principal: ActivePrincipal, db: DbSession, sessions: SessionServiceDep
+    body: PasswordChange,
+    principal: PasswordChangePrincipal,
+    request: Request,
+    db: DbSession,
+    sessions: SessionServiceDep,
 ) -> Response:
     if body.current_password == body.new_password:
         raise AuthError(422, "PASSWORD_POLICY_VIOLATION", violations=["reused"])
@@ -260,4 +279,9 @@ async def change_password(
         body.current_password,
         body.new_password,
     )
-    return Response(status_code=204)
+    response = Response(status_code=204)
+    if principal.password_change_required:
+        # Истёкший пароль сменён (CR-003): ограничение снимается с новой сессией (FR-SESS-03);
+        # если TOTP обязателен и не подключён, сессия остаётся «до подключения» (15 минут)
+        _rotated(response, await lift_password_change(db, sessions, principal, _ua(request)))
+    return response

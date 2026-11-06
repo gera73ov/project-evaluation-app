@@ -24,7 +24,7 @@ def _raw() -> dict[str, Any]:
 def test_catalog_loads() -> None:
     catalog = load_catalog()
     assert catalog.version == "1.0.0"
-    assert len(catalog.permissions) == 83
+    assert len(catalog.permissions) == 84  # 83 по M0 + session.password_change (CR-003)
     assert catalog.permission("money.read").is_money
     assert catalog.permission("export.money").is_money
     assert not catalog.permission("tree.read").is_money

@@ -109,6 +109,8 @@ class SessionRecord:
     roles: tuple[str, ...] = ()
     mfa_passed: bool = False
     enrollment_required: bool = False
+    #: Пароль истёк (FR-AUTH-LOC-02): доступны только смена пароля и выход, как до подключения TOTP
+    password_change_required: bool = False
     step_up_until: float | None = None
     csrf: str = ""
     ip: str = ""
@@ -118,9 +120,14 @@ class SessionRecord:
     def user_uuid(self) -> uuid.UUID:
         return uuid.UUID(self.user_id)
 
+    @property
+    def restricted(self) -> bool:
+        """Сессия ограничена шагом входа (TOTP или смена пароля): не дольше 15 минут."""
+        return self.enrollment_required or self.password_change_required
+
     def expiry(self, now: float) -> ExpiryReason | None:
         if now >= self.absolute_at:
-            return ExpiryReason.PRE_MFA_LIMIT if self.enrollment_required else ExpiryReason.ABSOLUTE
+            return ExpiryReason.PRE_MFA_LIMIT if self.restricted else ExpiryReason.ABSOLUTE
         if now >= self.last_seen_at + self.idle_seconds:
             return ExpiryReason.IDLE
         return None
@@ -156,6 +163,7 @@ class SessionRecord:
             roles=tuple(r for r in data.get("roles", "").split(",") if r),
             mfa_passed=data.get("mfa_passed") == "1",
             enrollment_required=data.get("enrollment_required") == "1",
+            password_change_required=data.get("password_change_required") == "1",
             step_up_until=float(step_up) if step_up else None,
             csrf=data.get("csrf", ""),
             ip=data.get("ip", ""),
@@ -258,13 +266,15 @@ class SessionService:
         user_agent: str | None = None,
         mfa_passed: bool = False,
         enrollment_required: bool = False,
+        password_change_required: bool = False,
     ) -> tuple[str, SessionRecord]:
         """Новая сессия после успешного входа. Возвращает идентификатор (в cookie) и запись.
 
         Если превышен лимит ``max_sessions``, самые старые сессии закрываются (``superseded``).
         """
         now = self._clock()
-        lifetime = PRE_MFA_SECONDS if enrollment_required else policy.absolute_seconds
+        restricted = enrollment_required or password_change_required
+        lifetime = PRE_MFA_SECONDS if restricted else policy.absolute_seconds
         record = SessionRecord(
             user_id=str(user_id),
             created_at=now,
@@ -274,6 +284,7 @@ class SessionService:
             roles=tuple(sorted(str(r) for r in roles)),
             mfa_passed=mfa_passed,
             enrollment_required=enrollment_required,
+            password_change_required=password_change_required,
             csrf=secrets.token_urlsafe(32),
             ip=ip,
             db_seen_at=now,

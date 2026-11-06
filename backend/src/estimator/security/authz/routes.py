@@ -6,6 +6,7 @@
 * непсевдоправа — :func:`~estimator.security.authz.deps.gate` с теми же кодами;
 * ``authenticated`` — зависимость полной сессии (``ActivePrincipal``);
 * ``session.pre_mfa`` — сессия до подключения TOTP (``PreMfaPrincipal``) или полная;
+* ``session.password_change`` — сессия с истёкшим паролем (``PasswordChangePrincipal``);
 * ``public``, ``token.*`` — без сессии: токен проверяет сам обработчик.
 
 :func:`assert_routes_protected` вызывается в ``create_app``: приложение с незащищённым маршрутом
@@ -27,7 +28,15 @@ from estimator.security.authz.catalog import PSEUDO, Catalog, load_catalog
 API_PREFIX = "/api/"
 _NEEDS = {
     "authenticated": {mfa_policy.active_principal},
-    "session.pre_mfa": {mfa_policy.pre_mfa_principal, mfa_policy.active_principal},
+    "session.pre_mfa": {
+        mfa_policy.pre_mfa_principal,
+        mfa_policy.active_principal,
+        mfa_policy.any_session_principal,
+    },
+    "session.password_change": {
+        mfa_policy.password_change_principal,
+        mfa_policy.any_session_principal,
+    },
 }
 
 

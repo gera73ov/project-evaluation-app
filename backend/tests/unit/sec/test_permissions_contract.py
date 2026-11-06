@@ -10,7 +10,14 @@ pytestmark = [pytest.mark.spec("SEC-AUTHZ-02"), pytest.mark.spec("3.3"), pytest.
 
 P = load_yaml("permissions.yaml")
 CATALOG: dict = P["permissions"]
-PSEUDO = {"public", "token.login_step", "token.activation", "session.pre_mfa", "authenticated"}
+PSEUDO = {
+    "public",
+    "token.login_step",
+    "token.activation",
+    "session.pre_mfa",
+    "session.password_change",
+    "authenticated",
+}
 STATUSES = ["preparation", "estimation", "consolidation", "completed", "archived"]
 MONEY_PERMS = {
     "money.read",
