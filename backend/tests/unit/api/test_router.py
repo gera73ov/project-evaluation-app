@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from estimator.api.common import ApiRouter, install_error_handlers
-from estimator.security import authz
+from estimator.api.common import router as router_module
 
 pytestmark = pytest.mark.spec("SEC-AUTHZ-02")
 
@@ -52,7 +52,8 @@ def _app() -> tuple[FastAPI, TestClient]:
     return app, TestClient(app)
 
 
-def test_permission_in_openapi() -> None:
+def test_permission_in_openapi(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(router_module, "gate", lambda codes: Depends(lambda: None))
     app, _ = _app()
     paths = app.openapi()["paths"]
     assert paths["/v1/open"]["get"]["x-permission"] == "public"
@@ -70,15 +71,6 @@ def test_route_keeps_permission() -> None:
     assert router.routes[-1].permission == ("project.read",)
 
 
-def test_closed_by_default_without_gate(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delattr(authz, "gate", raising=False)
-    _, client = _app()
-    assert client.get("/v1/open").status_code == 200
-    assert client.post("/v1/totp").status_code == 200
-    r = client.get("/v1/project")
-    assert (r.status_code, r.json()["code"]) == (403, "FORBIDDEN")
-
-
 def test_gate_of_sec005_is_used(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = []
 
@@ -90,9 +82,10 @@ def test_gate_of_sec005_is_used(monkeypatch: pytest.MonkeyPatch) -> None:
 
         return Depends(check)
 
-    monkeypatch.setattr(authz, "gate", gate, raising=False)
+    monkeypatch.setattr(router_module, "gate", gate)
     _, client = _app()
     assert client.get("/v1/open").status_code == 200
+    assert client.post("/v1/totp").status_code == 200
     assert client.get("/v1/project").status_code == 200
     r = client.get("/v1/any")
     assert (r.status_code, r.json()["code"]) == (403, "TOTP_REQUIRED")

@@ -120,6 +120,31 @@ def test_500_has_only_error_id(caplog: pytest.LogCaptureFixture) -> None:
     assert "Traceback" not in r.text
 
 
+@pytest.mark.spec("SEC-WEB-09")
+def test_500_in_real_app_has_security_headers() -> None:
+    """TC-SEC-08: ответ 500 проходит через SecurityHeadersMiddleware (заголовки и на ошибках)."""
+    from estimator.config import Settings
+    from estimator.health import Probes
+    from estimator.main import create_app
+
+    app = create_app(Settings(), probes=Probes())
+
+    @app.get("/api/v1/boom-in-app")
+    async def boom_in_app() -> None:
+        raise RuntimeError("секрет в трассировке")
+
+    with TestClient(app, raise_server_exceptions=False, base_url="https://localhost") as client:
+        r = client.get("/api/v1/boom-in-app")
+    assert r.status_code == 500
+    assert r.json()["code"] == "INTERNAL_ERROR"
+    assert "detail" not in r.json()
+    assert "секрет" not in r.text
+    assert r.headers["cache-control"] == "no-store"
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert "content-security-policy" in r.headers
+    assert "x-request-id" in r.headers
+
+
 def test_unknown_code_rejected() -> None:
     with pytest.raises(ValueError, match=r"errors\.yaml"):
         ApiError("NO_SUCH_CODE")

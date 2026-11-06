@@ -191,17 +191,53 @@ async def _validation_error(request: Request, exc: Exception) -> JSONResponse:
     return problem_response(request, "VALIDATION_FAILED", extensions={"errors": items})
 
 
-async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
-    error_id = new_error_id()
-    # Трассировка — только в лог; клиенту — error_id (SEC-WEB-09)
-    log.error("unhandled_exception", error_id=error_id, path=request.url.path, exc_info=exc)
-    body = problem_body("INTERNAL_ERROR", error_id=error_id, instance=request.url.path)
-    return JSONResponse(body, status_code=HTTPStatus.INTERNAL_SERVER_ERROR, media_type=PROBLEM_JSON)
+class UnhandledErrorMiddleware:
+    """Необработанное исключение → 500 ``INTERNAL_ERROR`` с ``error_id``; трассировка — в лог.
+
+    Чистый ASGI-слой самого внутреннего уровня (ставит :func:`install_error_handlers` до остальных
+    ``add_middleware``). Обработчик ``Exception`` у Starlette живёт в ``ServerErrorMiddleware``
+    снаружи всех слоёв, и его ответ не получил бы заголовков безопасности (SEC-007, TC-SEC-08);
+    отсюда ответ проходит через ``SecurityHeadersMiddleware`` и ``RequestIdMiddleware``.
+    """
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        started = False
+
+        async def tracked(message: Any) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, tracked)
+        except Exception as exc:
+            if started:
+                raise
+            error_id = new_error_id()
+            path = scope.get("path", "")
+            # Трассировка — только в лог; клиенту — error_id (SEC-WEB-09)
+            log.error("unhandled_exception", error_id=error_id, path=path, exc_info=exc)
+            body = problem_body("INTERNAL_ERROR", error_id=error_id, instance=path)
+            response = JSONResponse(
+                body, status_code=HTTPStatus.INTERNAL_SERVER_ERROR, media_type=PROBLEM_JSON
+            )
+            await response(scope, receive, send)
 
 
 def install_error_handlers(app: FastAPI) -> None:
-    """Подключить обработчики RFC 9457 к приложению."""
+    """Подключить обработчики RFC 9457 к приложению.
+
+    Вызывать до остальных ``add_middleware``: слой необработанных исключений должен быть самым
+    внутренним, чтобы ответ 500 прошёл через заголовки безопасности.
+    """
     app.add_exception_handler(ApiError, _api_error)
     app.add_exception_handler(StarletteHTTPException, _http_exception)
     app.add_exception_handler(RequestValidationError, _validation_error)
-    app.add_exception_handler(Exception, _unhandled)
+    app.add_middleware(UnhandledErrorMiddleware)

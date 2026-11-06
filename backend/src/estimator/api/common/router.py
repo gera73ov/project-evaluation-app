@@ -17,8 +17,8 @@ API-004 с contracts/openapi.yaml) и в атрибут маршрута ``route
 Проверка права. Псевдоправа ``public``, ``token.*``, ``authenticated``, ``session.pre_mfa`` роутер
 не проверяет: их проверяют зависимости эндпоинта (``current_principal`` и токены шага входа, трек
 AUTH). Для остальных кодов роутер добавляет первой зависимостью
-``estimator.security.authz.gate(codes)`` движка прав SEC-005; пока ``gate`` нет, такие операции
-отвечают 403 ``FORBIDDEN`` (закрыто по умолчанию).
+``estimator.security.authz.gate(codes)`` движка прав SEC-005. Маршрут без обеспеченного права не
+даст приложению стартовать (``assert_routes_protected``, TC-SEC-01).
 """
 
 from __future__ import annotations
@@ -26,10 +26,10 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.types import DecoratedCallable
 
-from estimator.api.common.errors import ApiError
+from estimator.security.authz import gate
 
 Permission = str | Sequence[str]
 #: Псевдоправа contracts/api-conventions.md 4 п. 1 — проверяются зависимостями эндпоинта
@@ -49,24 +49,12 @@ def is_self_checked(codes: tuple[str, ...]) -> bool:
     return all(c in SELF_CHECKED or c.startswith("token.") for c in codes)
 
 
-def _forbidden_until_gate(codes: tuple[str, ...]) -> Any:
-    async def guard() -> None:
-        raise ApiError("FORBIDDEN")
-
-    return Depends(guard)
-
-
 def permission_guard(codes: tuple[str, ...]) -> Any:
-    """Зависимость проверки права: ``estimator.security.authz.gate(codes)`` движка прав SEC-005.
+    """Зависимость проверки права: :func:`estimator.security.authz.gate` движка прав SEC-005.
 
     ``gate`` сам берёт принципала, сессию БД и Redis через ``Depends`` (FastAPI переиспользует их с
     эндпоинтом), проект — из параметра пути, и бросает ``HTTPException`` с ``detail={"code": ...}``.
-    Пока ``gate`` нет, операция отвечает 403 ``FORBIDDEN`` (закрыто по умолчанию).
     """
-    try:
-        from estimator.security.authz import gate  # type: ignore[attr-defined]
-    except ImportError:
-        return _forbidden_until_gate(codes)
     return gate(codes)
 
 
