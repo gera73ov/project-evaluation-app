@@ -32,6 +32,7 @@ COMMAND_MODULES: tuple[str, ...] = (
     "estimator.cli.config_cmd",
     "estimator.cli.rotate_key",
     "estimator.cli.audit",
+    "estimator.cli.superadmin",
 )
 
 #: Код выхода, когда команда запрещена в текущем окружении.

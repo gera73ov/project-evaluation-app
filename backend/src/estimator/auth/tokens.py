@@ -46,8 +46,12 @@ async def issue(
     *,
     created_by: uuid.UUID | None = None,
     now: datetime | None = None,
+    ttl: timedelta | None = None,
 ) -> str:
-    """Выпустить токен; прежние неиспользованные токены этого вида аннулируются."""
+    """Выпустить токен; прежние неиспользованные токены этого вида аннулируются.
+
+    ``ttl`` короче стандартного — для ссылок из консоли (60 минут, FR-SA-01, Q-22).
+    """
     now = now or datetime.now(UTC)
     await db.execute(
         update(AuthToken)
@@ -67,7 +71,7 @@ async def issue(
             token_hash=token_hash(token),
             created_by=created_by,
             created_at=now,
-            expires_at=now + TTL[kind],
+            expires_at=now + (ttl or TTL[kind]),
         )
     )
     await db.flush()
