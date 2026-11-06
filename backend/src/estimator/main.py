@@ -14,6 +14,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from estimator import health
 from estimator.api import v1 as api_v1
+from estimator.api.common.errors import install_error_handlers
 from estimator.config import Settings, get_settings
 from estimator.jobs.celery_app import queue_lengths
 from estimator.logging import RequestIdMiddleware, configure_logging, get_logger
@@ -53,6 +54,7 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     app.state.settings = settings
     app.state.probes = probes
     app.state.redis = make_redis(settings)
+    install_error_handlers(app)
     app.include_router(health.router)
     app.include_router(api_v1.router, prefix=api_v1.PREFIX)
     # Запрещено по умолчанию: маршрут без обеспеченного права не даёт стартовать (SEC-AUTHZ-02)
