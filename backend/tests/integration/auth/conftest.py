@@ -23,6 +23,7 @@ from estimator.redis_client import get_redis
 from estimator.security.crypto import get_cipher
 from estimator.security.crypto.keys import format_key, generate_key
 from estimator.security.web.csrf import CSRF_COOKIE, CSRF_HEADER
+from tests.contract.openapi_impl import check_response
 from tests.integration.db.conftest import as_app
 
 
@@ -81,9 +82,27 @@ async def api(
     app.dependency_overrides[get_redis] = lambda: redis_client
     ip = ".".join(str(secrets.randbelow(250) + 1) for _ in range(3))
     transport = httpx.ASGITransport(app=app, client=(f"10.{ip}", 1))
-    async with httpx.AsyncClient(transport=transport, base_url="https://test") as client:
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="https://test",
+        event_hooks={"response": [contract_hook]},
+    ) as client:
         client.app = app  # type: ignore[attr-defined]
         yield client
+
+
+async def contract_hook(response: httpx.Response) -> None:
+    """Каждый ответ API-теста сверяется с contracts/openapi.yaml (API-004)."""
+    raw = await response.aread()
+    body = json.loads(raw) if raw and "json" in response.headers.get("content-type", "") else raw
+    issues = check_response(
+        response.request.method,
+        response.request.url.path,
+        response.status_code,
+        response.headers.get("content-type", ""),
+        body,
+    )
+    assert not issues, "ответ расходится с контрактом:\n" + "\n".join(issues)
 
 
 def csrf_headers(client: httpx.AsyncClient) -> dict[str, str]:

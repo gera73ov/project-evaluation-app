@@ -14,6 +14,10 @@ from dataclasses import dataclass
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from estimator.logging import get_logger
+
+log = get_logger(__name__)
+
 KB = 1024
 MB = 1024 * KB
 DEFAULT_LIMIT = 1 * MB
@@ -59,7 +63,7 @@ class BodySizeLimitMiddleware:
         headers = dict(scope.get("headers") or [])
         declared = headers.get(b"content-length")
         if declared is not None and declared.isdigit() and int(declared) > limit:
-            await _reject(send, limit)
+            await _reject(scope, send, limit)
             return
         received = 0
         started = False
@@ -75,7 +79,7 @@ class BodySizeLimitMiddleware:
                 if received > limit:
                     rejected = True
                     if not started:
-                        await _reject(send, limit)
+                        await _reject(scope, send, limit)
                     # приложение видит обрыв соединения и прекращает чтение
                     return {"type": "http.disconnect"}
             return message
@@ -91,15 +95,21 @@ class BodySizeLimitMiddleware:
         await self.app(scope, limited_receive, tracking_send)
 
 
-async def _reject(send: Send, limit: int) -> None:
+async def _reject(scope: Scope, send: Send, limit: int) -> None:
+    # Тело — RFC 9457 из общего каталога, с error_id (API-003): middleware стоит снаружи
+    # обработчиков исключений FastAPI, поэтому ответ собирается здесь
+    from estimator.api.common.errors import new_error_id, problem_body
+
+    error_id = new_error_id()
+    path = scope.get("path", "")
+    log.info("api_error", code="PAYLOAD_TOO_LARGE", status=413, error_id=error_id, path=path)
     body = json.dumps(
-        {
-            "type": "about:blank",
-            "title": "Слишком большой запрос",
-            "status": 413,
-            "code": "PAYLOAD_TOO_LARGE",
-            "limit_bytes": limit,
-        },
+        problem_body(
+            "PAYLOAD_TOO_LARGE",
+            error_id=error_id,
+            instance=path,
+            extensions={"limit_bytes": limit},
+        ),
         ensure_ascii=False,
     ).encode()
     await send(
