@@ -189,6 +189,27 @@ async def write_standalone(
         return await write(session, event_type, result, **kwargs)
 
 
+async def write_detached(
+    session: AsyncSession, event_type: str, result: str = "failure", **kwargs: Any
+) -> int | None:
+    """Записать событие в отдельной транзакции на том же подключении, что и ``session``.
+
+    Для отказов внутри транзакции запроса: запрос ответит ошибкой и откатится, а событие
+    останется. Сбой записи логируется и не меняет ответ пользователю.
+    """
+    from estimator.db.session import transaction
+
+    try:
+        maker = async_sessionmaker(bind=session.bind, expire_on_commit=False)
+        async with transaction(maker) as own:
+            return await write(own, event_type, result, **kwargs)
+    except AuditError:
+        raise
+    except Exception:
+        log.exception("audit_write_detached_failed", event_type=event_type)
+        return None
+
+
 def _schedule_alert(session: AsyncSession, alert: Alert) -> None:
     from estimator.db.session import after_commit
 

@@ -231,6 +231,10 @@ class SessionService:
         self._redis = redis
         self._clock = clock
 
+    def now(self) -> float:
+        """Текущее время часов сервиса (секунды Unix)."""
+        return self._clock()
+
     # --- создание и смена идентификатора ---
 
     async def create(
