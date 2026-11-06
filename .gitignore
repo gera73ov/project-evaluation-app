@@ -53,3 +53,4 @@ Thumbs.db
 
 # Копия contracts/permissions.yaml кладётся в пакет только при сборке образа (SEC-005)
 backend/src/estimator/security/authz/permissions.yaml
+dump.rdb
