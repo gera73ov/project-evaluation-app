@@ -24,7 +24,7 @@ from tests.integration.db.conftest import as_app
 
 pytestmark = [pytest.mark.integration, pytest.mark.spec("FR-SA-01")]
 BASE = "https://estimator.example"
-NEW_PASSWORD = "Vremennyi-parol-2026"  # nosec B105 — тестовый пароль
+NEW_PASSWORD = "new horse battery staple 2026"  # nosec B105 — тестовый пароль
 
 
 def _token(link: str) -> str:
