@@ -31,6 +31,7 @@ COMMAND_MODULES: tuple[str, ...] = (
     "estimator.cli.migrate",
     "estimator.cli.config_cmd",
     "estimator.cli.rotate_key",
+    "estimator.cli.audit",
 )
 
 #: Код выхода, когда команда запрещена в текущем окружении.
@@ -57,6 +58,13 @@ class CommandRun:
     app_env: str
     argument_names: list[str]
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    #: Значения только несекретных аргументов из :data:`PUBLIC_ARGUMENTS` (для аудита).
+    public_args: dict[str, Any] = field(default_factory=dict)
+
+
+#: Аргументы, значения которых можно писать в аудит (логины допустимы, contracts/audit-events.yaml
+#: ``system.cli.executed``); значения остальных не передаются хукам вообще.
+PUBLIC_ARGUMENTS = frozenset({"login", "check", "dry_run", "mode", "before", "kid"})
 
 
 class CommandHook(Protocol):
@@ -106,24 +114,37 @@ def _os_user() -> str:
         return "unknown"
 
 
-def command(name: str, *, stand_only: bool = False, **typer_kwargs: Any) -> Callable[[F], F]:
-    """Зарегистрировать подкоманду с хуками и проверкой окружения."""
+def command(
+    name: str,
+    *,
+    stand_only: bool = False,
+    group: typer.Typer | None = None,
+    group_name: str | None = None,
+    **typer_kwargs: Any,
+) -> Callable[[F], F]:
+    """Зарегистрировать подкоманду с хуками и проверкой окружения.
+
+    ``group`` — вложенная группа (``estimator audit verify``): команда регистрируется в ней, а
+    в хуки передаётся полное имя ``"<group_name> <name>"``.
+    """
+    full_name = f"{group_name} {name}" if group_name else name
 
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             settings = get_settings()
             run = CommandRun(
-                name=name,
+                name=full_name,
                 os_user=_os_user(),
                 app_env=settings.app_env.value,
                 argument_names=sorted(kwargs),
+                public_args={k: v for k, v in kwargs.items() if k in PUBLIC_ARGUMENTS},
             )
             for hook in _hooks:
                 hook.before(run)
             if stand_only and settings.is_prod:
                 typer.echo(
-                    f"Команда «{name}» только для тестовых стендов и на prod не запускается.",
+                    f"Команда «{full_name}» только для тестовых стендов и на prod не запускается.",
                     err=True,
                 )
                 for hook in _hooks:
@@ -145,7 +166,7 @@ def command(name: str, *, stand_only: bool = False, **typer_kwargs: Any) -> Call
             return result
 
         wrapper.stand_only = stand_only  # type: ignore[attr-defined]
-        app.command(name=name, **typer_kwargs)(wrapper)
+        (group or app).command(name=name, **typer_kwargs)(wrapper)
         return func
 
     return decorator
@@ -164,10 +185,25 @@ def load_commands() -> None:
     _loaded = True
 
 
+_audit_hook_installed = False
+
+
+def install_audit_hook() -> None:
+    """Подключить запись запусков в аудит (SEC-004). Только в настоящем запуске ``estimator``:
+    тесты CLI через ``CliRunner`` базы не требуют."""
+    global _audit_hook_installed
+    if not _audit_hook_installed:
+        from estimator.security.audit.runs import AuditCliHook
+
+        add_hook(AuditCliHook())
+        _audit_hook_installed = True
+
+
 def main() -> None:
     """Точка входа ``estimator`` (pyproject ``[project.scripts]``)."""
     configure_logging(get_settings().log_level, stream="stderr")
     load_commands()
+    install_audit_hook()
     started = time.perf_counter()
     try:
         app()
