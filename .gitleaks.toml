@@ -12,3 +12,9 @@ regexes = [
   '''Tr0ub4dor&3-very-secret''',
   '''s3ss10n-1d-0123456789abcdef''',
 ]
+
+[[allowlists]]
+description = "AUTH-011: фиктивный пароль в тесте консольных команд (коммит 9ea83f5, test_superadmin_cli.py); теперь в тесте другое значение"
+regexes = [
+  '''Vremennyi-parol-2026''',
+]
