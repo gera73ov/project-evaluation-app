@@ -76,7 +76,7 @@ async def test_me_and_patch(api: httpx.AsyncClient, user: User, db_session: Asyn
 
     bad = await api.patch("/api/v1/me", json={"timezone": "Mars/Base"}, headers=csrf_headers(api))
     assert bad.status_code == 422
-    assert bad.json()["detail"]["errors"][0]["field"] == "/timezone"
+    assert bad.json()["errors"][0]["field"] == "/timezone"
     blank = await api.patch("/api/v1/me", json={"full_name": "  "}, headers=csrf_headers(api))
     assert blank.status_code == 422
     assert (
@@ -89,7 +89,7 @@ async def test_me_and_patch(api: httpx.AsyncClient, user: User, db_session: Asyn
     await db_session.flush()
     ad = await api.patch("/api/v1/me", json={"full_name": "Другое"}, headers=csrf_headers(api))
     assert ad.status_code == 403
-    assert ad.json()["detail"]["code"] == "FORBIDDEN"
+    assert ad.json()["code"] == "FORBIDDEN"
 
 
 @pytest.mark.spec("FR-SESS-04")
@@ -142,7 +142,7 @@ async def test_optional_totp_lifecycle(
 ) -> None:
     await _login(api, user.login)
     assert (await api.post("/api/v1/me/backup-codes",
-                           headers=csrf_headers(api))).json()["detail"]["code"] == (
+                           headers=csrf_headers(api))).json()["code"] == (
         "TOTP_ENROLL_REQUIRED"
     )  # fmt: skip
     started = await api.post("/api/v1/me/totp", json={}, headers=csrf_headers(api))
@@ -165,7 +165,7 @@ async def test_optional_totp_lifecycle(
     assert len(await _audit(db_session, "auth.mfa.backup_codes_regenerated", user.id)) == 1
 
     denied = await api.delete("/api/v1/me/totp", headers=csrf_headers(api))
-    assert (denied.status_code, denied.json()["detail"]["code"]) == (403, "STEP_UP_REQUIRED")
+    assert (denied.status_code, denied.json()["code"]) == (403, "STEP_UP_REQUIRED")
     await redis_client.delete(f"totp:last:{user.id}")
     step_up = await api.post(
         "/api/v1/auth/step-up",
@@ -203,7 +203,7 @@ async def test_required_totp_cannot_be_disabled(
         headers=csrf_headers(api),
     )
     denied = await api.delete("/api/v1/me/totp", headers=csrf_headers(api))
-    assert (denied.status_code, denied.json()["detail"]["code"]) == (403, "FORBIDDEN")
+    assert (denied.status_code, denied.json()["code"]) == (403, "FORBIDDEN")
 
 
 @pytest.mark.spec("FR-NOTIF-02")

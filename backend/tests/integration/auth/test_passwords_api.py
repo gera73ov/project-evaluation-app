@@ -54,7 +54,8 @@ async def test_activation_link(api: httpx.AsyncClient, db_session: AsyncSession)
         "/api/v1/auth/activate", json={"token": token, "password": "password1234"}
     )
     assert weak.status_code == 422
-    assert weak.json()["detail"] == {"code": "PASSWORD_POLICY_VIOLATION", "violations": ["common"]}
+    assert weak.json()["code"] == "PASSWORD_POLICY_VIOLATION"
+    assert weak.json()["violations"] == ["common"]
     ok = await api.post("/api/v1/auth/activate", json={"token": token, "password": NEW})
     assert ok.status_code == 204
     await db_session.refresh(user)
@@ -63,7 +64,7 @@ async def test_activation_link(api: httpx.AsyncClient, db_session: AsyncSession)
     assert login.json()["step"] == "done"
     used = await api.post("/api/v1/auth/activate", json={"token": token, "password": NEW + "x"})
     assert used.status_code == 410
-    assert used.json()["detail"]["code"] == "TOKEN_INVALID"
+    assert used.json()["code"] == "TOKEN_INVALID"
     assert await _audit(db_session, "auth.password.set", user.id) == [{"via": "activation"}]
 
 
@@ -131,13 +132,13 @@ async def test_change_password_keeps_current_session(
             headers=csrf_headers(api),
         )
         assert wrong.status_code == 422
-        assert wrong.json()["detail"]["code"] == "CURRENT_PASSWORD_INVALID"
+        assert wrong.json()["code"] == "CURRENT_PASSWORD_INVALID"
         personal = await api.post(
             "/api/v1/me/password",
             json={"current_password": PASSWORD, "new_password": f"my {user.login} secret"},
             headers=csrf_headers(api),
         )
-        assert personal.json()["detail"]["violations"] == ["matches_personal"]
+        assert personal.json()["violations"] == ["matches_personal"]
         ok = await api.post(
             "/api/v1/me/password",
             json={"current_password": PASSWORD, "new_password": NEW},
@@ -165,4 +166,4 @@ async def test_change_password_keeps_current_session(
         json={"current_password": NEW + " again", "new_password": NEW},
         headers=csrf_headers(api),
     )
-    assert reuse.json()["detail"]["violations"] == ["reused"], "прежний пароль из истории"
+    assert reuse.json()["violations"] == ["reused"], "прежний пароль из истории"
