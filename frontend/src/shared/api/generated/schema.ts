@@ -22,6 +22,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/auth/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Режим входа для экрана входа (до входа)
+         * @description CR-001. Публичный: без сессии и CSRF. Экран входа узнаёт режим до первой попытки входа — подсказка «учётная запись компании» и отсутствие «Забыли пароль?» в режиме AD (SPEC 11.1 №3–5). Тот же режим отдают GET /me и расширение auth_mode ошибки LOGIN_FAILED.
+         */
+        get: operations["getAuthOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/totp": {
         parameters: {
             query?: never;
@@ -2383,6 +2403,11 @@ export type components = {
             /** Format: password */
             password: string;
         };
+        /** @description CR-001. Режим входа приложения (app — учётные записи приложения, ad — Active Directory). */
+        AuthOptions: {
+            /** @enum {string} */
+            auth_mode: "app" | "ad";
+        };
         /** @description step=done — сессия создана (Set-Cookie); totp — нужен код; enroll — сессия до подключения TOTP (FR-2FA-04) */
         LoginResponse: {
             /** @enum {string} */
@@ -3802,6 +3827,28 @@ export interface operations {
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
+        };
+    };
+    getAuthOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthOptions"];
+                };
+            };
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
         };
     };
     loginTotp: {
