@@ -23,7 +23,9 @@ import pytest
 MARKERS: dict[str, re.Pattern[str]] = {
     "tc": re.compile(r"TC-[A-Z]+-\d{2}"),
     # ID требования (FR-TREE-24, BR-CALC-03, SEC-AUTHZ-04, NFR-MNT-01, Q-07) или раздел SPEC (15.2)
-    "spec": re.compile(r"(?:[A-Z]+(?:-[A-Z]+)*-\d{2}(?:\.\.\d{2})?|(?:SPEC-)?\d+(?:\.\d+)*[а-я]?)"),
+    "spec": re.compile(
+        r"(?:[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d{2}(?:\.\.\d{2})?|(?:SPEC-)?\d+(?:\.\d+)*[а-я]?)"
+    ),
     "gherkin": re.compile(r"G-\d{2}"),
 }
 
