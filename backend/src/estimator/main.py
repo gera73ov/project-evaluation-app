@@ -14,6 +14,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from estimator import health
 from estimator.api import v1 as api_v1
+from estimator.api.common.docs import docs_urls
 from estimator.api.common.errors import install_error_handlers
 from estimator.config import Settings, get_settings
 from estimator.jobs.celery_app import queue_lengths
@@ -41,15 +42,12 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
         await _app.state.redis.aclose()
         log.info("app_stopped")
 
-    # Документация OpenAPI — только вне prod; источник правды — contracts/openapi.yaml
-    docs = not settings.is_prod
+    # Документация OpenAPI — только на стендах (API-005)
     app = FastAPI(
         title="Приложение оценки проектов",
         version=settings.app_version,
         lifespan=lifespan,
-        docs_url="/api/docs" if docs else None,
-        redoc_url=None,
-        openapi_url="/api/openapi.json" if docs else None,
+        **docs_urls(settings),
     )
     app.state.settings = settings
     app.state.probes = probes

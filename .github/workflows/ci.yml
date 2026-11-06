@@ -84,9 +84,20 @@ jobs:
           uv export -q --all-groups --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/req.txt"
           uv run pip-audit --strict --require-hashes --disable-pip -r "$RUNNER_TEMP/req.txt"
       - name: pytest параллельно, с покрытием (≥ 80 %, domain/calc и security/authz — 100 %)
+        env:
+          # API-004: отчёт «реализовано / не реализовано» по contracts/openapi.yaml
+          API_CONTRACT_REPORT: ${{ runner.temp }}/api-contract-report.md
         run: |
           uv run pytest -n auto --cov --cov-report=term --cov-report=json:coverage.json
           uv run python scripts/check_coverage.py coverage.json
+      - name: Опубликовать отчёт о реализации API (API-004)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: api-contract-report
+          path: ${{ runner.temp }}/api-contract-report.md
+          if-no-files-found: warn
+          retention-days: 30
       - name: Отчёт трассировки «требование → тест» (QA-001)
         working-directory: .
         run: python3 tools/traceability.py --strict --output "$RUNNER_TEMP/traceability.md"
