@@ -116,7 +116,7 @@ def problem_body(
             if key in spec.extensions:
                 body[key] = value
             else:
-                log.warning("problem_extension_dropped", code=code, key=key)
+                log.warning("problem_extension_dropped", error_code=code, key=key)
     return body
 
 
@@ -131,7 +131,7 @@ def problem_response(
     error_id = new_error_id()
     status = CATALOG[code].status
     emit = log.error if status >= 500 else log.info
-    emit("api_error", code=code, status=status, error_id=error_id, path=request.url.path)
+    emit("api_error", error_code=code, status=status, error_id=error_id, path=request.url.path)
     body = problem_body(
         code,
         error_id=error_id,

@@ -102,7 +102,7 @@ async def _reject(scope: Scope, send: Send, limit: int) -> None:
 
     error_id = new_error_id()
     path = scope.get("path", "")
-    log.info("api_error", code="PAYLOAD_TOO_LARGE", status=413, error_id=error_id, path=path)
+    log.info("api_error", error_code="PAYLOAD_TOO_LARGE", status=413, error_id=error_id, path=path)
     body = json.dumps(
         problem_body(
             "PAYLOAD_TOO_LARGE",

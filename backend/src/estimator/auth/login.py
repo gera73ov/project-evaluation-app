@@ -51,6 +51,7 @@ from estimator.auth.totp import TotpVerifier, consume_backup_code, decrypt_secre
 from estimator.db.enums import SystemRole, UserStatus
 from estimator.db.models.users import User, UserRole
 from estimator.logging import get_logger
+from estimator.metrics import LOGIN_FAILURES
 from estimator.security import audit
 from estimator.security.crypto import get_cipher
 
@@ -318,6 +319,7 @@ class LoginService:
         step: str = "password",
     ) -> None:
         method = "local" if mode == LOCAL else mode
+        LOGIN_FAILURES.labels(method, step, reason).inc()  # SPEC 18.4 (INF-010)
         await audit.write_detached(
             db, "auth.login.failed", "failure", user_id=user_id, login=login, ip=ip,
             user_agent=user_agent, object_type="user", object_id=user_id,
