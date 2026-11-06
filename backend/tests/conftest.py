@@ -35,3 +35,16 @@ async def redis_client() -> AsyncIterator[Redis]:
     client = Redis.from_url(url)
     yield client
     await client.aclose()
+
+
+#: Долгие тесты (нагрузка, TC-AUD-01) идут только в плановом задании CI: ``RUN_NIGHTLY=1``.
+NIGHTLY_ENV_VAR = "RUN_NIGHTLY"
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if os.environ.get(NIGHTLY_ENV_VAR) == "1":
+        return
+    skip = pytest.mark.skip(reason=f"долгий тест: запускается при {NIGHTLY_ENV_VAR}=1 (nightly)")
+    for item in items:
+        if item.get_closest_marker("nightly"):
+            item.add_marker(skip)

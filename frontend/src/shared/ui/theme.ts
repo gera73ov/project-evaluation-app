@@ -31,9 +31,13 @@ export const theme = createTheme({
 
 /**
  * Nonce для `<style>`, которые вставляет Mantine (SEC-WEB-03: style-src без 'unsafe-inline').
- * Nginx подставляет его в `<meta name="csp-nonce">` (SEC-007); без meta — undefined (dev, тесты).
+ * Nginx подставляет его в `<meta name="csp-nonce">` вместо заглушки `__CSP_NONCE__` (INF-009);
+ * без meta или с неподставленной заглушкой (dev-сервер Vite, тесты) — undefined.
  */
+export const CSP_NONCE_PLACEHOLDER = '__CSP_NONCE__';
+
 export function cspNonce(doc: Document = document): string | undefined {
   const meta = doc.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]');
-  return meta?.content || undefined;
+  const value = meta?.content;
+  return value && value !== CSP_NONCE_PLACEHOLDER ? value : undefined;
 }
