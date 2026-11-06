@@ -26,7 +26,7 @@ from estimator.auth.passwords.policy import PasswordPolicy, common_passwords
 from estimator.auth.policy import read_settings
 from estimator.auth.providers.local import hash_password_async, verify_password_async
 from estimator.auth.sessions import RevokeReason, SessionService
-from estimator.auth.tokens import PAGES, TTL, consume, issue, link
+from estimator.auth.tokens import PAGES, TTL, find_valid, issue, link, mark_used
 from estimator.config import get_settings
 from estimator.db.enums import AuthTokenKind, UserSource, UserStatus
 from estimator.db.models.users import PasswordHistory, User
@@ -116,13 +116,14 @@ def _token_invalid() -> AuthError:
 
 async def activate(db: AsyncSession, token: str, password: str) -> User:
     """Установить пароль по ссылке активации (FR-AUTH-LOC-01, FR-SA-01)."""
-    row = await consume(db, token, AuthTokenKind.ACTIVATION)
+    row = await find_valid(db, token, AuthTokenKind.ACTIVATION)
     user = await db.get(User, row.user_id) if row else None
-    if user is None or user.source is not UserSource.LOCAL or user.status not in {
+    if row is None or user is None or user.source is not UserSource.LOCAL or user.status not in {
         UserStatus.PENDING_PASSWORD, UserStatus.ACTIVE,
     }:  # fmt: skip
         raise _token_invalid()
     await set_password(db, user, password)
+    await mark_used(db, row)
     if user.status is UserStatus.PENDING_PASSWORD:
         user.status = UserStatus.ACTIVE
     await audit.write(
@@ -164,11 +165,14 @@ async def request_reset(db: AsyncSession, login_or_email: str, *, ip: str | None
 
 async def reset(db: AsyncSession, sessions: SessionService, token: str, password: str) -> User:
     """Сброс по ссылке: новый пароль, все сессии пользователя завершаются."""
-    row = await consume(db, token, AuthTokenKind.PASSWORD_RESET)
+    row = await find_valid(db, token, AuthTokenKind.PASSWORD_RESET)
     user = await db.get(User, row.user_id) if row else None
-    if user is None or user.source is not UserSource.LOCAL or user.status is not UserStatus.ACTIVE:
+    if row is None or user is None or user.source is not UserSource.LOCAL:
+        raise _token_invalid()
+    if user.status is not UserStatus.ACTIVE:
         raise _token_invalid()
     await set_password(db, user, password)
+    await mark_used(db, row)
     count = await sessions.revoke_user(db, user.id, RevokeReason.PASSWORD_CHANGED)
     await audit.write(db, "auth.password.set", user_id=user.id, login=user.login,
                       object_type="user", object_id=user.id, details={"via": "reset"})  # fmt: skip

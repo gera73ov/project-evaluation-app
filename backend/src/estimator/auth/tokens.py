@@ -66,6 +66,7 @@ async def issue(
             kind=kind,
             token_hash=token_hash(token),
             created_by=created_by,
+            created_at=now,
             expires_at=now + TTL[kind],
         )
     )
@@ -73,10 +74,14 @@ async def issue(
     return token
 
 
-async def consume(
+async def find_valid(
     db: AsyncSession, token: str, kind: AuthTokenKind, *, now: datetime | None = None
 ) -> AuthToken | None:
-    """Использовать токен. ``None`` — не найден, истёк, использован или аннулирован."""
+    """Действующий токен (строка заблокирована до конца транзакции) или ``None``.
+
+    Отметку об использовании ставит :func:`mark_used` — после того как действие удалось,
+    чтобы отказ (например, слабый пароль) не сжигал ссылку.
+    """
     if not token or len(token) > MAX_TOKEN_LENGTH:
         return None
     now = now or datetime.now(UTC)
@@ -89,6 +94,19 @@ async def consume(
         return None
     if row.expires_at <= now:
         return None
-    row.used_at = now
+    return row
+
+
+async def mark_used(db: AsyncSession, row: AuthToken, *, now: datetime | None = None) -> None:
+    row.used_at = now or datetime.now(UTC)
     await db.flush()
+
+
+async def consume(
+    db: AsyncSession, token: str, kind: AuthTokenKind, *, now: datetime | None = None
+) -> AuthToken | None:
+    """Найти и сразу использовать токен. ``None`` — не найден, истёк, использован, аннулирован."""
+    row = await find_valid(db, token, kind, now=now)
+    if row is not None:
+        await mark_used(db, row, now=now)
     return row

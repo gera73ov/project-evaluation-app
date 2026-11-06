@@ -47,10 +47,6 @@ def limit_for(method: str, path: str) -> int:
     return DEFAULT_LIMIT
 
 
-class _TooLargeError(Exception):
-    pass
-
-
 class BodySizeLimitMiddleware:
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -67,27 +63,32 @@ class BodySizeLimitMiddleware:
             return
         received = 0
         started = False
+        rejected = False
 
         async def limited_receive() -> Message:
-            nonlocal received
+            nonlocal received, rejected
+            if rejected:
+                return {"type": "http.disconnect"}
             message = await receive()
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
                 if received > limit:
-                    raise _TooLargeError
+                    rejected = True
+                    if not started:
+                        await _reject(send, limit)
+                    # приложение видит обрыв соединения и прекращает чтение
+                    return {"type": "http.disconnect"}
             return message
 
         async def tracking_send(message: Message) -> None:
             nonlocal started
+            if rejected:
+                return  # ответ 413 уже отправлен
             if message["type"] == "http.response.start":
                 started = True
             await send(message)
 
-        try:
-            await self.app(scope, limited_receive, tracking_send)
-        except _TooLargeError:
-            if not started:
-                await _reject(send, limit)
+        await self.app(scope, limited_receive, tracking_send)
 
 
 async def _reject(send: Send, limit: int) -> None:
