@@ -54,7 +54,7 @@ async def test_setup_gate(api: httpx.AsyncClient, db_session: AsyncSession) -> N
     superadmin = await make_user(db_session, SystemRole.SUPERADMIN)
     response = await _login(api, user.login)
     assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "APP_SETUP_IN_PROGRESS"
+    assert response.json()["code"] == "APP_SETUP_IN_PROGRESS"
     sa = await _login(api, superadmin.login)
     assert sa.status_code == 200
     assert sa.json()["step"] == "enroll", "суперадминистратору TOTP обязателен всегда"
@@ -77,11 +77,17 @@ async def test_uniform_failure_and_audit(api: httpx.AsyncClient, db_session: Asy
         response = await _login(api, login, password)
         timings[name] = time.perf_counter() - started
         assert response.status_code == 401
-        bodies[name] = response.json()
+        body = response.json()
+        bodies[name] = {k: body.get(k) for k in ("code", "auth_mode", "status", "type")}
     assert (
         bodies["unknown"]
         == bodies["wrong"]
-        == {"detail": {"code": "LOGIN_FAILED", "auth_mode": "app"}}
+        == {
+            "code": "LOGIN_FAILED",
+            "auth_mode": "app",
+            "status": 401,
+            "type": "https://estimator.local/problems/login-failed",
+        }
     )
     ratio = max(timings.values()) / min(timings.values())
     assert ratio < 3, f"время ответа выдаёт существование логина: {timings}"
@@ -92,7 +98,7 @@ async def test_uniform_failure_and_audit(api: httpx.AsyncClient, db_session: Asy
         "wrong_password"
     ]
     empty = await api.post("/api/v1/auth/login", json={"login": " ", "password": "x"})
-    assert empty.json()["detail"]["code"] == "LOGIN_FAILED"
+    assert empty.json()["code"] == "LOGIN_FAILED"
 
 
 @pytest.mark.spec("FR-LOCK-01")
@@ -103,7 +109,7 @@ async def test_pair_locked_after_failures(api: httpx.AsyncClient, db_session: As
         assert (await _login(api, user.login, "wrong")).status_code == 401
     locked = await _login(api, user.login)
     assert locked.status_code == 429
-    assert locked.json()["detail"]["code"] == "LOGIN_LOCKED"
+    assert locked.json()["code"] == "LOGIN_LOCKED"
     assert int(locked.headers["Retry-After"]) > 0
     events = await _audit(db_session, "auth.lockout.pair_locked", user.login)
     assert events == [{"failures": 5, "minutes": 15, "actor": "system"}]
@@ -126,18 +132,18 @@ async def test_totp_step_replay_and_backup(
     token = first.json()["login_token"]
     bad = await api.post("/api/v1/auth/totp", json={"login_token": token, "code": "000000"})
     assert bad.status_code == 401
-    assert bad.json()["detail"]["code"] == "TOTP_INVALID"
+    assert bad.json()["code"] == "TOTP_INVALID"
     code = pyotp.TOTP(secret).now()
     done = await api.post("/api/v1/auth/totp", json={"login_token": token, "code": code})
     assert done.status_code == 200
     assert done.json()["step"] == "done"
     assert done.cookies.get(COOKIE_NAME)
     again = await api.post("/api/v1/auth/totp", json={"login_token": token, "code": code})
-    assert again.json()["detail"]["code"] == "LOGIN_STEP_EXPIRED", "токен одноразовый"
+    assert again.json()["code"] == "LOGIN_STEP_EXPIRED", "токен одноразовый"
 
     token2 = (await _login(api, user.login)).json()["login_token"]
     replay = await api.post("/api/v1/auth/totp", json={"login_token": token2, "code": code})
-    assert replay.json()["detail"]["code"] == "TOTP_INVALID", "повтор кода отклоняется"
+    assert replay.json()["code"] == "TOTP_INVALID", "повтор кода отклоняется"
     ok = await api.post("/api/v1/auth/totp", json={"login_token": token2, "backup_code": backup[0]})
     assert ok.status_code == 200
     token3 = (await _login(api, user.login)).json()["login_token"]
@@ -168,9 +174,9 @@ async def test_forced_enrollment(api: httpx.AsyncClient, db_session: AsyncSessio
         headers=csrf_headers(api),
     )
     assert blocked.status_code == 403
-    assert blocked.json()["detail"]["code"] == "TOTP_ENROLL_REQUIRED"
+    assert blocked.json()["code"] == "TOTP_ENROLL_REQUIRED"
     no_csrf = await api.post("/api/v1/auth/totp/enroll")
-    assert no_csrf.json()["detail"]["code"] == "CSRF_FAILED"
+    assert no_csrf.json()["code"] == "CSRF_FAILED"
     started = await api.post("/api/v1/auth/totp/enroll", headers=csrf_headers(api))
     assert started.status_code == 200
     secret = started.json()["secret"]
@@ -212,7 +218,7 @@ async def test_money_requires_totp_then_step_up(
     await db_session.flush()
     denied = await api.get("/api/v1/test-money")
     assert denied.status_code == 403
-    assert denied.json()["detail"]["code"] == "TOTP_REQUIRED"
+    assert denied.json()["code"] == "TOTP_REQUIRED"
 
     wrong = await api.post(
         "/api/v1/auth/step-up",
@@ -220,7 +226,7 @@ async def test_money_requires_totp_then_step_up(
         headers=csrf_headers(api),
     )
     assert wrong.status_code == 401
-    assert wrong.json()["detail"]["code"] == "STEP_UP_FAILED"
+    assert wrong.json()["code"] == "STEP_UP_FAILED"
     passed = await api.post(
         "/api/v1/auth/step-up",
         json={"code": pyotp.TOTP(secret).now(), "totp_only": True},
@@ -252,7 +258,7 @@ async def test_logout_requires_csrf_and_kills_cookie(
     session_cookie = api.cookies.get(COOKIE_NAME)
     forged = await api.post("/api/v1/auth/logout", headers={"X-CSRF-Token": "forged"})
     assert forged.status_code == 403
-    assert forged.json()["detail"]["code"] == "CSRF_FAILED"
+    assert forged.json()["code"] == "CSRF_FAILED"
     assert (await api.post("/api/v1/auth/logout", headers=csrf_headers(api))).status_code == 204
     api.cookies.set(COOKIE_NAME, session_cookie or "")
     again = await api.post("/api/v1/auth/logout", headers={"X-CSRF-Token": "x"})
