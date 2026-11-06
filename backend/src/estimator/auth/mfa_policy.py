@@ -73,7 +73,7 @@ class ForbiddenError(HTTPException):
         super().__init__(status_code=403, detail={"code": code})
 
 
-async def _active(
+async def active_principal(
     request: Request, principal: Annotated[Principal, Depends(current_principal)], db: DbSession
 ) -> Principal:
     """Порядок проверок — contracts/api-conventions.md 4.2: настройка, сессия, TOTP, CSRF."""
@@ -84,7 +84,7 @@ async def _active(
     return principal
 
 
-def _pre_mfa(
+def pre_mfa_principal(
     request: Request, principal: Annotated[Principal, Depends(current_principal)]
 ) -> Principal:
     check_csrf(request, principal.session.csrf)
@@ -92,9 +92,9 @@ def _pre_mfa(
 
 
 #: Обычные эндпоинты: сессия без незавершённого принудительного подключения TOTP.
-ActivePrincipal = Annotated[Principal, Depends(_active)]
+ActivePrincipal = Annotated[Principal, Depends(active_principal)]
 #: ``session.pre_mfa``: подключение TOTP и выход.
-PreMfaPrincipal = Annotated[Principal, Depends(_pre_mfa)]
+PreMfaPrincipal = Annotated[Principal, Depends(pre_mfa_principal)]
 
 
 def require_totp(principal: ActivePrincipal) -> Principal:

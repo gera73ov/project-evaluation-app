@@ -18,7 +18,10 @@ WORKDIR /src
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/src ./src
-RUN uv sync --frozen --no-dev --no-editable
+# Каталог прав (SEC-005) — из contracts/, единственного источника; кладётся в пакет
+COPY contracts/permissions.yaml ./src/estimator/security/authz/permissions.yaml
+RUN uv sync --frozen --no-dev --no-editable \
+ && /opt/venv/bin/python -c "from estimator.security.authz.catalog import load_catalog; load_catalog()"
 
 FROM ${PYTHON_IMAGE} AS runtime
 ARG APP_VERSION=0.1.0

@@ -19,6 +19,7 @@ from estimator.jobs.celery_app import queue_lengths
 from estimator.logging import RequestIdMiddleware, configure_logging, get_logger
 from estimator.metrics import REGISTRY, QueueLengthCollector, metrics_app
 from estimator.redis_client import make_redis
+from estimator.security.authz.routes import assert_routes_protected
 from estimator.security.web.headers import SecurityHeadersMiddleware
 from estimator.security.web.limits import BodySizeLimitMiddleware
 
@@ -54,6 +55,8 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     app.state.redis = make_redis(settings)
     app.include_router(health.router)
     app.include_router(api_v1.router, prefix=api_v1.PREFIX)
+    # Запрещено по умолчанию: маршрут без обеспеченного права не даёт стартовать (SEC-AUTHZ-02)
+    assert_routes_protected(app)
     app.mount("/metrics", metrics_app())
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
     app.add_middleware(RequestIdMiddleware)
