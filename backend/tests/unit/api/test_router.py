@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from estimator.api.common import ApiError, ApiRouter, install_error_handlers
+from estimator.api.common import ApiRouter, install_error_handlers
+from estimator.security import authz
 
 pytestmark = pytest.mark.spec("SEC-AUTHZ-02")
 
@@ -24,7 +25,7 @@ def test_empty_permission_rejected() -> None:
         ApiRouter().post("/x", permission=[])
 
 
-def _app(authorize=None) -> tuple[FastAPI, TestClient]:
+def _app() -> tuple[FastAPI, TestClient]:
     router = ApiRouter(prefix="/v1")
 
     @router.get("/open", permission="public")
@@ -48,12 +49,10 @@ def _app(authorize=None) -> tuple[FastAPI, TestClient]:
     app = FastAPI()
     install_error_handlers(app)
     app.include_router(outer)
-    if authorize is not None:
-        app.state.authorize = authorize
     return app, TestClient(app)
 
 
-def test_permission_in_openapi_and_route() -> None:
+def test_permission_in_openapi() -> None:
     app, _ = _app()
     paths = app.openapi()["paths"]
     assert paths["/v1/open"]["get"]["x-permission"] == "public"
@@ -71,7 +70,8 @@ def test_route_keeps_permission() -> None:
     assert router.routes[-1].permission == ("project.read",)
 
 
-def test_closed_by_default_without_authorizer() -> None:
+def test_closed_by_default_without_gate(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delattr(authz, "gate", raising=False)
     _, client = _app()
     assert client.get("/v1/open").status_code == 200
     assert client.post("/v1/totp").status_code == 200
@@ -79,15 +79,20 @@ def test_closed_by_default_without_authorizer() -> None:
     assert (r.status_code, r.json()["code"]) == (403, "FORBIDDEN")
 
 
-def test_authorizer_receives_codes() -> None:
+def test_gate_of_sec005_is_used(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = []
 
-    async def authorize(request: Request, codes: tuple[str, ...]) -> None:
-        calls.append(codes)
-        if "money.read" in codes:
-            raise ApiError("TOTP_REQUIRED")
+    def gate(codes: tuple[str, ...]):
+        async def check() -> None:
+            calls.append(codes)
+            if "money.read" in codes:
+                raise HTTPException(403, detail={"code": "TOTP_REQUIRED"})
 
-    _, client = _app(authorize)
+        return Depends(check)
+
+    monkeypatch.setattr(authz, "gate", gate, raising=False)
+    _, client = _app()
+    assert client.get("/v1/open").status_code == 200
     assert client.get("/v1/project").status_code == 200
     r = client.get("/v1/any")
     assert (r.status_code, r.json()["code"]) == (403, "TOTP_REQUIRED")
