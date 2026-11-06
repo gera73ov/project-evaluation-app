@@ -33,23 +33,7 @@ from tests.contract.openapi_impl import (
 
 #: Известные расхождения: операция → виды расхождений (текст до первого двоеточия).
 #: Каждая запись — долг трека-владельца эндпоинта; исправил — удали запись, иначе тест упадёт.
-#: Эндпоинты AUTH (трек 3) пока отдают словари без ``response_model``, поэтому схема успешного
-#: ответа в сгенерированном OpenAPI пустая.
-KNOWN_GAPS: dict[tuple[str, str], set[str]] = {
-    ("post", "/auth/login"): {"ответ 200"},
-    ("get", "/auth/options"): {"ответ 200"},
-    ("post", "/auth/totp"): {"ответ 200"},
-    ("post", "/auth/totp/enroll"): {"ответ 200"},
-    ("post", "/auth/totp/enroll/confirm"): {"ответ 200"},
-    ("post", "/auth/step-up"): {"ответ 200"},
-    ("get", "/me"): {"ответ 200"},
-    ("patch", "/me"): {"ответ 200"},
-    ("get", "/me/sessions"): {"ответ 200"},
-    ("post", "/me/totp"): {"ответ 200"},
-    ("post", "/me/backup-codes"): {"ответ 200"},
-    ("get", "/me/notification-settings"): {"ответ 200"},
-    ("put", "/me/notification-settings"): {"ответ 200"},
-}
+KNOWN_GAPS: dict[tuple[str, str], set[str]] = {}
 
 
 def _generated() -> dict[str, Any]:
