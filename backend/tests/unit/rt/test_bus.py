@@ -54,7 +54,7 @@ def test_valid_events_pass_full_schema() -> None:
     validate_event(
         _event("member.updated", f"project:{PROJECT}", {"user_ids": [USER], "change": "added"}, 3)
     )
-    money = {"totals": {"cost_rub": "100.5", "quote_rub": None, "quote_cur": None}}
+    money = {"totals": {"cost_rub": "12500000", "quote_rub": None, "quote_cur": None}}
     validate_event(_event("money.updated", f"project:{PROJECT}:money", money, 4))
 
 
@@ -166,3 +166,19 @@ async def test_lock_interface_stub_and_replacement() -> None:
         locks.set_lock_checker(previous)
     assert calls == ["o"]
     assert isinstance(previous, locks.NoLocks)
+
+
+@pytest.mark.spec("BR-MONEY-04")
+def test_money_amounts_are_not_capped() -> None:
+    """CR-002: суммы в рублях — целые без ограничения разрядности, как MoneyString в OpenAPI."""
+    channel = f"project:{PROJECT}:money"
+    big = {
+        "totals": {"cost_rub": "1250000000", "quote_rub": "987654321", "quote_cur": "12397"},
+        "contract_amount": "1500000000",
+        "rates": [{"discipline_id": None, "rate_rub": "250000"}],
+        "vat_percent": "20",
+    }
+    validate_event(_event("money.updated", channel, big, 9))
+    fraction = {"totals": {"cost_rub": "100.5", "quote_rub": None, "quote_cur": None}}
+    with pytest.raises(EventContractError, match="не по схеме"):
+        validate_event(_event("money.updated", channel, fraction, 9))

@@ -52,6 +52,16 @@
       "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
       "description": "Десятичное число строкой (15.1)"
     },
+    "MoneyString": {
+      "type": "string",
+      "pattern": "^\\d+$",
+      "description": "Деньги: целое число ₽ или единиц валюты КП, без ограничения разрядности (BR-MONEY-04; как MoneyString в openapi.yaml, CR-002)"
+    },
+    "Percent": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+)?$",
+      "description": "Процент строкой, например НДС (как DecimalString в openapi.yaml, CR-002)"
+    },
     "LockField": {
       "type": "string",
       "enum": [
@@ -485,9 +495,7 @@
         "cost_rub": {
           "oneOf": [
             {
-              "type": "string",
-              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
-              "description": "Десятичное число строкой (15.1)"
+              "$ref": "#/$defs/MoneyString"
             },
             {
               "type": "null"
@@ -497,9 +505,7 @@
         "quote_rub": {
           "oneOf": [
             {
-              "type": "string",
-              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
-              "description": "Десятичное число строкой (15.1)"
+              "$ref": "#/$defs/MoneyString"
             },
             {
               "type": "null"
@@ -509,9 +515,7 @@
         "quote_cur": {
           "oneOf": [
             {
-              "type": "string",
-              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
-              "description": "Десятичное число строкой (15.1)"
+              "$ref": "#/$defs/MoneyString"
             },
             {
               "type": "null"
@@ -521,9 +525,7 @@
         "vat_rub": {
           "oneOf": [
             {
-              "type": "string",
-              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
-              "description": "Десятичное число строкой (15.1)"
+              "$ref": "#/$defs/MoneyString"
             },
             {
               "type": "null"
@@ -533,9 +535,7 @@
         "total_with_vat_rub": {
           "oneOf": [
             {
-              "type": "string",
-              "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
-              "description": "Десятичное число строкой (15.1)"
+              "$ref": "#/$defs/MoneyString"
             },
             {
               "type": "null"
@@ -1831,9 +1831,7 @@
                       "rate_rub": {
                         "oneOf": [
                           {
-                            "type": "string",
-                            "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
-                            "description": "Десятичное число строкой (15.1)"
+                            "$ref": "#/$defs/MoneyString"
                           },
                           {
                             "type": "null"
@@ -1854,9 +1852,7 @@
                 "vat_percent": {
                   "oneOf": [
                     {
-                      "type": "string",
-                      "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
-                      "description": "Десятичное число строкой (15.1)"
+                      "$ref": "#/$defs/Percent"
                     },
                     {
                       "type": "null"
@@ -1866,9 +1862,7 @@
                 "contract_amount": {
                   "oneOf": [
                     {
-                      "type": "string",
-                      "pattern": "^\\d{1,5}(\\.\\d{1,2})?$",
-                      "description": "Десятичное число строкой (15.1)"
+                      "$ref": "#/$defs/MoneyString"
                     },
                     {
                       "type": "null"
