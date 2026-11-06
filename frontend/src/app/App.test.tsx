@@ -110,6 +110,8 @@ describe('API и безопасность', () => {
     meta.content = 'n0nce';
     document.head.append(meta);
     expect(cspNonce()).toBe('n0nce');
+    meta.content = '__CSP_NONCE__';
+    expect(cspNonce()).toBeUndefined();
     meta.remove();
     expect(cspNonce()).toBeUndefined();
   });

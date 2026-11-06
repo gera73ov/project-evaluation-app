@@ -152,7 +152,8 @@ services:
       - ./certs/nginx.crt:/etc/nginx/certs/server.crt:ro
       - ./certs/nginx.key:/etc/nginx/certs/server.key:ro
     networks: [backend]
-    ports: ["127.0.0.1:${HTTPS_PORT:-8443}:8443"]
+    # 8080 — только 301 на HTTPS (SEC-WEB-01)
+    ports: ["127.0.0.1:${HTTPS_PORT:-8443}:8443", "127.0.0.1:${HTTP_PORT:-8080}:8080"]
     depends_on:
       api: { condition: service_healthy }
     healthcheck:

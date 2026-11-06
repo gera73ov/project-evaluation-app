@@ -1,0 +1,66 @@
+# QA-010 · долгие тесты (маркер nightly): TC-AUD-01 — 10 000 событий аудита из двух процессов
+# api и worker Celery, затем `estimator audit verify`. На PR не запускаются (tests/conftest.py,
+# RUN_NIGHTLY); здесь — раз в сутки и вручную. Прогон занимает около двух минут.
+# Действия закреплены по SHA коммита (AGENTS.md 6.5); права токена — только чтение.
+name: nightly
+
+on:
+  schedule:
+    - cron: "41 1 * * *" # каждый день 01:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+  UV_PYTHON: "3.12"
+  UV_NO_PROGRESS: "1"
+
+jobs:
+  nightly:
+    name: долгие тесты (TC-AUD-01)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+        env:
+          POSTGRES_USER: estimator
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U estimator" --health-interval 2s
+          --health-timeout 5s --health-retries 30
+      redis:
+        image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+        ports:
+          - 127.0.0.1:6379:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 2s
+          --health-timeout 5s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://estimator@127.0.0.1:5432/postgres
+      TEST_REDIS_URL: redis://127.0.0.1:6379/15
+      RUN_NIGHTLY: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Установить зависимости из uv.lock
+        run: uv sync --all-groups
+      - name: pytest (только nightly)
+        run: uv run pytest -m nightly -v
