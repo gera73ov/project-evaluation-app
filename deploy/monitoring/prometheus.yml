@@ -1,0 +1,22 @@
+# INF-010 · Prometheus стенда dev (SPEC 13.1, 18.4, NFR-MNT-05).
+# Опрашивает /metrics каждого экземпляра API напрямую во внутренней сети compose: публичный
+# Nginx /metrics не проксирует. Обе реплики api находятся через DNS сервиса.
+# Запуск: `docker compose -f deploy/compose/docker-compose.yml --profile monitoring up -d`,
+# интерфейс — http://127.0.0.1:9090.
+#
+# Полезные запросы (SPEC 18.4):
+#   p95 по эндпоинтам: histogram_quantile(0.95, sum by (le, route) (rate(estimator_http_request_duration_seconds_bucket[5m])))
+#   доля 5xx:          sum(rate(estimator_http_responses_total{status_class="5xx"}[5m])) / sum(rate(estimator_http_responses_total[5m]))
+#   входы с ошибкой:   sum(rate(estimator_auth_login_failures_total[1m])) * 60
+#   очередь Celery:    estimator_celery_queue_length
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: estimator-api
+    metrics_path: /metrics/
+    dns_sd_configs:
+      - names: [api]
+        type: A
+        port: 8000

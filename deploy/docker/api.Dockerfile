@@ -20,8 +20,11 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/src ./src
 # Каталог прав (SEC-005) — из contracts/, единственного источника; кладётся в пакет
 COPY contracts/permissions.yaml ./src/estimator/security/authz/permissions.yaml
+# Контракт WS-событий (RT-001) — для проверки событий шиной RT-002
+COPY contracts/ws-events.schema.json ./src/estimator/realtime/bus/ws-events.schema.json
 RUN uv sync --frozen --no-dev --no-editable \
- && /opt/venv/bin/python -c "from estimator.security.authz.catalog import load_catalog; load_catalog()"
+ && /opt/venv/bin/python -c "from estimator.security.authz.catalog import load_catalog; load_catalog()" \
+ && /opt/venv/bin/python -c "from estimator.realtime.bus.contract import events; assert events()"
 
 FROM ${PYTHON_IMAGE} AS runtime
 ARG APP_VERSION=0.1.0

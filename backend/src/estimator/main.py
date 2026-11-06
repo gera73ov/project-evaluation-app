@@ -19,7 +19,12 @@ from estimator.api.common.errors import install_error_handlers
 from estimator.config import Settings, get_settings
 from estimator.jobs.celery_app import queue_lengths
 from estimator.logging import RequestIdMiddleware, configure_logging, get_logger
-from estimator.metrics import REGISTRY, QueueLengthCollector, metrics_app
+from estimator.metrics import (
+    REGISTRY,
+    QueueLengthCollector,
+    RequestMetricsMiddleware,
+    metrics_app,
+)
 from estimator.redis_client import make_redis
 from estimator.security.authz.routes import assert_routes_protected
 from estimator.security.web.headers import SecurityHeadersMiddleware
@@ -63,6 +68,8 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     # Внешние слои: заголовки ставятся и на ответы-ошибки, лимит тела — до разбора запроса
     app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
+    # Самый внешний слой: время и код считаются и для ответов 413 и заголовков (INF-010)
+    app.add_middleware(RequestMetricsMiddleware)
     return app
 
 
