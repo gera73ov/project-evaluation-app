@@ -420,3 +420,7 @@ class NodeMutation(_Strict):
     totals: HoursTotals
     branch_status: BranchStatusChange | None
     rounded: list[str] = Field(default=None)  # type: ignore[assignment]
+
+
+class BranchStatusPut(_Strict):
+    status: BranchStatusValue
