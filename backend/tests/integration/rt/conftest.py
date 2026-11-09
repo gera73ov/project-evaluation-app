@@ -18,6 +18,7 @@ from collections.abc import AsyncIterator, Callable
 from decimal import Decimal
 from typing import Any
 
+import httpx
 import pytest
 import uvicorn
 from redis.asyncio import Redis
@@ -26,14 +27,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from websockets.asyncio.client import ClientConnection, connect
 
 from estimator import health
+from estimator.auth.context import get_session_service
 from estimator.auth.policy import SessionPolicy
 from estimator.auth.sessions import COOKIE_NAME, SessionService
 from estimator.config import Settings
 from estimator.db.enums import ProjectRole, ProjectStatus, SystemRole
 from estimator.db.models.dictionaries import Discipline
 from estimator.db.models.projects import Project, ProjectMember
+from estimator.db.session import db_session as db_session_dependency
+from estimator.db.session import run_after_commit
 from estimator.main import create_app
 from estimator.realtime.runtime import Realtime
+from estimator.redis_client import get_redis
+from estimator.security.web.csrf import CSRF_HEADER
 from tests.conftest import REDIS_ENV_VAR
 from tests.integration.auth.conftest import Clock, complete_setup
 from tests.integration.auth.helpers import make_user
@@ -112,7 +118,18 @@ class Stage:
         self.service = service
         self.url = f"ws://127.0.0.1:{port}/api/v1/ws"
         self.realtime: Realtime | None = None
+        self.api: httpx.AsyncClient | None = None
+        #: CSRF-токен сессии: ``csrf[sid]``
+        self.csrf: dict[str, str] = {}
         self._opened: list[ClientConnection] = []
+
+    async def rest(self, method: str, sid: str, path: str, **kw: Any) -> httpx.Response:
+        """Запрос REST от имени сессии ``sid``."""
+        assert self.api is not None
+        self.api.cookies.clear()
+        self.api.cookies.set(COOKIE_NAME, sid)
+        headers = {CSRF_HEADER: self.csrf.get(sid, "")}
+        return await self.api.request(method, f"/api/v1{path}", headers=headers, **kw)
 
     @contextlib.asynccontextmanager
     async def data(self) -> AsyncIterator[AsyncSession]:
@@ -145,9 +162,10 @@ class Stage:
                 db.add(ProjectMember(project_id=project.id, user_id=user.id, role=role,
                                      discipline_id=discipline))  # fmt: skip
                 await db.flush()
-            sid, _ = await self.service.create(
+            sid, record = await self.service.create(
                 db, user.id, roles, SessionPolicy(), ip=CLIENT_IP, mfa_passed=mfa
             )
+            self.csrf[sid] = record.csrf
             return user.id, sid
 
     async def connect(
@@ -194,6 +212,17 @@ async def stage(
     )
     realtime.revalidate_seconds = 0.5
     app.state.realtime = realtime
+
+    async def override_db() -> AsyncIterator[AsyncSession]:
+        # REST идёт по очереди с WebSocket; commit точки сохранения отправляет события шины
+        async with lock:
+            yield db_session
+            await db_session.commit()
+            await run_after_commit(db_session)
+
+    app.dependency_overrides[db_session_dependency] = override_db
+    app.dependency_overrides[get_session_service] = lambda: service
+    app.dependency_overrides[get_redis] = lambda: redis_client
     port = free_port()
     config = uvicorn.Config(
         app, host="127.0.0.1", port=port, lifespan="on", log_config=None,
@@ -207,9 +236,12 @@ async def stage(
     st = Stage(db_session, lock, service, port)
     st.realtime = realtime
     st.clock = clock  # type: ignore[attr-defined]
+    transport = httpx.ASGITransport(app=app, client=(CLIENT_IP, 1))
+    st.api = httpx.AsyncClient(transport=transport, base_url="https://test")
     try:
         yield st
     finally:
+        await st.api.aclose()
         await st.close()
         server.should_exit = True
         with contextlib.suppress(Exception):

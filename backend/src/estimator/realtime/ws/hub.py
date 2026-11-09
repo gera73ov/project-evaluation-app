@@ -66,6 +66,10 @@ class Connection:
     close_reason: str = ""
     #: Перепроверить права немедленно (``member.updated`` о пользователе, RT-008)
     recheck: asyncio.Event = field(default_factory=asyncio.Event)
+    #: Захваты ячеек этого соединения: ``(проект, узел, поле) → срок (UTC, с)`` (RT-005)
+    locks: dict[tuple[uuid.UUID, uuid.UUID, str], float] = field(default_factory=dict)
+    #: Проекты, по которым идёт догрузка ``since``: живые события ждут здесь (RT-007)
+    holding: dict[uuid.UUID, list[Message]] = field(default_factory=dict)
 
     @property
     def user_channel(self) -> str:
@@ -82,10 +86,18 @@ class Connection:
     def closing(self) -> bool:
         return self.close_code is not None
 
-    def push(self, message: Message) -> bool:
-        """Поставить сообщение в очередь; переполнение — отключение кодом 1013."""
+    def push(self, message: Message, *, direct: bool = False) -> bool:
+        """Поставить сообщение в очередь; переполнение — отключение кодом 1013.
+
+        Событие проекта, по которому идёт догрузка, откладывается до её конца (``direct=False``).
+        """
         if self.closing:
             return False
+        if not direct and self.holding and message.get("type") == "event":
+            held = self.holding.get(_project_of(str(message.get("channel", ""))))  # type: ignore[arg-type]
+            if held is not None:
+                held.append(message)
+                return True
         try:
             self.queue.put_nowait(message)
         except asyncio.QueueFull:
@@ -126,7 +138,10 @@ def unregister_filter(event: str) -> None:
 def _project_of(channel: str) -> uuid.UUID | None:
     if not channel.startswith("project:"):
         return None
-    return uuid.UUID(channel.split(":")[1])
+    try:
+        return uuid.UUID(channel.split(":")[1])
+    except ValueError:
+        return None
 
 
 def visible(conn: Connection, event: Message, *, strict: bool = False) -> bool:
@@ -136,7 +151,15 @@ def visible(conn: Connection, event: Message, *, strict: bool = False) -> bool:
         return True
     project_id = _project_of(channel)
     access = conn.projects.get(project_id) if project_id else None
-    if access is None or channel not in access.channels:
+    if access is None:
+        return False
+    return allowed(access, event, strict=strict)
+
+
+def allowed(access: ProjectAccess, event: Message, *, strict: bool = True) -> bool:
+    """Событие проекта по правам подписчика: канал, деньги, фильтры доменов (RT-004, RT-007)."""
+    channel = str(event.get("channel", ""))
+    if channel not in access.channels:
         return False
     if strict and channel_kind(channel) != "money" and money_keys_in(event.get("data")):
         # Шина уже не пропускает такие события (RT-002); вторая проверка — на стендах dev/test

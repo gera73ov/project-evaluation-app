@@ -36,6 +36,9 @@ from estimator.config import AppEnv, Settings
 from estimator.db.session import transaction
 from estimator.logging import get_logger
 from estimator.realtime.bus import EventBus, set_bus
+from estimator.realtime.locks import RedisLockChecker, RedisLocks
+from estimator.realtime.locks.iface import LockChecker, set_lock_checker
+from estimator.realtime.locks.service import CellLocks
 from estimator.realtime.presence import SWEEP_SECONDS, Presence
 from estimator.realtime.pubsub import Listener, RedisBus, publish_control
 from estimator.realtime.revoke import CONTROL_SESSION_ENDED, session_ended_message
@@ -73,6 +76,8 @@ class Realtime:
         self.clock = clock
         self.hub = Hub(strict=settings.app_env in (AppEnv.DEV, AppEnv.TEST))
         self.presence = Presence(redis, clock)
+        self.locks = RedisLocks(redis, clock)
+        self.cells = CellLocks(self.locks, clock)
         self.allowed_hosts = allowed_origin_hosts(settings)
         self.revalidate_seconds = REVALIDATE_SECONDS
         self.sweep_seconds: float = SWEEP_SECONDS
@@ -83,6 +88,7 @@ class Realtime:
             on_reconnect=self.on_reconnect,
         )
         self._previous_bus: EventBus | None = None
+        self._previous_checker: LockChecker | None = None
         self._sweeper: asyncio.Task[None] | None = None
 
     def session_service(self) -> SessionService:
@@ -92,6 +98,7 @@ class Realtime:
 
     async def start(self, *, wait_ready: float = 5.0) -> None:
         self._previous_bus = set_bus(RedisBus(self.redis))
+        self._previous_checker = set_lock_checker(RedisLockChecker(self.locks))
         add_session_ended_listener(self.on_session_ended)
         self.listener.start()
         self._sweeper = asyncio.create_task(self._sweep_loop(), name="rt-presence-sweep")
@@ -112,13 +119,18 @@ class Realtime:
         if self._previous_bus is not None:
             set_bus(self._previous_bus)
             self._previous_bus = None
+        if self._previous_checker is not None:
+            set_lock_checker(self._previous_checker)
+            self._previous_checker = None
 
     # --- входящие из Redis ---
 
-    def on_event(self, event: dict[str, Any]) -> None:
+    async def on_event(self, event: dict[str, Any]) -> None:
         if event.get("event") == "member.updated":
             self._recheck_members(event)
         self.hub.dispatch(event)
+        # захваты: сохранение поля автором снимает захват, перехват — забыть свой (RT-005)
+        await self.cells.on_event(self.hub, event)
 
     def _recheck_members(self, event: dict[str, Any]) -> None:
         channel = str(event.get("channel", ""))

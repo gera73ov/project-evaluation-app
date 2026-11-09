@@ -132,13 +132,13 @@ async def test_runtime_control_and_member_recheck(redis_client: Redis) -> None:
     for c in (alice, bob):
         rt.hub.add(c)
         rt.hub.set_access(c, ProjectAccess(project))
-    rt.on_event(build_event(f"project:{project}", "member.updated",
+    await rt.on_event(build_event(f"project:{project}", "member.updated",
                             {"user_ids": [str(bob.user_id)], "change": "updated"},
                             project_version=4))  # fmt: skip
     assert bob.recheck.is_set()
     assert not alice.recheck.is_set()
     assert alice.queue.qsize() == bob.queue.qsize() == 1
-    rt.on_event({"event": "member.updated", "channel": "broken", "data": {}})
+    await rt.on_event({"event": "member.updated", "channel": "broken", "data": {}})
 
     rt.on_control({"kind": "session_ended", "session_hash": "zz"})
     rt.on_control({"kind": "unknown"})

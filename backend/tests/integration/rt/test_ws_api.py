@@ -147,7 +147,7 @@ async def test_bad_commands_and_limits(stage: Stage) -> None:
     assert extra["code"] == "VALIDATION_FAILED"
     locked = await client.call("lock", project_id=str(uuid.uuid4()), node_id=str(uuid.uuid4()),
                                field="r")  # fmt: skip
-    assert locked["code"] == "SERVICE_UNAVAILABLE"
+    assert locked["code"] == "NOT_FOUND"  # не подписан на проект
     await client.send("x" * (64 * 1024 + 1))
     assert await client.closed() == 1009
 

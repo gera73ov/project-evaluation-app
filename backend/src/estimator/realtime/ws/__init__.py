@@ -35,10 +35,12 @@ from estimator.auth.policy import read_settings
 from estimator.logging import get_logger
 from estimator.realtime.bus import build_event
 from estimator.realtime.bus.contract import check_event
+from estimator.realtime.changes import VersionTooOld, changes_since
+from estimator.realtime.locks import CellLocked
 from estimator.realtime.revoke import DEFAULT_ENDED, UNAUTH_TO_ENDED
 from estimator.realtime.users import user_ref
 from estimator.realtime.ws import access as ws_access
-from estimator.realtime.ws.hub import Connection, ProjectAccess
+from estimator.realtime.ws.hub import Connection, ProjectAccess, allowed
 from estimator.realtime.ws.protocol import (
     CLOSE_ORIGIN,
     CLOSE_RATE_LIMITED,
@@ -66,6 +68,7 @@ MAX_SUBSCRIPTIONS = 10
 #: Команд за окно; сверх — ``RATE_LIMITED``, сверх двойного — закрытие 4429 (толкование 3)
 RATE_WINDOW_SECONDS = 10.0
 RATE_MAX_COMMANDS = 100
+MAX_LOCKS = 20
 
 router = APIRouter()
 
@@ -164,6 +167,7 @@ class WsSession:
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
             self.rt.hub.remove(conn)
+            await self.rt.cells.release_all(conn, "disconnected")
             await self._leave_all()
 
     async def _leave_all(self) -> None:
@@ -233,6 +237,7 @@ class WsSession:
                 return
             try:
                 await self.revalidate()
+                await self.rt.cells.expire(conn)
             except Exception:  # сбой БД или Redis: проверить на следующем круге
                 log.exception("ws_revalidate_failed")
 
@@ -266,11 +271,49 @@ class WsSession:
             elif command.op == "unsubscribe":
                 await self._unsubscribe(command)
             elif command.op == "heartbeat":
-                # Захватов до RT-005 нет: всё перечисленное — потеряно; сессию не продлевает
-                lost = command.args.get("locks", [])
-                conn.push(ack("heartbeat", command.req_id, {"extended": [], "lost": lost}))
+                # продлевает захваты, но не сессию (FR-SESS-02)
+                extended, lost = await self.rt.cells.extend(conn, command.args.get("locks", []))
+                conn.push(ack("heartbeat", command.req_id, {"extended": extended, "lost": lost}))
+            elif command.op == "lock":
+                await self._lock(db, principal, command)
             else:
-                raise CommandError("SERVICE_UNAVAILABLE", "захват ячеек ещё не включён (RT-005)")
+                await self._unlock(command)
+
+    # --- RT-005: захват ячеек ---
+
+    def _cell(self, command: Command) -> tuple[uuid.UUID, uuid.UUID, str]:
+        return command.uuid("project_id"), command.uuid("node_id"), str(command.args["field"])
+
+    async def _lock(self, db: Any, principal: Principal, command: Command) -> None:
+        conn = self.c
+        key = self._cell(command)
+        project_id, node_id, field = key
+        if project_id not in conn.projects:
+            raise CommandError("NOT_FOUND", "сначала подпишитесь на проект")
+        target = await ws_access.node_target(db, node_id)
+        if target is None or target.project_id != project_id:
+            raise CommandError("NOT_FOUND")
+        authz = ws_access.authorizer(self.ws, principal, db, self.rt.redis)
+        await authz.check(ws_access.write_permission(field), target)
+        force = bool(command.args.get("force", False))
+        if force:
+            await authz.check("tree.lock.force", target)
+        if key not in conn.locks and len(conn.locks) >= MAX_LOCKS:
+            raise CommandError("VALIDATION_FAILED", f"не больше {MAX_LOCKS} захватов")
+        try:
+            got = await self.rt.cells.acquire(conn, key, force=force)
+        except CellLocked as exc:
+            raise CommandError(
+                "CELL_LOCKED", locked_by=exc.holder.user, expires_at=exc.holder.expires_at
+            ) from None
+        conn.push(ack("lock", command.req_id, {"expires_at": got.expires_at}))
+
+    async def _unlock(self, command: Command) -> None:
+        conn = self.c
+        key = self._cell(command)
+        if key in conn.locks:
+            await self.rt.cells.release(conn, key, "released")
+        conn.push(ack("unlock", command.req_id))
 
     async def _current(self, db: Any) -> Principal | None:
         """Сессия и пользователь по актуальным данным; пропали — ``session.ended`` и закрытие."""
@@ -292,12 +335,24 @@ class WsSession:
         if is_new and len(conn.projects) >= MAX_SUBSCRIPTIONS:
             raise CommandError("VALIDATION_FAILED", f"не больше {MAX_SUBSCRIPTIONS} проектов")
         access = await ws_access.project_access(self.ws, principal, db, self.rt.redis, project_id)
-        state = await ws_access.project_state(db, project_id)
+        since = command.args.get("since")
+        # Живые события проекта ждут, пока не дослан журнал: порядок версий сохраняется (RT-007)
+        if since is not None:
+            conn.holding[project_id] = []
         self.rt.hub.set_access(conn, access)
         conn.support_projects = principal.support_projects
-        since = command.args.get("since")
-        # RT-007 заменит на догрузку из change_log; до него отставший клиент перезагружает дерево
-        resync = since is not None and since != state.version
+        state = await ws_access.project_state(db, project_id)
+        backlog: list[dict[str, Any]] = []
+        resync = False
+        if since is not None:
+            try:
+                changes = await changes_since(
+                    db, project_id, since, state.version,
+                    allowed=lambda e: allowed(access, e, strict=self.rt.hub.strict),
+                )  # fmt: skip
+                backlog = changes.events
+            except VersionTooOld:
+                resync = True
         conn.push(
             ack(
                 "subscribe",
@@ -316,13 +371,27 @@ class WsSession:
                 {"project_id": str(project_id), "project_version": state.version},
             )
             check_event(event)
-            conn.push(event)
+            conn.push(event, direct=True)
+        for event in backlog:
+            conn.push(event, direct=True)
+        self._release_hold(project_id, state.version if resync else _last_version(backlog, since))
         if is_new:
             await self.rt.presence.join(project_id, conn.id, conn.user)
+
+    def _release_hold(self, project_id: uuid.UUID, sent_up_to: int | None) -> None:
+        """Отложенные живые события — после журнала, без уже досланных версий."""
+        conn = self.c
+        held = conn.holding.pop(project_id, None) or []
+        for event in held:
+            version = event.get("project_version")
+            if sent_up_to is not None and isinstance(version, int) and version <= sent_up_to:
+                continue
+            conn.push(event)
 
     async def _unsubscribe(self, command: Command) -> None:
         conn = self.c
         project_id = command.uuid("project_id")
+        await self.rt.cells.release_all(conn, "released", project_id=project_id)
         if self.rt.hub.drop_project(conn, project_id):
             await self._presence_leave(project_id)
         conn.push(ack("unsubscribe", command.req_id))
@@ -358,6 +427,8 @@ class WsSession:
                     continue
                 if access != conn.projects.get(project_id):
                     self.rt.hub.set_access(conn, access)
+            if conn.locks:
+                await self._recheck_locks(db, principal)
 
     async def revoke(self, project_id: uuid.UUID, reason: str) -> None:
         """``access.revoked`` подписчику и отписка от всех каналов проекта."""
@@ -369,12 +440,33 @@ class WsSession:
         )
         check_event(event)
         conn.push(event)
+        await self.rt.cells.release_all(conn, "released", project_id=project_id)
         if self.rt.hub.drop_project(conn, project_id):
             await self._presence_leave(project_id)
+
+    async def _recheck_locks(self, db: Any, principal: Principal) -> None:
+        """Пропало право правки узла (``member.updated``, статус проекта) — снять захват."""
+        conn = self.c
+        for key in list(conn.locks):
+            _, node_id, field = key
+            target = await ws_access.node_target(db, node_id)
+            try:
+                if target is None:
+                    raise HTTPException(404)
+                await ws_access.check_silent(
+                    self.ws, principal, db, self.rt.redis, ws_access.write_permission(field), target
+                )
+            except HTTPException:
+                await self.rt.cells.release(conn, key, "released")
 
     def end_session(self, reason: str) -> None:
         conn = self.c
         end_connection(conn, reason)
+
+
+def _last_version(events: list[dict[str, Any]], since: int | None) -> int | None:
+    versions = [e["project_version"] for e in events if isinstance(e.get("project_version"), int)]
+    return max(versions, default=since)
 
 
 def end_connection(conn: Connection, reason: str) -> None:

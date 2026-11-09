@@ -28,7 +28,7 @@ from estimator.db.models.projects import Project, ProjectMember
 from estimator.realtime.ws.hub import ProjectAccess
 from estimator.security import audit
 from estimator.security.authz import deps as authz_deps
-from estimator.security.authz.engine import AccessDenied, decide_any
+from estimator.security.authz.engine import AccessDenied, Target, decide_any
 from estimator.security.networks import address_allowed, load_admin_networks
 from estimator.security.ratelimit.limiter import client_ip
 
@@ -151,3 +151,35 @@ async def revoke_reason(
     }:
         return "project_hidden"
     return "rights_changed"
+
+
+# --- RT-005: права на захват ячейки ---
+
+
+def write_permission(field: str) -> str:
+    """Право правки поля: комментарий — ``comment.write``, остальные ячейки — ``tree.write``."""
+    return "comment.write" if field == "comment" else "tree.write"
+
+
+async def node_target(db: AsyncSession, node_id: uuid.UUID) -> Target | None:
+    """Узел → проект, статус и дисциплина (тот же загрузчик, что у ``/nodes/{id}``)."""
+    from estimator.api.v1.nodes import node_target as load
+
+    return await load(db, node_id)
+
+
+async def check_silent(
+    ws: WebSocket,
+    principal: Principal,
+    db: AsyncSession,
+    redis: Redis,
+    code: str,
+    target: Target,
+) -> None:
+    """Проверка права без аудита отказа (перепроверка); отказ — ``HTTPException``."""
+    authz = authorizer(ws, principal, db, redis)
+    subject = await authz.subject(target.project_id, (code,))
+    try:
+        decide_any(authz.catalog, subject, (code,), target)
+    except AccessDenied as exc:
+        raise HTTPException(exc.status, detail=exc.detail()) from None
