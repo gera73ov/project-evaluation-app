@@ -57,6 +57,8 @@ const threadEdits = new Map<string, Partial<DemoThread>>();
 let counter = 0;
 
 export function resetDemoDiscussions(): void {
+  notes.length = 0;
+  noteEdits.clear();
   posted.length = 0;
   opened.length = 0;
   messageEdits.clear();
@@ -347,4 +349,91 @@ export function suggest(p: DemoProject, q: string) {
       );
     })
     .slice(0, 10);
+}
+
+// --- FE-031: закрытые заметки --------------------------------------------------------------
+
+type DemoNote = {
+  id: string;
+  node_id: string | null;
+  author: UserRef;
+  body: string;
+  created_at: string;
+  edited_at: string | null;
+};
+
+const notes: (DemoNote & { project: DemoProject })[] = [];
+const noteEdits = new Map<string, Partial<DemoNote>>();
+
+/** Заметки «Обмена с 1С» как на `work.png` (11.4 №18). */
+function seededNotes(p: DemoProject): DemoNote[] {
+  if (p.key !== "portal") return [];
+  return [
+    {
+      id: uuidFrom("note", "portal", "1c-presale"),
+      node_id: nodeId("n-1c"),
+      author: userRef(PERSONAS.presale),
+      body: "Заказчик торгуется по интеграции. Держим P80, скидку даём только за счёт УП.",
+      created_at: at("2026-11-02T17:05"),
+      edited_at: null,
+    },
+    {
+      id: uuidFrom("note", "portal", "1c-moderator"),
+      node_id: nodeId("n-1c"),
+      author: userRef(PERSONAS.moderator),
+      body: "Согласна. Если спецификации 1С не будет до 15.12 — вынести интеграцию отдельным этапом.",
+      created_at: at("2026-11-02T17:20"),
+      edited_at: null,
+    },
+  ];
+}
+
+function allNotes(p: DemoProject): DemoNote[] {
+  return [
+    ...seededNotes(p),
+    ...notes
+      .filter((n) => n.project === p)
+      .map((n) => ({
+        id: n.id,
+        node_id: n.node_id,
+        author: n.author,
+        body: n.body,
+        created_at: n.created_at,
+        edited_at: n.edited_at,
+      })),
+  ].map((n) => ({ ...n, ...noteEdits.get(n.id) }));
+}
+
+/** `GET /projects/{id}/notes?node_id=`: без `node_id` — заметки проекта. */
+export function listNotes(p: DemoProject, node: string | null) {
+  return {
+    items: allNotes(p)
+      .filter((n) => n.node_id === node)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    next_cursor: null,
+  };
+}
+
+export function createNote(p: DemoProject, body: Body, author: UserRef) {
+  const note = {
+    id: nextId("note"),
+    node_id: typeof body.node_id === "string" ? body.node_id : null,
+    author,
+    body: String(body.body ?? ""),
+    created_at: new Date().toISOString(),
+    edited_at: null,
+  };
+  notes.push({ ...note, project: p });
+  return note;
+}
+
+export function patchNote(p: DemoProject, id: string, body: Body) {
+  const note = allNotes(p).find((n) => n.id === id);
+  if (!note) return undefined;
+  const fields = {
+    body: String(body.body ?? ""),
+    edited_at: new Date().toISOString(),
+  };
+  noteEdits.set(id, fields);
+  return { ...note, ...fields };
 }

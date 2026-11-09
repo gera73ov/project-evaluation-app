@@ -460,6 +460,20 @@ const DEMO: Record<string, Demo> = {
         }
       : undefined,
 
+  // FE-031: закрытые заметки (права и TOTP проверяет цепочка прав выше)
+  listNotes: (ctx) =>
+    ctx.project
+      ? demoDiscussions.listNotes(ctx.project, ctx.params.node_id ?? null)
+      : undefined,
+  createNote: (ctx) =>
+    ctx.project
+      ? demoDiscussions.createNote(ctx.project, body(ctx), userRef(ctx.persona))
+      : undefined,
+  patchNote: (ctx) =>
+    ctx.project
+      ? demoDiscussions.patchNote(ctx.project, ctx.params.id ?? "", body(ctx))
+      : undefined,
+
   // FE-018: корзина. Модератор видит всё, эксперт — свою дисциплину, документы — модератор и
   // пресейл (FR-TREE-24, GAP-06)
   getTrash: (ctx) => {
