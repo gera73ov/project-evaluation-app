@@ -341,6 +341,9 @@ function WorkScreen({
       return null;
     },
     tags: new Map((tags.data ?? []).map((tag) => [tag.id, tag.short_name])),
+    notes: perms.has('notes.read')
+      ? { canWrite: perms.has('notes.write') && !offline && !READ_ONLY_STATUSES.has(data.status) }
+      : undefined,
     isLeaf: (id) =>
       !(store.getState().children.get(id)?.length ?? 0) && store.getState().nodes.get(id)?.kind === 'item',
   };

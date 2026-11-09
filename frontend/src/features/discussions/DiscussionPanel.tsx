@@ -15,7 +15,9 @@ import { useSession } from '../../app/session';
 import { api } from '../../shared/api/client';
 import { call, errorMessage } from '../../shared/api/problem';
 import { formatDateTime } from '../../shared/format/date';
+import { AutoLinkText } from '../../shared/ui/AutoLinkText';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
+import { NotesPanel, useNotes } from '../notes/NotesPanel';
 import { Composer, type SendRequest } from './Composer';
 import {
   canEditMessage,
@@ -28,7 +30,6 @@ import {
   type Message,
   type Thread,
 } from './feed';
-import { Linkify } from './Linkify';
 
 /** Что нужно обсуждению от рабочего экрана. */
 export interface DiscussionSetup {
@@ -49,6 +50,8 @@ export interface DiscussionSetup {
   /** Метки комментария для «Добавить вывод в комментарий». */
   tags: ReadonlyMap<string, string>;
   isLeaf: (nodeId: string) => boolean;
+  /** Закрытые заметки (FE-031): только с `notes.read`; нет — вкладки нет в DOM. */
+  notes?: { canWrite: boolean } | undefined;
 }
 
 export const feedKey = (nodeId: string) => ['feed', nodeId] as const;
@@ -87,8 +90,22 @@ function canResolve(thread: Thread, setup: DiscussionSetup): boolean {
   );
 }
 
-export function DiscussionPanel({ nodeId, title, setup }: { nodeId: string; title: string; setup: DiscussionSetup }) {
+export function DiscussionPanel({
+  nodeId,
+  title,
+  path,
+  setup,
+}: {
+  nodeId: string;
+  title: string;
+  /** «Обмен с 1С · Разработка › Бэкенд» справа от вкладок. */
+  path?: string;
+  setup: DiscussionSetup;
+}) {
   const { t } = useTranslation();
+  const [tab, setTab] = useState<'discussion' | 'notes'>('discussion');
+  // счётчик вкладки «Заметки»: тот же запрос, что и у списка
+  const notes = useNotes(setup.projectId, nodeId, Boolean(setup.notes));
   const client = useQueryClient();
   const { session } = useSession();
   const timeZone = session.state === 'ready' ? (session.me.timezone ?? undefined) : undefined;
@@ -304,7 +321,7 @@ export function DiscussionPanel({ nodeId, title, setup }: { nodeId: string; titl
             </div>
           ) : (
             <div className="msg-body">
-              <Linkify text={m.body} />
+              <AutoLinkText text={m.body} />
             </div>
           )}
         </div>
@@ -318,74 +335,113 @@ export function DiscussionPanel({ nodeId, title, setup }: { nodeId: string; titl
 
   return (
     <div className="disc-panel" role="region" aria-label={t('discussion.region', { name: title })}>
-      <div className="disc-head">
-        <div className="disc-qs">
-          {open.length ? (
-            open.map((th) => (
-              <div key={th.id} className={target?.id === th.id ? 'disc-q on' : 'disc-q'}>
-                <b className="q-open">{t('discussion.openQuestion')}</b>
-                {th.first_message.addressees.length ? (
-                  <span>
-                    {' · '}
-                    {t('discussion.addressee')} {th.first_message.addressees.map(label).join(', ')}
-                  </span>
-                ) : null}
-                {statusOf(th) ? <span> · {t('discussion.status', { status: statusOf(th) })}</span> : null}
-              </div>
-            ))
-          ) : (
-            <span className="disc-title">{t('discussion.title')}</span>
-          )}
-        </div>
-        {hidden > 0 ? (
-          <button type="button" className="link" onClick={() => setAll(true)}>
-            {t('discussion.showAll', { count: entries.length })}
-          </button>
-        ) : all && entries.length > SHOWN ? (
-          <button type="button" className="link" onClick={() => setAll(false)}>
-            {t('discussion.showLast')}
-          </button>
-        ) : null}
-      </div>
-      {feed.isPending ? <div className="disc-empty">{t('common.loading')}</div> : null}
-      {feed.isError ? (
-        <div className="err" role="alert">
-          {errorMessage(feed.error)}
+      {setup.notes ? (
+        <div className="disc-tabs">
+          <div role="tablist" aria-label={t('discussion.region', { name: title })}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'discussion'}
+              className={tab === 'discussion' ? 'on' : undefined}
+              onClick={() => setTab('discussion')}
+            >
+              💬 {t('discussion.title')} <span className="c">{entries.length}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'notes'}
+              className={tab === 'notes' ? 'on money' : 'money'}
+              onClick={() => setTab('notes')}
+            >
+              🔒 {t('notes.tab')}
+              {notes.data ? <span className="c">{notes.data.items.length}</span> : null}
+            </button>
+          </div>
+          {path ? <span className="disc-path">{path}</span> : null}
         </div>
       ) : null}
-      {feed.isSuccess && !entries.length ? <div className="disc-empty">{t('discussion.empty')}</div> : null}
-      {shown.length ? <ol className="disc-feed">{shown.map(renderEntry)}</ol> : null}
-      {error ? (
-        <div className="err" role="alert">
-          {error}
+      {tab === 'notes' && setup.notes ? (
+        <div role="tabpanel">
+          <NotesPanel
+            projectId={setup.projectId}
+            nodeId={nodeId}
+            canWrite={setup.notes.canWrite}
+            roleOf={setup.roleOf}
+          />
         </div>
-      ) : null}
-      {setup.canWrite ? (
-        <Composer
-          projectId={setup.projectId}
-          busy={busy}
-          target={
-            target && open.length > 1
-              ? {
-                  label: target.first_message.body.slice(0, 40),
-                  onClear: () => setTargetId(null),
+      ) : (
+        <>
+          <div className="disc-head">
+            <div className="disc-qs">
+              {open.length ? (
+                open.map((th) => (
+                  <div key={th.id} className={target?.id === th.id ? 'disc-q on' : 'disc-q'}>
+                    <b className="q-open">{t('discussion.openQuestion')}</b>
+                    {th.first_message.addressees.length ? (
+                      <span>
+                        {' · '}
+                        {t('discussion.addressee')} {th.first_message.addressees.map(label).join(', ')}
+                      </span>
+                    ) : null}
+                    {statusOf(th) ? <span> · {t('discussion.status', { status: statusOf(th) })}</span> : null}
+                  </div>
+                ))
+              ) : (
+                <span className="disc-title">{t('discussion.title')}</span>
+              )}
+            </div>
+            {hidden > 0 ? (
+              <button type="button" className="link" onClick={() => setAll(true)}>
+                {t('discussion.showAll', { count: entries.length })}
+              </button>
+            ) : all && entries.length > SHOWN ? (
+              <button type="button" className="link" onClick={() => setAll(false)}>
+                {t('discussion.showLast')}
+              </button>
+            ) : null}
+          </div>
+          {feed.isPending ? <div className="disc-empty">{t('common.loading')}</div> : null}
+          {feed.isError ? (
+            <div className="err" role="alert">
+              {errorMessage(feed.error)}
+            </div>
+          ) : null}
+          {feed.isSuccess && !entries.length ? <div className="disc-empty">{t('discussion.empty')}</div> : null}
+          {shown.length ? <ol className="disc-feed">{shown.map(renderEntry)}</ol> : null}
+          {error ? (
+            <div className="err" role="alert">
+              {error}
+            </div>
+          ) : null}
+          {setup.canWrite ? (
+            <Composer
+              projectId={setup.projectId}
+              busy={busy}
+              target={
+                target && open.length > 1
+                  ? {
+                      label: target.first_message.body.slice(0, 40),
+                      onClear: () => setTargetId(null),
+                    }
+                  : null
+              }
+              canResolve={target ? canResolve(target, setup) : false}
+              canConclude={setup.isLeaf(nodeId)}
+              onSend={send}
+              onResolve={(withConclusion) => {
+                if (!target) return;
+                if (!withConclusion) {
+                  void resolve(target, null);
+                  return;
                 }
-              : null
-          }
-          canResolve={target ? canResolve(target, setup) : false}
-          canConclude={setup.isLeaf(nodeId)}
-          onSend={send}
-          onResolve={(withConclusion) => {
-            if (!target) return;
-            if (!withConclusion) {
-              void resolve(target, null);
-              return;
-            }
-            const last = items.filter((m) => m.thread_id === target.id && m.kind !== 'event' && !m.revoked).at(-1);
-            setConclude({ thread: target, text: last?.body ?? '', tag: null });
-          }}
-        />
-      ) : null}
+                const last = items.filter((m) => m.thread_id === target.id && m.kind !== 'event' && !m.revoked).at(-1);
+                setConclude({ thread: target, text: last?.body ?? '', tag: null });
+              }}
+            />
+          ) : null}
+        </>
+      )}
       <ConfirmDialog
         opened={revoking !== null}
         title={t('discussion.revokeTitle')}

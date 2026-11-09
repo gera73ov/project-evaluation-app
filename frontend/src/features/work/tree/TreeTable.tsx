@@ -562,6 +562,16 @@ export function TreeTable({
   const [historyFor, setHistoryFor] = useState<string | null>(null);
   // раскрытые обсуждения под строками (FE-030)
   const [discOpen, setDiscOpen] = useState<ReadonlySet<string>>(new Set());
+  /** «Обмен с 1С · Разработка › Бэкенд»: узел, фаза и дисциплина (11.4 №18). */
+  const pathOf = (nodeId: string) => {
+    const all = store.getState().nodes;
+    const node = all.get(nodeId);
+    if (!node) return '';
+    const phase = [...all.values()].find((n) => n.kind === 'phase' && n.phase_id === node.phase_id);
+    const discipline = node.discipline_id ? ctx.disciplineNames.get(node.discipline_id) : undefined;
+    const where = [phase?.title, discipline].filter(Boolean).join(' › ');
+    return where && node.kind === 'item' ? `${node.title} · ${where}` : node.title;
+  };
   const toggleDiscussion = (nodeId: string) => {
     const closing = discOpen.has(nodeId);
     setDiscOpen((prev) => {
@@ -745,7 +755,12 @@ export function TreeTable({
                 <Row {...rowProps(row)} />
                 {disc && ctx.discussion ? (
                   <div className="disc-wrap" style={{ paddingLeft: indentOf(row.depth) + 40 }}>
-                    <DiscussionPanel nodeId={disc} title={nodes.get(disc)?.title ?? ''} setup={ctx.discussion} />
+                    <DiscussionPanel
+                      nodeId={disc}
+                      title={nodes.get(disc)?.title ?? ''}
+                      path={pathOf(disc)}
+                      setup={ctx.discussion}
+                    />
                   </div>
                 ) : null}
               </div>

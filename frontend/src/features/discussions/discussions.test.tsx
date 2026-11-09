@@ -8,7 +8,6 @@ import { PERSONAS } from '../../shared/api/mocks/personas';
 import { persona, server } from '../../test/setup';
 import { renderApp } from '../../test/render';
 import { canEditMessage, eventParts, feedEntries, keptAddressees, mentionAt, type Message, type Thread } from './feed';
-import { splitLinks } from './Linkify';
 
 const msg = (id: string, fields: Partial<Message> = {}): Message => ({
   id,
@@ -64,14 +63,6 @@ describe('правила ленты', () => {
     const backend = { addressee: { target_type: 'discipline' as const, target_id: 'd' }, label: 'Бэкенд' };
     const customer = { addressee: { target_type: 'customer' as const, target_id: null }, label: 'заказчик' };
     expect(keptAddressees('@Бэкенд, глянь', [backend, customer, backend])).toEqual([backend.addressee]);
-  });
-
-  it('автоссылки только http(s), знак препинания в конце — не часть ссылки, HTML — текст', () => {
-    expect(splitLinks('см. https://wiki.corp/a?b=1. и <b>x</b> javascript:alert(1)')).toEqual([
-      { text: 'см. ' },
-      { href: 'https://wiki.corp/a?b=1' },
-      { text: '. и <b>x</b> javascript:alert(1)' },
-    ]);
   });
 });
 
