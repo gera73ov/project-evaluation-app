@@ -615,3 +615,138 @@ tr:target td{background:var(--accent-soft)}
 .sys-state.bad{color:var(--bad)} .sys-state.bad i{background:var(--bad)}
 .sys-health-detail{font-size:12.5px}
 .sys-health-at{font-size:11.5px;color:var(--muted)}
+
+/* FE-041 · статистика: итоги и динамика (DESIGN.md 10.8, 7.5) */
+.tot-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px 22px 22px;align-items:start}
+.tot-err{margin:12px 22px 0}
+.tot-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.tot-card.m{border-color:var(--money-border,#d9cff2);background:var(--money-surface,#fcfbff)}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.card-head h3{margin:0;font-size:14px}
+.card-head h3.money{color:var(--money)}
+.card-head .sub{color:var(--muted);font-size:12px}
+.tot-table td,.tot-quote td{font-variant-numeric:tabular-nums}
+.tot-table td.m,.tot-table th.m{color:var(--money)}
+.tot-table td.m{background:var(--money-surface,#fcfbff)}
+.tot-table tr.sum td{font-weight:700}
+.tot-table tr.total td{font-weight:700;background:var(--accent-soft)}
+.tot-table tr.total td.m{background:var(--accent-soft)}
+.tot-table tr.empty td{color:var(--faint)}
+.tot-table td.rate-missing{color:var(--warn);background:var(--warn-soft)}
+.tot-table .sub{color:var(--muted);font-size:11.5px}
+.share{display:inline-flex;align-items:center;gap:6px}
+.share i{display:inline-block;height:8px;border-radius:4px;background:var(--accent)}
+.share i.pm{background:#9b8ad0}
+.tot-quote th[scope=row]{font-weight:400;text-align:left;color:var(--ink);background:none}
+.tot-quote tr.strong th,.tot-quote tr.strong td{font-weight:700}
+.tot-quote .on{background:var(--accent-soft);font-weight:700}
+.dyn{margin:0}
+.dyn svg{width:100%;height:auto;display:block}
+.dyn-grid{stroke:var(--line2);stroke-width:1}
+.dyn-axis{font-size:11px;fill:var(--faint)}
+.dyn-line.e path{stroke:var(--accent);stroke-width:2.5}
+.dyn-line.p80 path{stroke:var(--warn);stroke-width:2}
+.dyn-line circle.hit{fill:transparent}
+.dyn-line.e circle.last{fill:var(--accent)} .dyn-line.p80 circle.last{fill:var(--warn)}
+.dyn-snap line{stroke:var(--snapshot,#5b4fc8);stroke-dasharray:4 3;stroke-width:1.2}
+.dyn-snap text{font-size:11px;fill:var(--money);font-weight:600}
+.dyn-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.dyn-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle}
+.dyn-legend i.e{background:var(--accent)} .dyn-legend i.p80{background:var(--warn)}
+@media (max-width:1200px){.tot-grid{grid-template-columns:1fr}}
+
+/* FE-042 · статистика: доли, объёмы, кандидаты, допущения, снимки (DESIGN.md 10.9) */
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px 22px 22px;align-items:start}
+.det-one{padding:18px 22px 22px}
+.det-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0;display:grid;gap:6px}
+.det-card h3{margin:0;font-size:14px}
+.det-phase{width:200px}
+.det-tools{display:flex;gap:8px;align-items:center}
+.hb .b.acc{background:var(--accent)}
+.det-table td{font-variant-numeric:tabular-nums}
+.det-table td.m,.det-table th.m{color:var(--money)}
+.type-ico{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:4px;background:var(--line2);font-size:11px}
+.det-summary{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;margin-top:6px}
+.det-list{list-style:none;margin:0;padding:0}
+.det-list li+li{border-top:1px solid var(--line2)}
+.det-row{display:flex;width:100%;gap:12px;align-items:center;justify-content:space-between;background:none;border:0;padding:9px 10px;font:inherit;text-align:left;cursor:pointer;border-radius:6px}
+.det-row:hover{background:var(--line2)}
+.det-row:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.det-main{display:grid;gap:2px}
+.det-main b{font-weight:500}
+.det-main .sub,.det-tag .sub{color:var(--muted);font-size:12px}
+.det-side{display:flex;gap:10px;align-items:center;white-space:nowrap;font-variant-numeric:tabular-nums}
+.det-side.warn{color:var(--warn);font-weight:600}
+.det-pill-space{display:inline-block;width:90px}
+.det-tags{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.det-tag{display:grid;grid-template-columns:auto 1fr;column-gap:6px;row-gap:2px;align-items:baseline;background:none;border:0;padding:4px 6px;font:inherit;text-align:left;width:100%;border-radius:6px}
+button.det-tag{cursor:pointer}
+button.det-tag:hover{background:var(--line2)}
+.det-tag .sub{grid-column:1/-1}
+.snaps tr.invalid td{color:var(--faint)}
+.snaps tr.invalid .snap-name,.snaps tr.invalid td.num{text-decoration:line-through}
+.snaps .pill{margin-left:6px}
+.snaps td.desc{color:var(--muted)}
+@media (max-width:1200px){.det-grid{grid-template-columns:1fr}}
+
+/* FE-043 · вопросы заказчику и обсуждения (DESIGN.md 7.5, 10.10) */
+.cq-card{padding-top:12px}
+.cq-tools{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line2);margin-bottom:8px}
+.cq-tools .chips{gap:6px}
+.cq-disc{width:170px}
+.cq-export{margin-left:auto;display:inline-flex;align-items:center;gap:8px}
+.cq-table td{vertical-align:top}
+.cq-table th.cb,.cq-table td.cb{width:28px}
+.cq-table th.no,.cq-table td.no{width:70px}
+.cq-table td.no,.cq-no{font-family:var(--m);font-weight:600;color:var(--accent-ink)}
+.cq-table th.who,.cq-table td.who{width:150px}
+.cq-table th.st,.cq-table td.st{width:150px}
+.cq-table td.st .pill{white-space:nowrap}
+.cq-table td.st div{margin-top:4px}
+.cq-table tr.sel td{background:var(--row-selected,#f7fbfd)}
+.cq-table tr.cq-closed td{color:var(--muted)}
+.cq-table tr.cq-withdrawn td{color:var(--faint)}
+.cq-open{all:unset;cursor:pointer;display:block}
+.cq-open:hover{color:var(--accent-ink)}
+.cq-open:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.cq-answer{margin-top:6px;background:var(--ok-soft);border-radius:6px;padding:6px 8px;font-size:12.5px;color:var(--ink)}
+.cq-answer.faded{opacity:.8;color:var(--muted)}
+.cq-actions{display:flex;gap:4px;margin-top:4px}
+table.cq-table td{vertical-align:top}
+.cq-table .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.cq-table td.st .sub{font-size:11.5px}
+.cq-table tr.cq-withdrawn .sub{color:var(--faint)}
+
+/* FE-044 · сравнение со снимком (DESIGN.md 10.11) */
+.cmp-pick{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0 16px}
+.cmp-side{width:260px}
+.cmp-side.wide{width:420px}
+.cmp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px}
+.cmp-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 16px}
+.cmp-card .lbl{font-size:12.5px;color:var(--muted);font-weight:600}
+.cmp-card .val{font-size:20px;font-weight:700;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.cmp-card .dl{font-size:12.5px;font-weight:600}
+.cmp-card.money{background:var(--money-soft);border-color:var(--money-border,#d9cff5)}
+.cmp-card.money .lbl,.cmp-card.money .val{color:var(--money)}
+.dl.bad,.cmp-table td.bad{color:var(--bad)}
+.dl.ok,.cmp-table td.ok{color:var(--ok)}
+.cmp-chips{margin-bottom:12px}
+.cmp-table .sub{color:var(--muted)}
+.compare>:not(.crumbs){margin-left:24px;margin-right:24px}
+.cmp-card .lbl{text-transform:none;letter-spacing:0}
+
+/* FE-045 · экспорт и снимок (DESIGN.md 13: долгий экспорт) */
+.exp-menu{display:flex;flex-direction:column;gap:8px;width:260px}
+.exp-menu .money{color:var(--money)}
+.exp-menu .sub{font-size:11.5px;color:var(--muted);margin:0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:400;background:var(--ink,#1f2933);color:#fff;border-radius:8px;padding:10px 16px;font-size:13px;display:inline-flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.toast.bad{background:var(--bad)}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none}}
+.snaps td.acts{white-space:nowrap;text-align:right}
+.icon-btn{all:unset;cursor:pointer;padding:2px 6px;border-radius:4px;color:var(--accent-ink)}
+.icon-btn:hover{background:var(--accent-soft)}
+.icon-btn:focus-visible{outline:2px solid var(--accent)}
+.icon-btn:disabled{opacity:.4;cursor:default}
+.btn-link.sm{font-size:12px}

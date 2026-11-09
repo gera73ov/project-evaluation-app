@@ -5,7 +5,7 @@
  * Итоги часов — из локального расчёта по всему дереву, независимо от фильтров. Деньги — только
  * из `GET /projects/{id}/money` (сервер считает суммы, 6.4) и только с правом `money.read`: без
  * него денежного блока нет в разметке и запрос не делается. «Открыто» и «Риски» считаются по узлам
- * дерева; клик по «Риски» включает фильтр «Риски» (FE-024). «Снимок» и «Экспорт» — FE-045. Аватары присутствия (FE-026, 11.4 №4; DESIGN.md 6.14) — до 5
+ * дерева; клик по «Риски» включает фильтр «Риски» (FE-024). «📷 Снимок» и «Экспорт ▾» — FE-045 (`features/snapshots`, `features/exports`). Аватары присутствия (FE-026, 11.4 №4; DESIGN.md 6.14) — до 5
  * внахлёст, дальше «+N».
  */
 import { Popover } from '@mantine/core';
@@ -17,7 +17,9 @@ import type { components } from '../../../shared/api/client';
 import { formatDate } from '../../../shared/format/date';
 import { formatHours, formatMoney, formatPercent } from '../../../shared/format/number';
 import { isTotpRequired } from '../../../shared/ui/MoneyGuard';
+import { ExportMenu } from '../../exports/ExportMenu';
 import { StatusControl } from '../../settings/status/StatusControl';
+import { SnapshotButton } from '../../snapshots/SnapshotButton';
 import type { Project } from '../../settings/useProject';
 import { userColor } from '../../../shared/ui/userColor';
 import type { Peer } from '../collab/collabStore';
@@ -262,6 +264,8 @@ export function TopBar({
       <Link to={`/projects/${project.id}/stats`} className="btn-link">
         {t('top.stats')}
       </Link>
+      <SnapshotButton projectId={project.id} perms={project.my_permissions} />
+      <ExportMenu projectId={project.id} perms={project.my_permissions} />
       <Link to={`/projects/${project.id}/settings`} className="btn-link ghost">
         ⚙ {t('top.settings')}
       </Link>

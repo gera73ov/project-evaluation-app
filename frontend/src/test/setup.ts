@@ -11,6 +11,7 @@ import { resetDemoDiscussions } from '../shared/api/mocks/demoDiscussions';
 import { resetDemoDocuments } from '../shared/api/mocks/demoDocuments';
 import { resetDemoOutcome } from '../shared/api/mocks/demoOutcome';
 import { resetDemoPortfolio } from '../shared/api/mocks/demoPortfolio';
+import { resetDemoSnapshots } from '../shared/api/mocks/demoSnapshots';
 import { resetDemoTree } from '../shared/api/mocks/demoTree';
 import { buildHandlers } from '../shared/api/mocks/handlers';
 import { PERSONAS, type Persona } from '../shared/api/mocks/personas';
@@ -53,6 +54,7 @@ if (browser) {
     resetDemoDocuments();
     resetDemoOutcome();
     resetDemoPortfolio();
+    resetDemoSnapshots();
     window.history.replaceState(null, '', '/');
   });
   afterAll(() => server.close());

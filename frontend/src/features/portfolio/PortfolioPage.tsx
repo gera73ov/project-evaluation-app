@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from '../../app/router';
 import type { Me } from '../../app/session';
 import { api, type components } from '../../shared/api/client';
+import { ExportTimeout, downloadExport } from '../../shared/api/exports';
 import { call, errorMessage } from '../../shared/api/problem';
 import { formatDate } from '../../shared/format/date';
 import { formatHours, formatMillions, formatMoney, formatNumber, formatPercent } from '../../shared/format/number';
@@ -79,24 +80,11 @@ function usePeriodItems(period: Period) {
   });
 }
 
-/** Выгрузка: задание → ожидание готовности → файл с именем из задания. */
-async function exportExcel(period: Period): Promise<void> {
-  let job = await call(() => api.POST('/portfolio/export', { body: periodQuery(period) }));
-  for (let attempt = 0; job.status !== 'ready' && attempt < 60; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const id = job.id;
-    job = await call(() => api.GET('/exports/{id}', { params: { path: { id } } }));
-  }
-  if (job.status !== 'ready') throw new Error('export timeout');
-  const id = job.id;
-  const blob = await call(() => api.GET('/exports/{id}/download', { params: { path: { id } }, parseAs: 'blob' }));
-  const url = URL.createObjectURL(blob as Blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = job.file_name ?? 'portfolio.xlsx';
-  a.click();
-  URL.revokeObjectURL(url);
-}
+/** Выгрузка реестра и сводки за период (FR-PORT-02, FR-EXP-06). */
+const exportExcel = (period: Period) =>
+  downloadExport(() => call(() => api.POST('/portfolio/export', { body: periodQuery(period) })), {
+    fallbackName: 'portfolio.xlsx',
+  });
 
 export function PortfolioPage({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -231,9 +219,7 @@ export function PortfolioPage({ me }: { me: Me }) {
       </div>
       {exporting.error && !isTotpRequired(exporting.error) ? (
         <div className="err pf-msg" role="alert">
-          {exporting.error instanceof Error && exporting.error.message === 'export timeout'
-            ? t('portfolio.exportTimeout')
-            : errorMessage(exporting.error)}
+          {exporting.error instanceof ExportTimeout ? t('portfolio.exportTimeout') : errorMessage(exporting.error)}
         </div>
       ) : null}
       <StepUpModal

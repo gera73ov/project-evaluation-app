@@ -32,8 +32,11 @@ import {
 } from "./data";
 import * as demoDiscussions from "./demoDiscussions";
 import * as demoDocuments from "./demoDocuments";
+import * as demoExports from "./demoExports";
 import * as demoOutcome from "./demoOutcome";
 import * as demoPortfolio from "./demoPortfolio";
+import * as demoSnapshots from "./demoSnapshots";
+import * as demoStatsDetails from "./demoStatsDetails";
 import * as demoSystem from "./demoSystem";
 import * as demoTree from "./demoTree";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
@@ -602,12 +605,59 @@ const DEMO: Record<string, Demo> = {
     const b = body(ctx);
     const from = typeof b.from === "string" ? b.from : TODAY;
     const to = typeof b.to === "string" ? b.to : TODAY;
-    return demoPortfolio.createExport(
+    return demoExports.createExport(
       "portfolio_xlsx",
       `Портфель_${from}_${to}.xlsx`,
     );
   },
-  getExport: (ctx) => demoPortfolio.exportJob(ctx.params.id ?? "") ?? undefined,
+  exportStatsTab: (ctx) =>
+    demoExports.createExport(
+      "stats_tab_xlsx",
+      `Статистика_${ctx.params.tab ?? "tab"}.xlsx`,
+    ),
+  exportAssumptions: () =>
+    demoExports.createExport("assumptions_docx", "Допущения_и_риски.docx"),
+  // FE-043: вопросы заказчику и обсуждения проекта
+  listCustomerQuestions: (ctx) =>
+    ctx.project
+      ? demoDiscussions.customerQuestions(ctx.project, ctx.params)
+      : undefined,
+  listThreads: (ctx) =>
+    ctx.project
+      ? demoDiscussions.projectThreads(
+          ctx.project,
+          ctx.params,
+          userRef(ctx.persona).id,
+        )
+      : undefined,
+  exportCustomerQuestions: (ctx) => {
+    const req = body(ctx);
+    const ids = Array.isArray(req.thread_ids)
+      ? (req.thread_ids as string[])
+      : [];
+    if (ctx.project) demoDiscussions.markSent(ctx.project, ids);
+    return req.format === "xlsx"
+      ? demoExports.createExport("cq_xlsx", "Вопросы_заказчику.xlsx")
+      : demoExports.createExport("cq_docx", "Вопросы_заказчику.docx");
+  },
+  answerCustomerQuestion: (ctx) =>
+    ctx.project
+      ? demoDiscussions.answerQuestion(
+          ctx.project,
+          ctx.params.id ?? "",
+          String(body(ctx).body ?? ""),
+          userRef(ctx.persona),
+        )
+      : undefined,
+  withdrawCustomerQuestion: (ctx) =>
+    ctx.project
+      ? demoDiscussions.withdrawQuestion(
+          ctx.project,
+          ctx.params.id ?? "",
+          String(body(ctx).reason ?? ""),
+        )
+      : undefined,
+  getExport: (ctx) => demoExports.exportJob(ctx.params.id ?? "") ?? undefined,
   joinAsModerator: (ctx, schema) => {
     const result = demoPortfolio.joinAsModerator(
       ctx.params.id ?? "",
@@ -851,6 +901,46 @@ const DEMO: Record<string, Demo> = {
     };
   },
 
+  listSnapshots: (ctx, schema) =>
+    ctx.project
+      ? list(schema, demoSnapshots.snapshotsOf(ctx.project))
+      : undefined,
+
+  // FE-045: снимок, «ошибочный» и экспорт проекта (FR-SNAP-01/02, FR-EXP-01…05)
+  createSnapshot: (ctx) =>
+    ctx.project
+      ? demoSnapshots.createSnapshot(
+          ctx.project,
+          body(ctx),
+          userRef(ctx.persona),
+        )
+      : undefined,
+  invalidateSnapshot: (ctx) =>
+    ctx.project
+      ? demoSnapshots.invalidateSnapshot(ctx.project, ctx.params.id ?? "")
+      : undefined,
+  createExport: (ctx) => {
+    const req = body(ctx);
+    const money = req.kind === "money_xlsx";
+    const snap = typeof req.snapshot_id === "string" ? req.snapshot_id : null;
+    const name = `${ctx.project?.name ?? "Проект"}_${snap ? "снимок" : TODAY}_${money ? "деньги" : "часы"}.xlsx`;
+    return demoExports.createExport(
+      money ? "money_xlsx" : "hours_xlsx",
+      name.replace(/[\\/:*?"<>|]/g, "_"),
+      4000,
+    );
+  },
+  diffSnapshot: (ctx) =>
+    ctx.project
+      ? demoSnapshots.diffOf(
+          ctx.project,
+          ctx.params.id ?? "",
+          ctx.params.with ?? "current",
+        )
+      : undefined,
+  exportDiff: () =>
+    demoExports.createExport("snapshot_diff_xlsx", "Сравнение.xlsx"),
+
   getStats: (ctx, schema) => {
     const p = ctx.project;
     if (!p) return undefined;
@@ -946,13 +1036,15 @@ const DEMO: Record<string, Demo> = {
               },
             ]
           : [],
-      dynamics: [
-        {
-          date: TODAY,
-          e: hours(t.total.e),
-          p80: hours(t.total.p80 ?? t.total.e),
-        },
-      ],
+      // FE-042 · объёмы и кандидаты — по дереву, метки — строки макета
+      volumes: demoStatsDetails.volumes(
+        p,
+        (id) => NODE_TYPES.find((name) => typeId(name) === id) ?? "Работа",
+      ),
+      candidates: demoStatsDetails.candidates(p),
+      tag_lists: demoStatsDetails.tagLists(p),
+      // FE-041 · точка в день (GAP-01) за 8 дней, последняя — текущий итог
+      dynamics: demoSnapshots.dynamicsOf(p),
       ...(ctx.money
         ? {
             money: {
@@ -976,7 +1068,26 @@ const DEMO: Record<string, Demo> = {
                   };
                 },
               ),
-              cost_by_phase: [],
+              // стоимость работ фазы — по её доле в часах работ, итог «Работы» — сумма строк
+              cost_by_phase: (() => {
+                const rates = new Map(Object.entries(p.money.rates));
+                const worksCost = Object.entries(t.byDiscipline).reduce(
+                  (acc, [key, row]) =>
+                    acc.plus(new Decimal(row.e).times(rates.get(key) ?? 0)),
+                  new Decimal(0),
+                );
+                return Object.entries(t.byPhase).map(([key, row]) => ({
+                  phase_id: phaseId(key),
+                  cost_rub: works.isZero()
+                    ? null
+                    : worksCost.times(row.e).div(works).toFixed(0),
+                }));
+              })(),
+              dynamics: demoSnapshots.moneyDynamicsOf(p),
+              snapshots: demoSnapshots.snapshotsOf(p).map((snap) => ({
+                snapshot_id: snap.id,
+                quote_cur: snap.money.quote_cur,
+              })),
             },
           }
         : {}),
@@ -1050,6 +1161,7 @@ const DEMO: Record<string, Demo> = {
   },
 
   listRatios: (_ctx, schema) => list(schema, [DEMO_RATIO]),
+  getMethodSettings: () => demoSystem.methodSettings(),
   listPhases: (_ctx, schema) =>
     list(
       schema,

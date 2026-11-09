@@ -15,6 +15,12 @@ import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
 import { DocumentsPage } from '../features/documents/DocumentsPage';
 import { ReadinessPage } from '../features/stats/grid/ReadinessPage';
+import { CandidatesPage, SharesPage, TagsPage, VolumesPage } from '../features/stats/details/DetailsPages';
+import { SnapshotsPage } from '../features/stats/details/SnapshotsPage';
+import { ComparePage } from '../features/compare/ComparePage';
+import { DiscussionsPage } from '../features/stats/questions/DiscussionsPage';
+import { QuestionsPage } from '../features/stats/questions/QuestionsPage';
+import { TotalsPage } from '../features/stats/totals/TotalsPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
 import { HealthPage } from '../features/system/health/HealthPage';
 import { SystemStub } from '../features/system/layout/SystemLayout';
@@ -108,15 +114,39 @@ export const ROUTES: readonly RouteDef[] = [
     access: 'private',
     render: (params) => <ReadinessPage key={params.id} projectId={params.id ?? ''} />,
   },
-  { path: '/projects/:id/stats/totals', access: 'private', render: stub('Итоги', 'FE-041') },
-  { path: '/projects/:id/stats/shares', access: 'private', render: stub('Доли и соотношения', 'FE-042') },
-  { path: '/projects/:id/stats/volumes', access: 'private', render: stub('Объёмы по типам', 'FE-042') },
-  { path: '/projects/:id/stats/candidates', access: 'private', render: stub('Кандидаты на декомпозицию', 'FE-042') },
-  { path: '/projects/:id/stats/tags', access: 'private', render: stub('Допущения и риски', 'FE-042') },
-  { path: '/projects/:id/stats/discussions', access: 'private', render: stub('Обсуждения', 'FE-042') },
-  { path: '/projects/:id/stats/snapshots', access: 'private', render: stub('Снимки', 'FE-042') },
-  { path: '/projects/:id/stats/compare', access: 'private', render: stub('Сравнение со снимком', 'FE-044') },
-  { path: '/projects/:id/stats/questions', access: 'private', render: stub('Вопросы заказчику', 'FE-043') },
+  {
+    path: '/projects/:id/stats/totals',
+    access: 'private',
+    render: (params) => <TotalsPage projectId={params.id ?? ''} />,
+  },
+  {
+    path: '/projects/:id/stats/shares',
+    access: 'private',
+    render: (params) => <SharesPage projectId={params.id ?? ''} />,
+  },
+  {
+    path: '/projects/:id/stats/volumes',
+    access: 'private',
+    render: (params) => <VolumesPage projectId={params.id ?? ''} />,
+  },
+  {
+    path: '/projects/:id/stats/candidates',
+    access: 'private',
+    render: (params) => <CandidatesPage projectId={params.id ?? ''} />,
+  },
+  { path: '/projects/:id/stats/tags', access: 'private', render: (params) => <TagsPage projectId={params.id ?? ''} /> },
+  {
+    path: '/projects/:id/stats/discussions',
+    access: 'private',
+    render: (p) => <DiscussionsPage projectId={p.id ?? ''} />,
+  },
+  {
+    path: '/projects/:id/stats/snapshots',
+    access: 'private',
+    render: (params) => <SnapshotsPage projectId={params.id ?? ''} />,
+  },
+  { path: '/projects/:id/stats/compare', access: 'private', render: (p) => <ComparePage projectId={p.id ?? ''} /> },
+  { path: '/projects/:id/stats/questions', access: 'private', render: (p) => <QuestionsPage projectId={p.id ?? ''} /> },
   { path: '/profile', access: 'private', render: () => <ProfilePage /> },
   { path: '/admin', access: 'private', nav: 'admin', roles: ['admin'], render: stub('Админка', 'FE-070') },
   {

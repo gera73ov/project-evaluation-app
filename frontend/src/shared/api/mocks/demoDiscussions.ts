@@ -88,6 +88,79 @@ const message = (
 });
 
 const Q_1C = uuidFrom("thread", "portal", "1c-protocol");
+const cqId = (no: number) => uuidFrom("thread", "portal", `cq-${no}`);
+
+/** Сегодня в 11:20 по Москве — «сегодня 11:20» на макете. */
+const todayAt = () => `${new Date().toISOString().slice(0, 10)}T08:20:00Z`;
+
+type CqSeed = {
+  no: number;
+  node: string | null;
+  by: UserRef;
+  text: string;
+  at: string;
+  status: "new" | "sent" | "answered" | "closed" | "withdrawn";
+  sent_at?: string;
+  answered_at?: string;
+  closed_at?: string;
+  answer?: string;
+  reason?: string;
+  edited?: boolean;
+};
+
+/** Вопросы заказчику «Портала дилеров» как на `stats-questions.png` (кроме В-003 — он выше). */
+const CQ_SEED: CqSeed[] = [
+  {
+    no: 6,
+    node: "n-lk",
+    by: userRef(PERSONAS.expert),
+    text: "Нужна ли выгрузка списка дилеров в 1С или только в Excel?",
+    get at() {
+      return todayAt();
+    },
+    status: "new",
+  },
+  {
+    no: 5,
+    node: "n-analytics-whole",
+    by: userRef(PEOPLE.kuznetsova),
+    text: "Сколько ролей пользователей в портале: только дилер или ещё менеджер дилера?",
+    at: at("2026-11-02T12:02"),
+    status: "sent",
+    sent_at: at("2026-11-02T13:00"),
+    edited: true,
+  },
+  {
+    no: 4,
+    node: null,
+    by: userRef(PERSONAS.moderator),
+    text: "Требуется ли поддержка мобильных браузеров?",
+    at: at("2026-10-31T07:40"),
+    status: "sent",
+    sent_at: at("2026-10-31T09:00"),
+  },
+  {
+    no: 2,
+    node: "n-auth",
+    by: userRef(PERSONAS.expert),
+    text: "Нужен ли единый вход через Keycloak для сотрудников заказчика?",
+    at: at("2026-10-29T11:00"),
+    status: "closed",
+    sent_at: at("2026-10-29T12:00"),
+    answered_at: at("2026-10-30T09:00"),
+    closed_at: at("2026-10-30T10:00"),
+    answer: "Да, через их Keycloak · вывод перенесён в комментарий листа",
+  },
+  {
+    no: 1,
+    node: "n-1c-tests",
+    by: userRef(PEOPLE.orlova),
+    text: "Есть ли у заказчика тестовый стенд 1С?",
+    at: at("2026-10-29T06:30"),
+    status: "withdrawn",
+    reason: "дублирует В-003",
+  },
+];
 
 /** Лента «Обмена с 1С» (11.4 №13–14): 5 записей, 3 сообщения. */
 function seededMessages(p: DemoProject): DemoMessage[] {
@@ -128,6 +201,30 @@ function seededMessages(p: DemoProject): DemoMessage[] {
       body: "REST. Спецификации пока нет, обещают в декабре.",
       created_at: at("2026-11-02T16:40"),
     }),
+    ...CQ_SEED.flatMap((q) => {
+      const first = message(`cq-${q.no}`, {
+        thread_id: cqId(q.no),
+        node_id: q.node ? nodeId(q.node) : null,
+        author: q.by,
+        body: q.text,
+        needs_answer: true,
+        addressees: [{ target_type: "customer", target_id: null }],
+        created_at: q.at,
+      });
+      const answer = q.answer
+        ? [
+            message(`cq-${q.no}-answer`, {
+              thread_id: cqId(q.no),
+              node_id: q.node ? nodeId(q.node) : null,
+              author: userRef(PERSONAS.presale),
+              kind: "customer_answer",
+              body: q.answer,
+              created_at: q.answered_at ?? q.at,
+            }),
+          ]
+        : [];
+      return [first, ...answer];
+    }),
   ];
 }
 
@@ -142,7 +239,7 @@ function seededThreads(p: DemoProject): DemoThread[] {
       resolved_by: null,
       resolved_at: null,
       is_customer: true,
-      customer_question_no: 7,
+      customer_question_no: 3,
       customer_status: "answered",
       sent_at: at("2026-11-01T12:00"),
       answered_at: at("2026-11-02T16:40"),
@@ -150,6 +247,24 @@ function seededThreads(p: DemoProject): DemoThread[] {
       withdraw_reason: null,
       edited_after_sent: false,
     },
+    ...CQ_SEED.map(
+      (q): DemoThread => ({
+        id: cqId(q.no),
+        node_id: q.node ? nodeId(q.node) : null,
+        opened_by: q.by,
+        status: q.status === "closed" ? "resolved" : "open",
+        resolved_by: q.status === "closed" ? userRef(PERSONAS.moderator) : null,
+        resolved_at: q.closed_at ?? null,
+        is_customer: true,
+        customer_question_no: q.no,
+        customer_status: q.status,
+        sent_at: q.sent_at ?? null,
+        answered_at: q.answered_at ?? null,
+        closed_at: q.closed_at ?? null,
+        withdraw_reason: q.reason ?? null,
+        edited_after_sent: q.edited ?? false,
+      }),
+    ),
   ];
 }
 
@@ -437,4 +552,146 @@ export function patchNote(p: DemoProject, id: string, body: Body) {
   };
   noteEdits.set(id, fields);
   return { ...note, ...fields };
+}
+
+// --- FE-043: вопросы заказчику и обсуждения проекта -----------------------------------------
+
+type DemoNodeRow = {
+  id: string;
+  parent_id: string | null;
+  title: string;
+  discipline_id: string | null;
+};
+
+const nodesOf = (p: DemoProject) => p.nodes as unknown as DemoNodeRow[];
+
+/** Путь «фаза → дисциплина → узел»; у вопроса проекта — пустой. */
+function pathOf(p: DemoProject, id: string | null): string[] {
+  const byId = new Map(nodesOf(p).map((n) => [n.id, n]));
+  const out: string[] = [];
+  for (
+    let n = id ? byId.get(id) : undefined;
+    n;
+    n = n.parent_id ? byId.get(n.parent_id) : undefined
+  )
+    out.unshift(n.title);
+  return out;
+}
+
+const disciplineOf = (p: DemoProject, id: string | null) =>
+  nodesOf(p).find((n) => n.id === id)?.discipline_id ?? null;
+
+type ThreadFilter = { status?: string; discipline_id?: string };
+
+function customerThreads(p: DemoProject) {
+  return allThreads(p).filter((t) => t.is_customer);
+}
+
+/** `GET /projects/{id}/customer-questions`: новые сверху, по номеру. */
+export function customerQuestions(p: DemoProject, filter: ThreadFilter) {
+  const items = customerThreads(p)
+    .filter((t) => !filter.status || t.customer_status === filter.status)
+    .filter(
+      (t) =>
+        !filter.discipline_id ||
+        disciplineOf(p, t.node_id) === filter.discipline_id,
+    )
+    .sort(
+      (a, b) => (b.customer_question_no ?? 0) - (a.customer_question_no ?? 0),
+    )
+    .map((t) => {
+      const answer =
+        allMessages(p)
+          .filter((m) => m.thread_id === t.id && m.kind === "customer_answer")
+          .at(-1) ?? null;
+      return { thread: withMessage(p, t), path: pathOf(p, t.node_id), answer };
+    });
+  return { items, next_cursor: null };
+}
+
+/** `GET /projects/{id}/threads`: все вопросы проекта, свежие сверху. */
+export function projectThreads(
+  p: DemoProject,
+  filter: ThreadFilter & { addressee?: string },
+  me: string,
+) {
+  const items = allThreads(p)
+    .filter((t) => !filter.status || t.status === filter.status)
+    .filter(
+      (t) =>
+        !filter.discipline_id ||
+        disciplineOf(p, t.node_id) === filter.discipline_id,
+    )
+    .map((t) => withMessage(p, t))
+    .filter(
+      (t) =>
+        filter.addressee !== "me" ||
+        (t.first_message?.addressees ?? []).some(
+          (a) => a.target_type === "user" && a.target_id === me,
+        ),
+    )
+    .sort((a, b) =>
+      (b.first_message?.created_at ?? "").localeCompare(
+        a.first_message?.created_at ?? "",
+      ),
+    );
+  return { items, next_cursor: null };
+}
+
+/** Выгрузка: «новые» становятся «отправлен» с датой (FR-CQ-02). */
+export function markSent(p: DemoProject, ids: readonly string[]) {
+  const now = new Date().toISOString();
+  for (const t of customerThreads(p))
+    if (ids.includes(t.id) && t.customer_status === "new")
+      threadEdits.set(t.id, {
+        ...threadEdits.get(t.id),
+        customer_status: "sent",
+        sent_at: now,
+      });
+}
+
+/** `POST /threads/{id}/answer` (FR-CQ-03). */
+export function answerQuestion(
+  p: DemoProject,
+  id: string,
+  text: string,
+  by: UserRef,
+) {
+  const thread = customerThreads(p).find((t) => t.id === id);
+  if (!thread) return undefined;
+  const now = new Date().toISOString();
+  const msg: DemoMessage = {
+    id: nextId("message"),
+    thread_id: id,
+    node_id: thread.node_id,
+    author: by,
+    kind: "customer_answer",
+    body: text,
+    event: null,
+    needs_answer: false,
+    addressees: [],
+    created_at: now,
+    edited_at: null,
+    revoked: false,
+  };
+  posted.push(msg);
+  projectOfMessage.set(msg.id, p);
+  const fields: Partial<DemoThread> = {
+    customer_status: "answered",
+    answered_at: now,
+  };
+  threadEdits.set(id, { ...threadEdits.get(id), ...fields });
+  return withMessage(p, { ...thread, ...fields });
+}
+
+/** `POST /threads/{id}/withdraw`: номер не переиспользуется. */
+export function withdrawQuestion(p: DemoProject, id: string, reason: string) {
+  const thread = customerThreads(p).find((t) => t.id === id);
+  if (!thread) return undefined;
+  const fields: Partial<DemoThread> = {
+    customer_status: "withdrawn",
+    withdraw_reason: reason,
+  };
+  threadEdits.set(id, { ...threadEdits.get(id), ...fields });
+  return withMessage(p, { ...thread, ...fields });
 }

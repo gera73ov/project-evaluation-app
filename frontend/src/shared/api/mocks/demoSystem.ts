@@ -116,3 +116,23 @@ export function settings(section: string) {
   }
   return { section, values };
 }
+
+/**
+ * «Пороги и проценты» (GAP-13): ключи method.* без префикса, значения по умолчанию из
+ * settings.schema.json; часы — в формате HoursString.
+ */
+export function methodSettings() {
+  const values = new Map(Object.entries(settings("method").values));
+  const large = values.get("method.large_leaf_hours") as {
+    medium: number;
+    detailed: number;
+  };
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of values) out[key.replace(/^method\./, "")] = value;
+  out.large_leaf_hours = {
+    medium: Number(large.medium).toFixed(2),
+    detailed: Number(large.detailed).toFixed(2),
+  };
+  out.pm_percent_default = String(out.pm_percent_default);
+  return out;
+}

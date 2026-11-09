@@ -22,11 +22,11 @@ import { useReadOnlyOffline } from '../../../shared/ws/WsProvider';
 import { moneyKey } from '../../settings/money/MoneySection';
 import { useProject } from '../../settings/useProject';
 import { StatsHeader } from '../StatsTabs';
-import { buildGrid, cellKey, ratioScale, remindState, type Cell } from './readiness';
+import { buildGrid, cellKey, remindState, type Cell } from './readiness';
+import { RatioList, useRatioName } from './RatioList';
 
 type Stats = components['schemas']['Stats'];
 type Tree = components['schemas']['Tree'];
-type Ratio = components['schemas']['Ratio'];
 type Figure = components['schemas']['MoneyFigure'];
 
 export const statsKey = (projectId: string) => ['stats', projectId] as const;
@@ -128,12 +128,6 @@ export function ReadinessPage({ projectId }: { projectId: string }) {
     select: (data) => data as Tree,
     staleTime: 30_000,
   });
-  const ratios = useQuery({
-    queryKey: ['dict', 'ratios'],
-    queryFn: () => call(() => api.GET('/admin/ratios')),
-    select: (data) => data.items as Ratio[],
-    staleTime: 10 * 60_000,
-  });
   // валюта КП — из денег проекта (тот же запрос, что у настроек); без денег не запрашивается
   const currency = useQuery({
     queryKey: moneyKey(projectId),
@@ -142,6 +136,7 @@ export function ReadinessPage({ projectId }: { projectId: string }) {
     enabled: Boolean(stats.data?.money),
     retry: false,
   });
+  const ratioName = useRatioName(new Map((project.data?.disciplines ?? []).map((d) => [d.discipline_id, d.name])));
   const [reminded, setReminded] = useState<number | null>(null);
   const remind = useMutation({
     mutationFn: () => call(() => api.POST('/projects/{id}/remind', { params: { path: { id: projectId } } })),
@@ -178,12 +173,6 @@ export function ReadinessPage({ projectId }: { projectId: string }) {
   const totals = s.totals;
   const hoursOf = (id: string) => totals.by_discipline.find((d) => d.discipline_id === id)?.hours.e ?? '0';
   const open = (cell: Cell) => cell.nodeId && navigate(`/projects/${projectId}?node=${cell.nodeId}`);
-  const ratioName = (ratioId: string) => {
-    const r = ratios.data?.find((x) => x.id === ratioId);
-    if (!r) return t('stats.ratios.unknown');
-    const b = r.disciplines_b.map((id) => names.get(id) ?? '?');
-    return `${names.get(r.discipline_a_id) ?? '?'} ${t('stats.ratios.to')} (${b.join(' + ')})`;
-  };
   const columns = { gridTemplateColumns: `170px repeat(${grid.disciplines.length}, minmax(0, 1fr))` };
 
   return (
@@ -297,48 +286,7 @@ export function ReadinessPage({ projectId }: { projectId: string }) {
 
           <section className="card" aria-labelledby="st-ratios">
             <h3 id="st-ratios">{t('stats.ratios.title')}</h3>
-            {s.ratios.length ? null : <p className="card-hint">{t('stats.ratios.empty')}</p>}
-            {s.ratios.map((r) => {
-              const min = Number(r.min_pct);
-              const max = Number(r.max_pct);
-              const scale = ratioScale(max);
-              const pct = r.pct === null ? null : Number(r.pct);
-              const gap =
-                r.verdict === 'below' && pct !== null
-                  ? new Decimal(min).minus(pct)
-                  : r.verdict === 'above' && pct !== null
-                    ? new Decimal(pct).minus(max)
-                    : null;
-              return (
-                <div key={r.ratio_id} className="ratio">
-                  <div className="ratio-head">
-                    <span>{ratioName(r.ratio_id)}</span>
-                    <b className={r.verdict === 'ok' ? 'ok' : 'warn'}>
-                      {pct === null ? '—' : formatPercent(String(pct))}
-                    </b>
-                  </div>
-                  <div className="ratio-bar" aria-hidden="true">
-                    <i
-                      className={r.verdict === 'ok' ? 'ok' : 'warn'}
-                      style={{ width: `${Math.min(100, ((pct ?? 0) / scale) * 100)}%` }}
-                    />
-                    <em style={{ left: `${(min / scale) * 100}%`, width: `${((max - min) / scale) * 100}%` }} />
-                  </div>
-                  <div className="ratio-axis">
-                    <span>0%</span>
-                    <span>
-                      {t('stats.ratios.norm', { min: formatPercent(r.min_pct), max: formatPercent(r.max_pct) })}
-                    </span>
-                    <span>{scale}%</span>
-                  </div>
-                  {gap ? (
-                    <span className="pill warn">
-                      ⚠ {t(`stats.ratios.${r.verdict ?? 'below'}`, { pp: formatNumber(gap.abs(), 0) })}
-                    </span>
-                  ) : null}
-                </div>
-              );
-            })}
+            <RatioList ratios={s.ratios} name={ratioName} />
           </section>
 
           <section className="card" aria-labelledby="st-reviewed">
