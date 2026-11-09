@@ -196,7 +196,7 @@ async def stage(
     app.state.realtime = realtime
     port = free_port()
     config = uvicorn.Config(
-        app, host="127.0.0.1", port=port, lifespan="on", log_level="warning",
+        app, host="127.0.0.1", port=port, lifespan="on", log_config=None,
         proxy_headers=True, forwarded_allow_ips="127.0.0.1", ws_max_size=2**20,
     )  # fmt: skip
     server = uvicorn.Server(config)
