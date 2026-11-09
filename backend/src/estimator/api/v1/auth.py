@@ -43,6 +43,7 @@ from estimator.security.web.csrf import clear_csrf_cookie, set_csrf_cookie
 router = APIRouter(tags=["Вход и профиль"])
 RedisDep = Annotated[Redis, Depends(get_redis)]
 LOGIN_RATE = [Depends(rate_limit("login_ip"))]
+OPTIONS_RATE = [Depends(rate_limit("auth_options"))]
 
 
 def _perm(code: str | list[str]) -> dict[str, Any]:
@@ -136,7 +137,7 @@ async def login(
 @router.get(
     "/auth/options",
     openapi_extra=_perm("public"),
-    dependencies=LOGIN_RATE,
+    dependencies=OPTIONS_RATE,
     response_model=schemas.AuthOptions,
 )
 async def auth_options(db: DbSession) -> dict[str, str]:
