@@ -429,6 +429,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/system/auth/ad/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Поиск в каталоге AD для раздела «Система» (от 3 символов, до 50 записей)
+         * @description CR-011. Тот же поиск, что adSearch, для суперадминистратора, у которого нет ad.search: шаг 5 мастера первичной настройки в режиме AD (7.1, FR-SA-02) и создание учёток в разделах «Суперадминистраторы и администраторы» и «Аудиторы ИБ». Найденный object_guid передаётся в AdminAccountCreate.ad_object_guid.
+         */
+        get: operations["systemAdSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/auth/role-mapping/preview": {
         parameters: {
             query?: never;
@@ -4890,6 +4910,36 @@ export interface operations {
             422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+        };
+    };
+    systemAdSearch: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AdSearchItem"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     roleMappingPreview: {

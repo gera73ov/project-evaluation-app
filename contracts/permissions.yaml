@@ -189,6 +189,7 @@ permissions:
       - "POST /system/admins"
       - "PATCH /system/admins/{id}"
       - "DELETE /system/admins/{id}"
+      - "GET /system/auth/ad/search"
   system.users.reset_credentials:
     title: Сбросить пароль или TOTP администратору или суперадминистратору
     spec: [FR-2FA-03, Q-22, SEC-AUTH-05]

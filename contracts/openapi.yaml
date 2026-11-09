@@ -1212,6 +1212,64 @@ paths:
           $ref: '#/components/responses/Problem429'
         '500':
           $ref: '#/components/responses/Problem500'
+  /system/auth/ad/search:
+    get:
+      operationId: systemAdSearch
+      summary: Поиск в каталоге AD для раздела «Система» (от 3 символов, до 50 записей)
+      description: 'CR-011. Тот же поиск, что adSearch, для суперадминистратора, у которого нет ad.search: шаг 5
+        мастера первичной настройки в режиме AD (7.1, FR-SA-02) и создание учёток в разделах «Суперадминистраторы и
+        администраторы» и «Аудиторы ИБ». Найденный object_guid передаётся в AdminAccountCreate.ad_object_guid.'
+      tags:
+      - Система
+      x-permission: system.admins.manage
+      x-spec:
+      - FR-AUTH-AD-10
+      - FR-SA-02
+      - '7.1'
+      x-network-restricted: true
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 3
+          maxLength: 100
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - VALIDATION_FAILED
+      - AUTH_SERVICE_UNAVAILABLE
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdSearchItem'
+                required:
+                - items
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
+        '503':
+          $ref: '#/components/responses/Problem503'
+        '500':
+          $ref: '#/components/responses/Problem500'
   /system/auth/role-mapping/preview:
     post:
       operationId: roleMappingPreview
