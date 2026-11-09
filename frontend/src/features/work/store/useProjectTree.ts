@@ -36,10 +36,15 @@ export interface ProjectTree {
 }
 
 /**
- * `onOtherEvent` — остальные события каналов проекта (деньги, обсуждения): у WS-клиента одна
- * подписка на проект, поэтому все события приходят сюда.
+ * `onOtherEvent` — остальные события каналов проекта (деньги, обсуждения, захваты ячеек): у
+ * WS-клиента одна подписка на проект, поэтому все события приходят сюда. `onTreeEvent` — событие
+ * дерева после применения (метки чужих правок, FE-026).
  */
-export function useProjectTree(project: Project | undefined, onOtherEvent?: (event: WsEvent) => void): ProjectTree {
+export function useProjectTree(
+  project: Project | undefined,
+  onOtherEvent?: (event: WsEvent) => void,
+  onTreeEvent?: (event: WsEvent) => void,
+): ProjectTree {
   const projectId = project?.id ?? null;
   const ws = useWsClient();
   const [store] = useState(createTreeStore);
@@ -74,7 +79,7 @@ export function useProjectTree(project: Project | undefined, onOtherEvent?: (eve
         onOtherEvent?.(event);
         return;
       }
-      store.getState().applyEvent(event as unknown as TreeEvent);
+      if (store.getState().applyEvent(event as unknown as TreeEvent)) onTreeEvent?.(event);
     },
     onResync: () => void tree.refetch(),
   });

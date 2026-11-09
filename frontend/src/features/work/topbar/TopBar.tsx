@@ -5,7 +5,8 @@
  * Итоги часов — из локального расчёта по всему дереву, независимо от фильтров. Деньги — только
  * из `GET /projects/{id}/money` (сервер считает суммы, 6.4) и только с правом `money.read`: без
  * него денежного блока нет в разметке и запрос не делается. «Открыто» и «Риски» считаются по узлам
- * дерева; клик по «Риски» включает фильтр «Риски» (FE-024). «Снимок» и «Экспорт» — FE-045, аватары присутствия — FE-026.
+ * дерева; клик по «Риски» включает фильтр «Риски» (FE-024). «Снимок» и «Экспорт» — FE-045. Аватары присутствия (FE-026, 11.4 №4; DESIGN.md 6.14) — до 5
+ * внахлёст, дальше «+N».
  */
 import { Popover } from '@mantine/core';
 import { useState } from 'react';
@@ -18,6 +19,8 @@ import { formatHours, formatMoney, formatPercent } from '../../../shared/format/
 import { isTotpRequired } from '../../../shared/ui/MoneyGuard';
 import { StatusControl } from '../../settings/status/StatusControl';
 import type { Project } from '../../settings/useProject';
+import { userColor } from '../../../shared/ui/userColor';
+import type { Peer } from '../collab/collabStore';
 import type { TreeStore } from '../store/treeStore';
 import { useTree } from '../store/useProjectTree';
 
@@ -45,6 +48,9 @@ export function workingDaysLeft(deadline: string, today: Date = new Date()): num
   }
   return days;
 }
+
+/** Аватаров присутствия больше 5 — последний кружок «+N» (DESIGN.md 6.14). */
+const PRESENCE_MAX = 5;
 
 /** Дедлайн близко: осталось не больше 2 рабочих дней или он прошёл (11.3 №4). */
 export const DEADLINE_ALERT_DAYS = 2;
@@ -99,6 +105,7 @@ export function TopBar({
   risks,
   onShowNode,
   onRiskFilter,
+  presence = [],
   readOnly,
 }: {
   project: Project;
@@ -109,6 +116,8 @@ export function TopBar({
   risks: number;
   onShowNode: (nodeId: string) => void;
   onRiskFilter: () => void;
+  /** Кто сейчас в проекте, кроме меня. */
+  presence?: readonly Peer[];
   readOnly: boolean;
 }) {
   const { t } = useTranslation();
@@ -210,6 +219,31 @@ export function TopBar({
         ⚠ {t('top.risks')} <span className="pill bad">{risks}</span>
       </button>
       <span className="sp" />
+      {presence.length ? (
+        <span className="presence" aria-label={t('collab.presence', { count: presence.length })}>
+          {presence.slice(0, PRESENCE_MAX).map((p) => (
+            <span
+              key={p.id}
+              className="av pr"
+              style={{ background: userColor(p) }}
+              title={`${p.full_name} — ${t('collab.inProject')}`}
+            >
+              {p.initials}
+            </span>
+          ))}
+          {presence.length > PRESENCE_MAX ? (
+            <span
+              className="av pr more"
+              title={presence
+                .slice(PRESENCE_MAX)
+                .map((p) => p.full_name)
+                .join(', ')}
+            >
+              +{presence.length - PRESENCE_MAX}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
       <Link to={`/projects/${project.id}/stats`} className="btn-link">
         {t('top.stats')}
       </Link>

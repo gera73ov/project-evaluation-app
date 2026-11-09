@@ -292,3 +292,21 @@ span.person-name{cursor:default}
 .cm-all ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px}
 .cm-all .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px;background:#e8eef9;color:#2f4f8f}
 .tree .td.num .cell-note{left:auto;right:2px}
+
+/* FE-026 · совместная работа (DESIGN.md 9.7, 6.14) */
+.tree .locked{position:relative;border:2px solid;cursor:not-allowed}
+.tree .cm-locked.locked{display:flex;align-items:center;min-height:26px;border-radius:4px;padding:0 4px}
+.tree .lock-badge{position:absolute;top:-9px;right:-8px;min-width:18px;height:14px;padding:0 3px;border-radius:7px;color:#fff;font-size:9px;font-weight:700;line-height:14px;text-align:center}
+.tree .lock-target{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer}
+.lock-pop .link{border:0;background:none;color:var(--accent);font:inherit;cursor:pointer;padding:0;text-decoration:underline}
+.tree .tr.changed{animation:row-flash 2s steps(1,end)}
+@keyframes row-flash{0%{background:var(--flash)}100%{background:inherit}}
+.tree .author-mark{flex:none;color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:0 6px;line-height:16px}
+.top .presence{display:inline-flex;align-items:center}
+.top .av.pr{width:24px;height:24px;font-size:9.5px;box-shadow:0 0 0 2px #fff;margin-left:-6px}
+.top .av.pr:first-child{margin-left:0}
+.top .av.pr.more{background:var(--line2);color:var(--muted-ink)}
+.conflict-node{margin:0 0 10px;color:var(--muted)}
+.conflict-row{display:flex;gap:18px;align-items:baseline;margin:6px 0}
+.conflict-row .k{width:84px;color:var(--muted)}
+.conflict-row b{font-size:15px;font-weight:700}

@@ -7,6 +7,8 @@ import { useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode }
 import { useTranslation } from 'react-i18next';
 
 import { formatFork, formatHoursInput } from '../../../shared/format/number';
+import { userColor } from '../../../shared/ui/userColor';
+import type { CellLock } from '../collab/collabStore';
 import { cellKey, type CellField, type CellsApi, type CommentLine, type Direction } from './useCells';
 
 /** Комментарий: до 10 строк по 2 000 символов (NodeChanges.comment_lines). */
@@ -60,6 +62,55 @@ function CellInput({
   );
 }
 
+/**
+ * Ячейку редактирует другой (DESIGN.md 9.7): рамка его цветом и плашка с инициалами, в правку не
+ * переходит; подсказка «Сейчас редактирует …», у модератора — «Всё равно править» (`force`).
+ */
+function Locked({
+  lock,
+  onForce,
+  className,
+  children,
+}: {
+  lock: CellLock;
+  onForce: (() => void) | null;
+  className: string;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const color = userColor(lock.user);
+  const text = t('cells.lockedBy', { name: lock.user.full_name });
+  const body = (
+    <span
+      className={`${className} locked`}
+      style={{ borderColor: color }}
+      aria-label={text}
+      title={onForce ? undefined : text}
+    >
+      {children}
+      <span className="lock-badge" style={{ background: color }} aria-hidden="true">
+        {lock.user.initials}
+      </span>
+    </span>
+  );
+  if (!onForce) return body;
+  return (
+    <Popover position="top" shadow="md" withinPortal>
+      <Popover.Target>
+        <button type="button" className="lock-target">
+          {body}
+        </button>
+      </Popover.Target>
+      <Popover.Dropdown className="lock-pop">
+        {text} ·{' '}
+        <button type="button" className="link" onClick={onForce}>
+          {t('cells.force')}
+        </button>
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
+
 /** Подпись под ячейкой: ошибка (красная) или подсказка об округлении. */
 function CellNote({ error, hint }: { error: string | undefined; hint: string | undefined }) {
   if (error)
@@ -86,6 +137,8 @@ export function HoursCell({
   pending,
   cells,
   roTitle,
+  lock,
+  canForce = false,
 }: {
   nodeId: string;
   field: 'o' | 'r' | 'p';
@@ -97,6 +150,10 @@ export function HoursCell({
   /** Нет — ячейка только для чтения. */
   cells: CellsApi | undefined;
   roTitle: string | undefined;
+  /** Ячейку сейчас редактирует другой (FE-026). */
+  lock?: CellLock | undefined;
+  /** Модератор может перехватить захват. */
+  canForce?: boolean;
 }) {
   const key = cellKey(nodeId, field);
   const error = cells?.errors.get(key);
@@ -106,7 +163,17 @@ export function HoursCell({
   if (pending) cls.push('saving');
   if (error) cls.push('error');
   let body: ReactNode;
-  if (!cells) {
+  if (lock && !editing) {
+    body = (
+      <Locked
+        lock={lock}
+        className={cls.join(' ')}
+        onForce={cells && canForce ? () => cells.start({ nodeId, field }, true) : null}
+      >
+        {formatHoursInput(value)}
+      </Locked>
+    );
+  } else if (!cells) {
     cls.push('ro');
     body = (
       <span className={cls.join(' ')} {...(roTitle ? { title: roTitle } : {})}>
@@ -149,11 +216,15 @@ export function MultiplierCell({
   value,
   pending,
   cells,
+  lock,
+  canForce = false,
 }: {
   nodeId: string;
   value: number;
   pending: boolean;
   cells: CellsApi | undefined;
+  lock?: CellLock | undefined;
+  canForce?: boolean;
 }) {
   const { t } = useTranslation();
   const field: CellField = 'multiplier';
@@ -164,7 +235,17 @@ export function MultiplierCell({
   if (pending) cls.push('saving');
   if (error) cls.push('error');
   let body: ReactNode = <span className={cls.join(' ')}>×{error?.draft ?? value}</span>;
-  if (cells && editing) {
+  if (lock && !editing) {
+    body = (
+      <Locked
+        lock={lock}
+        className={cls.join(' ')}
+        onForce={cells && canForce ? () => cells.start({ nodeId, field }, true) : null}
+      >
+        ×{value}
+      </Locked>
+    );
+  } else if (cells && editing) {
     body = (
       <CellInput
         className="cell-in mul-in"
@@ -355,6 +436,8 @@ export function CommentCell({
   placeholder,
   norms,
   highlight,
+  lock,
+  canForce = false,
 }: {
   nodeId: string;
   lines: CommentLine[];
@@ -365,6 +448,8 @@ export function CommentCell({
   /** Нормы типа для пустого листа (FR-TREE-02): подсказка «Норма: … · подставить». */
   norms: readonly Norm[];
   highlight: Highlighter;
+  lock?: CellLock | undefined;
+  canForce?: boolean;
 }) {
   const { t } = useTranslation();
   const key = cellKey(nodeId, 'comment');
@@ -396,7 +481,15 @@ export function CommentCell({
   if (error) cls.push('error');
   return (
     <div className={cls.join(' ')} role="cell">
-      {cells ? (
+      {lock && !editing ? (
+        <Locked
+          lock={lock}
+          className="cm-locked"
+          onForce={cells && canForce ? () => cells.start({ nodeId, field: 'comment' }, true) : null}
+        >
+          {content}
+        </Locked>
+      ) : cells ? (
         <div
           className="cm-click"
           role="button"
