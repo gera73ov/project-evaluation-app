@@ -24,6 +24,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from starlette.requests import HTTPConnection
 
 from estimator.auth.sessions import (
     RevokeReason,
@@ -49,8 +50,10 @@ UNAUTHENTICATED = "UNAUTHENTICATED"
 class UnauthenticatedError(HTTPException):
     """401 ``UNAUTHENTICATED`` (contracts/errors.yaml). Тело RFC 9457 строит API-003."""
 
-    def __init__(self) -> None:
+    def __init__(self, reason: str | None = None) -> None:
         super().__init__(status_code=401, detail={"code": UNAUTHENTICATED})
+        #: Почему сессии нет (``idle``, ``absolute``, ``blocked`` …) — для ``session.ended`` RT-008
+        self.reason = reason
 
 
 @dataclass(frozen=True)
@@ -107,7 +110,7 @@ async def _close_in_own_transaction(
     reason: RevokeReason,
     *,
     expired: str | None = None,
-    request: Request,
+    request: HTTPConnection,
 ) -> None:
     """Закрыть сессию и записать аудит так, чтобы откат запроса (401) их не отменил."""
     try:
@@ -155,10 +158,19 @@ async def _support_projects(
     return frozenset(rows.all())
 
 
-async def current_principal(
-    request: Request, db: DbSession, service: SessionServiceDep
+async def resolve_principal(
+    conn: HTTPConnection,
+    db: AsyncSession,
+    service: SessionService,
+    session_id: str | None,
+    *,
+    touch: bool,
 ) -> Principal:
-    session_id = session_id_from(request)
+    """Пользователь сессии по актуальным данным БД; иначе :class:`UnauthenticatedError`.
+
+    ``touch=False`` — проверка без продления сессии: подключение WebSocket и его периодическая
+    перепроверка (RT-003, RT-008; heartbeat не продлевает сессию, FR-SESS-02).
+    """
     if session_id is None:
         raise UnauthenticatedError
     loaded = await service.load(session_id)
@@ -168,19 +180,20 @@ async def current_principal(
     if loaded.expired is not None:
         await _close_in_own_transaction(
             db, service, session_id, record, RevokeReason.EXPIRED,
-            expired=loaded.expired.value, request=request,
+            expired=loaded.expired.value, request=conn,
         )  # fmt: skip
-        raise UnauthenticatedError
+        raise UnauthenticatedError(loaded.expired.value)
 
     user, roles = await _load_user(db, record.user_uuid)
     if user is None or user.status is not UserStatus.ACTIVE:
         await _close_in_own_transaction(
-            db, service, session_id, record, RevokeReason.BLOCKED, request=request
+            db, service, session_id, record, RevokeReason.BLOCKED, request=conn
         )
-        raise UnauthenticatedError
+        raise UnauthenticatedError("blocked")
 
-    record = await service.touch(db, session_id, record, background=is_background(request))
-    principal = Principal(
+    if touch:
+        record = await service.touch(db, session_id, record, background=False)
+    return Principal(
         user_id=user.id,
         login=user.login,
         full_name=user.full_name,
@@ -194,6 +207,14 @@ async def current_principal(
         enrollment_required=record.enrollment_required,
         password_change_required=record.password_change_required,
         support_projects=await _support_projects(db, user.id, roles),
+    )
+
+
+async def current_principal(
+    request: Request, db: DbSession, service: SessionServiceDep
+) -> Principal:
+    principal = await resolve_principal(
+        request, db, service, session_id_from(request), touch=not is_background(request)
     )
     request.state.principal = principal
     return principal
