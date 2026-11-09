@@ -203,6 +203,7 @@ permissions:
     network: true
     step_up: true
     endpoints:
+      - "GET /system/users"
       - "POST /system/users/{id}/anonymize"
   registry.read:
     title: Реестр всех проектов без денег (название, модератор, статус, даты)

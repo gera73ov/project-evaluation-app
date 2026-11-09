@@ -1546,6 +1546,88 @@ paths:
           $ref: '#/components/responses/Problem429'
         '500':
           $ref: '#/components/responses/Problem500'
+  /system/users:
+    get:
+      operationId: systemListUsers
+      summary: Заблокированные и анонимизированные пользователи (для анонимизации)
+      description: 'CR-010. Список для экрана «Анонимизация» (11.2 №1, SEC-PD-03): все учётки со статусом status,
+        включая обычных пользователей, которых нет в listAdmins. Только поля, нужные для решения об анонимизации:
+        без почты, денег и проектных данных. Порядок — по blocked_at, новые сверху, затем по id.'
+      tags:
+      - Система
+      x-permission: system.users.anonymize
+      x-spec:
+      - SEC-PD-03
+      - '11.2'
+      - Q-34
+      x-network-restricted: true
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - blocked
+          - anonymized
+          default: blocked
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 512
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - CURSOR_INVALID
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SystemUserItem'
+                  next_cursor:
+                    anyOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+                - next_cursor
+                additionalProperties: false
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '500':
+          $ref: '#/components/responses/Problem500'
   /system/users/{id}/reset-password:
     post:
       operationId: systemResetPassword
@@ -9907,6 +9989,41 @@ components:
       - ok
       - elapsed_ms
       - detail
+      additionalProperties: false
+    SystemUserItem:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        login:
+          type: string
+        full_name:
+          type: string
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/SystemRole'
+        status:
+          type: string
+          enum:
+          - blocked
+          - anonymized
+        blocked_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        last_login_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+      required:
+      - id
+      - login
+      - full_name
+      - roles
+      - status
+      - blocked_at
+      - last_login_at
       additionalProperties: false
     AdminAccount:
       type: object

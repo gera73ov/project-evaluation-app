@@ -525,6 +525,26 @@ export type paths = {
         patch: operations["patchAdmin"];
         trace?: never;
     };
+    "/system/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Заблокированные и анонимизированные пользователи (для анонимизации)
+         * @description CR-010. Список для экрана «Анонимизация» (11.2 №1, SEC-PD-03): все учётки со статусом status, включая обычных пользователей, которых нет в listAdmins. Только поля, нужные для решения об анонимизации: без почты, денег и проектных данных. Порядок — по blocked_at, новые сверху, затем по id.
+         */
+        get: operations["systemListUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/users/{id}/reset-password": {
         parameters: {
             query?: never;
@@ -2746,6 +2766,16 @@ export type components = {
             ok: boolean;
             elapsed_ms: number;
             detail: string | null;
+        };
+        SystemUserItem: {
+            id: components["schemas"]["Uuid"];
+            login: string;
+            full_name: string;
+            roles: components["schemas"]["SystemRole"][];
+            /** @enum {string} */
+            status: "blocked" | "anonymized";
+            blocked_at: components["schemas"]["Timestamp"] | null;
+            last_login_at: components["schemas"]["Timestamp"] | null;
         };
         AdminAccount: {
             id: components["schemas"]["Uuid"];
@@ -5060,6 +5090,39 @@ export interface operations {
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    systemListUsers: {
+        parameters: {
+            query?: {
+                status?: "blocked" | "anonymized";
+                q?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["SystemUserItem"][];
+                        next_cursor: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             500: components["responses"]["Problem500"];
         };
     };
