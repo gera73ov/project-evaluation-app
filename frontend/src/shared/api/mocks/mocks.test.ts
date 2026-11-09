@@ -20,6 +20,7 @@ import {
   type Schema,
 } from './contract';
 import { PROJECTS } from './data';
+import { uuidFrom } from './ids';
 import { buildHandlers } from './handlers';
 import { PERSONA_KEYS, PERSONAS, type Persona } from './personas';
 import { EVENT_NAMES, SCENARIO, buildEvent } from './ws';
@@ -178,6 +179,23 @@ describe('моки HTTP по контракту OpenAPI', () => {
       '12978',
       '1440594',
     ]);
+  });
+
+  it('сравнение со снимком (CR-008): схема Diff, у эксперта нет денег и денежных параметров', async () => {
+    const op = operations.find((o) => o.operationId === 'diffSnapshot');
+    if (!op) throw new Error('нет diffSnapshot');
+    const v1 = uuidFrom('snapshot', 'portal', 'v1');
+    const url = `${BASE}/snapshots/${v1}/diff?with=current`;
+    const v = validatorFor(op.operationId, successResponse(op).schema as Schema);
+    persona = PERSONAS.moderator;
+    const mod = (await (await fetch(url)).json()) as { rows: unknown[]; params: unknown[] };
+    expect(v(mod) ? [] : ajv.errorsText(v.errors)).toEqual([]);
+    expect([mod.rows.length, mod.params.length]).toEqual([4, 1]);
+    persona = PERSONAS.expert;
+    const exp = (await (await fetch(url)).json()) as { params: unknown[] };
+    expect(v(exp) ? [] : ajv.errorsText(v.errors)).toEqual([]);
+    expect(exp.params).toEqual([]);
+    expect(moneyKeys(exp)).toEqual([]);
   });
 
   it('дерево «Портала дилеров» совпадает с примером 6.5', async () => {

@@ -991,6 +991,7 @@ const DEMO: Record<string, Demo> = {
           ctx.project,
           ctx.params.id ?? "",
           ctx.params.with ?? "current",
+          ctx.money,
         )
       : undefined,
   exportDiff: () =>

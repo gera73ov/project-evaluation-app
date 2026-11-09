@@ -789,3 +789,4 @@ table.cq-table td{vertical-align:top}
 .auth-sec .mono input{font-family:var(--m);font-size:13px}
 .auth-secret .btn-link,.auth-mode-side .btn-link{background:none;border:0;padding:0;color:var(--accent-ink);cursor:pointer;font:inherit}
 .auth-login{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px}
+.cmp-ba s{color:var(--muted)}

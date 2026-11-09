@@ -8,7 +8,7 @@ import { uuidFrom } from '../../shared/api/mocks/ids';
 import { PERSONAS } from '../../shared/api/mocks/personas';
 import { persona, server } from '../../test/setup';
 import { renderApp } from '../../test/render';
-import { beforeAfter, compareHref, countByChange, deltaTone, orderPair, pmDelta, sidesOf } from './compare';
+import { compareHref, countByFilter, deltaPct, deltaTone, forkOf, orderPair, sidesOf } from './compare';
 
 type Diff = components['schemas']['Diff'];
 
@@ -27,19 +27,20 @@ describe('правила сравнения', () => {
     expect(orderPair(x, y)).toEqual({ older: y, newer: x });
   });
 
-  it('итог «было → стало», процент, пересчёт УП и цвет разницы', () => {
-    expect(beforeAfter('378.2', '28.3')).toEqual({ before: '378.2', after: '406.5', pct: 7.5 });
+  it('процент разницы, числа на фильтрах, вилка и цвет разницы', () => {
+    expect(deltaPct('378.2', '28.3')).toBe(7.5);
+    expect(deltaPct('0', '5')).toBeNull();
     const diff = {
-      rows: [
-        { change: 'changed', delta_e: '21.7' },
-        { change: 'added', delta_e: '13.3' },
-        { change: 'changed', delta_e: '-6.3' },
-      ],
-      totals_delta: { e: '33.0' },
+      rows: [{ change: 'changed' }, { change: 'added' }, { change: 'changed' }],
+      params: [{ key: 'exchange_rate' }],
     } as unknown as Diff;
-    expect(pmDelta(diff)).toBe('4.3');
-    expect(countByChange(diff.rows).get('changed')).toBe(2);
-    expect(countByChange(diff.rows).get('removed')).toBe(0);
+    const counts = countByFilter(diff.rows, diff.params);
+    expect([counts.get('all'), counts.get('changed'), counts.get('removed'), counts.get('params')]).toEqual([
+      4, 2, 0, 1,
+    ]);
+    expect(forkOf({ o: '30', r: '40', p: '60', multiplier: 1, e: '41.67' } as never)).toBe('30–40–60');
+    expect(forkOf({ o: '1', r: '2.5', p: '4', multiplier: 3, e: '7.50' } as never)).toBe('1–2,5–4 × 3');
+    expect(forkOf(null)).toBeNull();
     expect([deltaTone('1'), deltaTone('-1'), deltaTone('0')]).toEqual(['bad', 'ok', null]);
   });
 });
@@ -59,14 +60,29 @@ afterEach(() => {
 });
 
 describe('экран сравнения', () => {
-  it('модератор: сводка, денежные карточки, строки и пояснение про УП', async () => {
+  it('модератор: сводка, деньги «было → стало», строки O–R–P, параметр и пояснение про УП', async () => {
     const table = await open('moderator');
-    expect(within(table).getByText('Обмен с 1С')).toBeTruthy();
-    expect(within(table).getByText('изменены: O, R, P')).toBeTruthy();
+    const row = (title: string) =>
+      within(table)
+        .getAllByRole('row')
+        .find((r) => r.textContent?.includes(title)) as HTMLElement;
+    expect(row('Обмен с 1С').textContent).toContain('30–40–60 → 40–60–100');
+    expect(row('Обмен с 1С').textContent).toContain('+21,7');
+    expect(row('Обмен с 1С').textContent).toContain('И. Иванов ·');
+    expect(row('Тесты обмена с 1С').textContent).toContain('— → 8–12–24');
+    expect(row('Дашборд').textContent).toContain('−4,7');
+    expect(row('Прототипы').textContent).toContain('4–6–10 → —');
+    expect(row('Курс USD').textContent).toContain('90,0000 → 92,5000');
+    expect(row('Курс USD').textContent).toContain('параметр 🔒');
     expect(screen.getByRole('region', { name: 'Итог E' }).textContent).toMatch(/→/);
-    expect(await screen.findByRole('region', { name: 'Итог без НДС, ₽' })).toBeTruthy();
-    expect(screen.getByRole('region', { name: 'Итог без НДС, USD' }).textContent).toMatch(/из них курс/);
-    expect(screen.getByText(/Управление проектом пересчитано автоматически/)).toBeTruthy();
+    const rub = screen.getByRole('region', { name: 'Итог без НДС, ₽' });
+    expect(rub.textContent).toMatch(/→/);
+    expect(rub.textContent).toContain('ставки не менялись');
+    expect(screen.getByRole('region', { name: 'Итог без НДС, USD' }).textContent).toMatch(
+      /из них курс 90,0 → 92,5: [−-]/,
+    );
+    expect(screen.getByRole('button', { name: /Параметры\s*1/ })).toBeTruthy();
+    expect(screen.getByText(/Управление проектом пересчитано автоматически: 18% от работ/)).toBeTruthy();
     expect((screen.getByRole('textbox', { name: 'Что сравниваем' }) as HTMLInputElement).value).toBe(
       'Текущее состояние',
     );
@@ -76,6 +92,8 @@ describe('экран сравнения', () => {
     await open('expert');
     expect(document.body.textContent).not.toContain('НДС');
     expect(document.body.textContent).not.toContain('₽');
+    expect(document.body.textContent).not.toContain('Курс USD');
+    expect(screen.getByRole('button', { name: /Параметры\s*0/ })).toBeTruthy();
   });
 
   it('фильтр по виду изменения', async () => {
@@ -84,7 +102,7 @@ describe('экран сравнения', () => {
     const rows = within(screen.getByRole('table')).getAllByRole('row');
     expect(rows).toHaveLength(2);
     expect(rows.at(1)?.textContent).toContain('Тесты обмена с 1С');
-    fireEvent.click(screen.getByRole('button', { name: /Удалены\s*0/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Перемещены\s*0/ }));
     expect(await screen.findByText('Изменений этого вида нет')).toBeTruthy();
   });
 
