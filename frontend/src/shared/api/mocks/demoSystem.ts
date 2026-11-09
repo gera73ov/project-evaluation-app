@@ -109,10 +109,23 @@ const SCHEMA_PROPS = new Map(
 );
 
 /**
- * FE-061 · демо-значения поверх значений по умолчанию: каталог AD уже описан (как на макете
+ * FE-061, FE-062 · демо-значения поверх значений по умолчанию: почта и адрес ИБ заданы, каталог AD описан (как на макете
  * `sa-auth.png`), но режим входа — «Приложение», переход на AD ещё не выполнен.
  */
 const SEED = new Map<string, unknown>([
+  [
+    "smtp.server",
+    {
+      host: "mail.corp.local",
+      port: 587,
+      security: "starttls",
+      username: "svc-estimator",
+      from_address: "estimator@corp.local",
+      from_name: "Оценка проектов",
+      timeout_seconds: 10,
+    },
+  ],
+  ["security.alert_email", "ib@corp.local"],
   [
     "auth.ad.connection",
     {

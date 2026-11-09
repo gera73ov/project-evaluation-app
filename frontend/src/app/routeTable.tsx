@@ -24,6 +24,8 @@ import { TotalsPage } from '../features/stats/totals/TotalsPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
 import { AuthPage } from '../features/system/auth/AuthPage';
 import { HealthPage } from '../features/system/health/HealthPage';
+import { RetentionPage, SmtpPage } from '../features/system/settings/MailRetentionPages';
+import { SecurityPage } from '../features/system/settings/SecurityPage';
 import { SystemStub } from '../features/system/layout/SystemLayout';
 import { SystemRoute } from '../features/system/SystemRoute';
 import { OutcomePage } from '../features/settings/outcome/OutcomePage';
@@ -65,9 +67,6 @@ export const NAV: readonly NavItem[] = [
 
 /** Пункты меню «Системы», экраны которых делают следующие задачи плана. */
 const SYSTEM_STUBS = [
-  ['security', 'FE-062'],
-  ['smtp', 'FE-062'],
-  ['retention', 'FE-062'],
   ['admins', 'FE-063'],
   ['auditors', 'FE-063'],
   ['anonymize', 'FE-063'],
@@ -183,6 +182,27 @@ export const ROUTES: readonly RouteDef[] = [
     nav: 'system',
     roles: ['superadmin'],
     render: () => <SystemRoute render={(me) => <AuthPage me={me} />} />,
+  },
+  {
+    path: '/system/security',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SecurityPage />,
+  },
+  {
+    path: '/system/smtp',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SmtpPage />,
+  },
+  {
+    path: '/system/retention',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <RetentionPage />,
   },
   ...SYSTEM_STUBS.map(
     ([section, task]): RouteDef => ({
