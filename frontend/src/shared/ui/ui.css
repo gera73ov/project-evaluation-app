@@ -374,3 +374,12 @@ button.type-opt.sel{background:var(--accent-soft);border-color:#b8d8e4}
 .tree .rv-btn .rv-ghost{color:var(--faint);opacity:0}
 .tree .tr:hover .rv-btn .rv-ghost,.tree .rv-btn:focus-visible .rv-ghost{opacity:1}
 .tree .rv-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* FE-018 · корзина (DESIGN.md 10.5): шаблон «Список» внутри вкладки */
+.trash{margin:16px 18px;max-width:1100px}
+.trash-table td{font-size:13px}
+.trash-path,.trash-count{color:var(--muted)}
+.trash-who,.trash-keep{color:var(--muted);font-size:12.5px;white-space:nowrap}
+.trash-act{text-align:right;width:1%;white-space:nowrap}
+.trash-done{margin:0 0 10px;padding:8px 12px;border-radius:6px;background:var(--ok-soft);color:var(--ok);font-size:13px}
+.table-foot{display:flex;justify-content:space-between;gap:12px;padding:10px 0;color:var(--muted);font-size:12px}

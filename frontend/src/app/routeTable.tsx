@@ -14,6 +14,7 @@ import { HomeRoute } from '../features/home/HomeRoute';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
+import { TrashPage } from '../features/trash/TrashPage';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
 import { WorkRoute } from '../features/work/WorkRoute';
 import type { Params } from './router';
@@ -68,18 +69,46 @@ export const ROUTES: readonly RouteDef[] = [
   { path: '/projects/:id', access: 'private', render: (params) => <WorkRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/settings', access: 'private', render: (params) => <SettingsRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/settings/documents', access: 'private', render: stub('Документы заказчика', 'FE-017') },
-  { path: '/projects/:id/trash', access: 'private', render: stub('Корзина', 'FE-018') },
+  {
+    path: '/projects/:id/trash',
+    access: 'private',
+    render: (params) => <TrashPage key={params.id} projectId={params.id ?? ''} />,
+  },
   { path: '/projects/:id/log', access: 'private', render: (params) => <JournalRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/stats', access: 'private', render: stub('Статистика', 'FE-040') },
   { path: '/projects/:id/stats/compare', access: 'private', render: stub('Сравнение со снимком', 'FE-044') },
   { path: '/projects/:id/stats/questions', access: 'private', render: stub('Вопросы заказчику', 'FE-043') },
   { path: '/profile', access: 'private', render: () => <ProfilePage /> },
   { path: '/admin', access: 'private', nav: 'admin', roles: ['admin'], render: stub('Админка', 'FE-070') },
-  { path: '/admin/registry', access: 'private', nav: 'admin', roles: ['admin'], render: stub('Реестр проектов', 'FE-073') },
-  { path: '/admin/registry/:id/support', access: 'private', nav: 'admin', roles: ['admin'], render: stub('Проект в режиме поддержки', 'FE-073') },
-  { path: '/portfolio', access: 'private', nav: 'portfolio', roles: ['presale_head'], render: stub('Портфель', 'FE-050') },
+  {
+    path: '/admin/registry',
+    access: 'private',
+    nav: 'admin',
+    roles: ['admin'],
+    render: stub('Реестр проектов', 'FE-073'),
+  },
+  {
+    path: '/admin/registry/:id/support',
+    access: 'private',
+    nav: 'admin',
+    roles: ['admin'],
+    render: stub('Проект в режиме поддержки', 'FE-073'),
+  },
+  {
+    path: '/portfolio',
+    access: 'private',
+    nav: 'portfolio',
+    roles: ['presale_head'],
+    render: stub('Портфель', 'FE-050'),
+  },
   { path: '/system', access: 'private', nav: 'system', roles: ['superadmin'], render: stub('Система', 'FE-060') },
-  { path: '/audit', access: 'private', nav: 'audit', roles: ['security_auditor', 'superadmin'], render: stub('Журнал аудита', 'FE-065') },
+  {
+    path: '/audit',
+    access: 'private',
+    nav: 'audit',
+    roles: ['security_auditor', 'superadmin'],
+    render: stub('Журнал аудита', 'FE-065'),
+  },
 ];
 
 export function findRoute(pathname: string, match: (pattern: string, path: string) => Params | null) {

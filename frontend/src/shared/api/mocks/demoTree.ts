@@ -6,7 +6,9 @@
 import {
   PEOPLE,
   PROJECTS,
+  disciplineId,
   hours,
+  phaseId,
   typeId,
   userRef,
   type DemoProject,
@@ -36,6 +38,8 @@ export function resetDemoTree(): void {
   localTypes.length = 0;
   created.clear();
   deleted.clear();
+  sessionTrash.length = 0;
+  restored.clear();
 }
 
 export function nextProjectVersion(): number {
@@ -133,18 +137,13 @@ function positionAfter(
   return between(after, before);
 }
 
-function newNode(
-  p: DemoProject,
-  parent: DemoNode,
-  fields: Record<string, unknown>,
-): DemoNode {
-  counter += 1;
-  const node = {
-    id: uuidFrom("node", "demo", String(counter)),
-    parent_id: parent.id,
+/** Узел демо со всеми полями TreeNode по умолчанию (пустой лист типа «Работа»). */
+function blankNode(fields: Record<string, unknown>): DemoNode {
+  return {
+    parent_id: null,
+    phase_id: null,
+    discipline_id: null,
     kind: "item",
-    phase_id: parent.phase_id,
-    discipline_id: parent.discipline_id,
     type_id: typeId("Работа"),
     title: "",
     position: "0001",
@@ -173,7 +172,22 @@ function newNode(
     open_questions: 0,
     questions_to_me: 0,
     ...fields,
-  } as DemoNode;
+  } as unknown as DemoNode;
+}
+
+function newNode(
+  p: DemoProject,
+  parent: DemoNode,
+  fields: Record<string, unknown>,
+): DemoNode {
+  counter += 1;
+  const node = blankNode({
+    id: uuidFrom("node", "demo", String(counter)),
+    parent_id: parent.id,
+    phase_id: parent.phase_id,
+    discipline_id: parent.discipline_id,
+    ...fields,
+  });
   created.set(node.id, { ...node, __project: p });
   return node;
 }
@@ -341,11 +355,31 @@ export function duplicateNode(p: DemoProject, id: string) {
   );
 }
 
-export function deleteNode(p: DemoProject, id: string) {
+export function deleteNode(
+  p: DemoProject,
+  id: string,
+  by: ReturnType<typeof userRef> | null = null,
+) {
   const nodes = demoNodes(p);
-  if (!nodes.some((n) => n.id === id)) return undefined;
-  const gone = [id, ...subtree(nodes, id).map((n) => n.id)];
+  const root = nodes.find((n) => n.id === id);
+  if (!root) return undefined;
+  const batch = [root, ...subtree(nodes, id)];
+  const gone = batch.map((n) => n.id);
   for (const g of gone) deleted.add(g);
+  // FE-018: удалённое — в корзину одним пакетом
+  sessionTrash.push({
+    batch_id: uuidFrom("trash", "session", id, String(sessionTrash.length)),
+    project: p,
+    deleted_at: new Date().toISOString(),
+    deleted_by: by,
+    kind: "nodes",
+    root_title: String(root.title),
+    discipline_id: (root.discipline_id as string | null) ?? null,
+    parent_id: root.parent_id,
+    nodes: batch,
+    session: true,
+    document: null,
+  });
   return mutation([], gone);
 }
 
@@ -545,4 +579,224 @@ export function reviewNode(
   return mutation(
     [node, ...subtree(nodes, id)].map((n) => saveNode(p, n, fields)),
   );
+}
+
+// --- FE-018: корзина -----------------------------------------------------------------------
+
+type TrashEntry = {
+  batch_id: string;
+  project: DemoProject;
+  deleted_at: string;
+  deleted_by: ReturnType<typeof userRef> | null;
+  kind: "nodes" | "document";
+  root_title: string;
+  discipline_id: string | null;
+  /** Прежний родитель корня пакета. */
+  parent_id: string | null;
+  /** Узлы пакета, корень первым. */
+  nodes: DemoNode[];
+  /** Удалено за сессию (узлы лежат в `deleted`), иначе — пакет демо. */
+  session: boolean;
+  document: Record<string, unknown> | null;
+};
+
+/** Удалённое за сессию. */
+const sessionTrash: TrashEntry[] = [];
+/** Восстановленные пакеты (и демо, и сессии). */
+const restored = new Set<string>();
+
+const DAY = 24 * 60 * 60 * 1000;
+const TRASH_DAYS = 30;
+const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+
+/**
+ * Пакеты демо «Портала дилеров»: «Отчёты» из Бэкенда (G-15), «Старый дашборд» из Фронтенда — за
+ * 2 дня до очистки, документ заказчика. Время — от текущего, чтобы «через N дн.» не устаревало.
+ */
+function seededTrash(p: DemoProject): TrashEntry[] {
+  if (p.key !== "portal") return [];
+  const nodes = demoNodes(p);
+  const branch = (phase: string, discipline: string) =>
+    nodes.find(
+      (n) =>
+        n.kind === "discipline" &&
+        n.phase_id === phaseId(phase) &&
+        n.discipline_id === disciplineId(discipline),
+    );
+  const item = (
+    key: string,
+    parent: string | null,
+    title: string,
+    from: DemoNode | undefined,
+    fields: Record<string, unknown> = {},
+  ) =>
+    blankNode({
+      id: uuidFrom("node", "trash", key),
+      parent_id: parent,
+      phase_id: from?.phase_id ?? null,
+      discipline_id: from?.discipline_id ?? null,
+      title,
+      position: "0900",
+      ...fields,
+    });
+  const backend = branch("ph-dev", "d-backend");
+  const frontend = branch("ph-dev", "d-frontend");
+  const reports = item("reports", backend?.id ?? null, "Отчёты", backend, {
+    type_id: typeId("Модуль"),
+  });
+  const est = { o: "8", r: "12", p: "20", leaf_state: "ok" };
+  const out: TrashEntry[] = [];
+  if (backend)
+    out.push({
+      batch_id: uuidFrom("trash", "portal", "reports"),
+      project: p,
+      deleted_at: ago(2 * DAY),
+      deleted_by: userRef(PERSONAS.expert),
+      kind: "nodes",
+      root_title: "Отчёты",
+      discipline_id: disciplineId("d-backend"),
+      parent_id: backend.id,
+      nodes: [
+        reports,
+        item("sales", reports.id, "Отчёт по продажам", backend, est),
+        item("excel", reports.id, "Выгрузка в Excel", backend, est),
+      ],
+      session: false,
+      document: null,
+    });
+  if (frontend)
+    out.push({
+      batch_id: uuidFrom("trash", "portal", "old-dashboard"),
+      project: p,
+      deleted_at: ago(28 * DAY + 60 * 60 * 1000),
+      deleted_by: userRef(PEOPLE.petrov),
+      kind: "nodes",
+      root_title: "Старый дашборд",
+      discipline_id: disciplineId("d-frontend"),
+      parent_id: frontend.id,
+      nodes: [
+        item("old-dashboard", frontend.id, "Старый дашборд", frontend, est),
+      ],
+      session: false,
+      document: null,
+    });
+  const deletedAt = ago(5 * DAY);
+  out.push({
+    batch_id: uuidFrom("trash", "portal", "tz-v1"),
+    project: p,
+    deleted_at: deletedAt,
+    deleted_by: userRef(PERSONAS.presale),
+    kind: "document",
+    root_title: "ТЗ_v1.pdf",
+    discipline_id: null,
+    parent_id: null,
+    nodes: [],
+    session: false,
+    document: {
+      id: uuidFrom("document", "portal", "tz-v1"),
+      file_name: "ТЗ_v1.pdf",
+      mime: "application/pdf",
+      size_bytes: 1_240_000,
+      scan_status: "clean",
+      uploaded_by: userRef(PERSONAS.presale),
+      uploaded_at: ago(12 * DAY),
+      deleted_at: deletedAt,
+    },
+  });
+  return out;
+}
+
+function trashEntries(p: DemoProject): TrashEntry[] {
+  return [
+    ...sessionTrash.filter((e) => e.project === p),
+    ...seededTrash(p),
+  ].filter((e) => !restored.has(e.batch_id));
+}
+
+/** `GET /projects/{id}/trash`: новые сверху; `visible` — фильтр по правам роли. */
+export function trashOf(
+  p: DemoProject,
+  visible: (kind: "nodes" | "document", disciplineId: string | null) => boolean,
+) {
+  return trashEntries(p)
+    .filter((e) => visible(e.kind, e.discipline_id))
+    .sort((a, b) => b.deleted_at.localeCompare(a.deleted_at))
+    .map((e) => ({
+      batch_id: e.batch_id,
+      deleted_at: e.deleted_at,
+      deleted_by: e.deleted_by,
+      purge_at: new Date(
+        Date.parse(e.deleted_at) + TRASH_DAYS * DAY,
+      ).toISOString(),
+      kind: e.kind,
+      root_title: e.root_title,
+      nodes_count: e.nodes.length,
+      document: e.document,
+      discipline_id: e.discipline_id,
+    }));
+}
+
+/** Причина RESTORE_TARGET_UNAVAILABLE или результат восстановления. */
+export type RestoreResult =
+  | {
+      unavailable:
+        | "phase_disabled"
+        | "branch_not_needed"
+        | "discipline_removed";
+    }
+  | ReturnType<typeof mutation>;
+
+/**
+ * `POST /trash/{batch_id}/restore` (FR-TREE-24, G-15): на прежнее место, если ветка не «не
+ * нужно», иначе — 409; с `target_parent_id` — под выбранный узел той же дисциплины.
+ */
+export function restoreTrash(
+  p: DemoProject,
+  batchId: string,
+  target: string | null,
+): RestoreResult | undefined {
+  const entry = trashEntries(p).find(
+    (e) => e.batch_id === batchId && e.kind === "nodes",
+  );
+  const root = entry?.nodes[0];
+  if (!entry || !root) return undefined;
+  const parent = demoNode(p, target ?? entry.parent_id ?? "");
+  if (!parent || parent.discipline_id !== entry.discipline_id)
+    return { unavailable: "discipline_removed" };
+  const status = (
+    p.branchStatuses as {
+      phase_id: string;
+      discipline_id: string;
+      status: string;
+    }[]
+  ).find(
+    (b) =>
+      b.phase_id === parent.phase_id &&
+      b.discipline_id === parent.discipline_id,
+  )?.status;
+  if (status === "not_needed") return { unavailable: "branch_not_needed" };
+  restored.add(entry.batch_id);
+  const moved = parent.id !== entry.parent_id;
+  const position = positionAfter(demoNodes(p), parent.id, null);
+  const back = entry.nodes.map((n) => {
+    deleted.delete(n.id);
+    const fields = {
+      ...(n.id === root.id ? { parent_id: parent.id } : {}),
+      ...(n.id === root.id && moved ? { position } : {}),
+      phase_id: parent.phase_id,
+    };
+    if (entry.session) return saveNode(p, n, fields);
+    const node = { ...n, ...fields } as DemoNode;
+    created.set(node.id, { ...node, __project: p });
+    return node;
+  });
+  return mutation(back);
+}
+
+/** `POST /documents/{id}/restore` (FR-DOC-01, GAP-06). */
+export function restoreDocument(p: DemoProject, id: string) {
+  const entry = trashEntries(p).find((e) => e.document?.id === id);
+  if (!entry?.document) return undefined;
+  restored.add(entry.batch_id);
+  return { ...entry.document, deleted_at: null };
 }

@@ -4,7 +4,7 @@
  */
 import { Button, Group, Modal, Select, Text, TextInput } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../../../shared/api/client';
@@ -250,12 +250,19 @@ export function MoveDialog({
   busy,
   onPick,
   onClose,
+  heading,
+  note,
+  confirmLabel,
 }: {
   title: string;
   targets: readonly MoveTarget[];
   busy: boolean;
   onPick: (parentId: string) => void;
   onClose: () => void;
+  /** Свой заголовок и подпись кнопки (восстановление из корзины, FE-018). */
+  heading?: string;
+  note?: ReactNode;
+  confirmLabel?: string;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
@@ -263,7 +270,12 @@ export function MoveDialog({
   const q = query.trim().toLocaleLowerCase('ru');
   const shown = q ? targets.filter((x) => x.title.toLocaleLowerCase('ru').includes(q)) : targets;
   return (
-    <Modal opened onClose={onClose} title={t('menu.moveTitle', { name: title })} size={480} centered>
+    <Modal opened onClose={onClose} title={heading ?? t('menu.moveTitle', { name: title })} size={480} centered>
+      {note ? (
+        <Text size="sm" mb="sm">
+          {note}
+        </Text>
+      ) : null}
       <TextInput
         placeholder={t('menu.moveSearch')}
         aria-label={t('menu.moveSearch')}
@@ -294,7 +306,7 @@ export function MoveDialog({
       <Actions
         busy={busy}
         disabled={!picked}
-        label={t('menu.moveConfirm')}
+        label={confirmLabel ?? t('menu.moveConfirm')}
         onConfirm={() => picked && onPick(picked)}
         onClose={onClose}
       />
