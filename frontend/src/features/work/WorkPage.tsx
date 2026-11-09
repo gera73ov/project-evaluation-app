@@ -22,6 +22,7 @@ import { useReadOnlyOffline } from '../../shared/ws/WsProvider';
 import { moneyKey } from '../settings/money/MoneySection';
 import { membersKey } from '../settings/team/TeamSection';
 import { useProject, type Project } from '../settings/useProject';
+import { useCollab, useCollabState, type Collab } from './collab/useCollab';
 import { FilterBar } from './filters/FilterBar';
 import {
   chipCounts,
@@ -95,11 +96,17 @@ export function myDisciplines(members: readonly Member[], userId: string | null)
 export function WorkPage({ projectId }: { projectId: string }) {
   const project = useProject(projectId);
   const client = useQueryClient();
-  const tree = useProjectTree(project.data, (event) => {
-    if (event.event === 'money.updated') void client.invalidateQueries({ queryKey: moneyKey(projectId) });
-  });
   const { session } = useSession();
   const userId = session.state === 'ready' ? session.me.id : null;
+  const collab = useCollab(projectId, userId);
+  const tree = useProjectTree(
+    project.data,
+    (event) => {
+      if (event.event === 'money.updated') void client.invalidateQueries({ queryKey: moneyKey(projectId) });
+      else collab.onEvent(event);
+    },
+    collab.onEvent,
+  );
   const members = useQuery({
     queryKey: membersKey(projectId),
     queryFn: () => call(() => api.GET('/projects/{id}/members', { params: { path: { id: projectId } } })),
@@ -127,6 +134,7 @@ export function WorkPage({ projectId }: { projectId: string }) {
       project={data}
       store={tree.store}
       confirm={tree.confirm}
+      collab={collab}
       members={list}
       userId={userId}
       moderator={isModerator}
@@ -139,6 +147,7 @@ function WorkScreen({
   project: data,
   store,
   confirm,
+  collab,
   members,
   userId,
   moderator,
@@ -147,6 +156,7 @@ function WorkScreen({
   project: Project;
   store: TreeStore;
   confirm: ReturnType<typeof useProjectTree>['confirm'];
+  collab: Collab;
   members: Member[];
   userId: string | null;
   moderator: boolean;
@@ -192,6 +202,9 @@ function WorkScreen({
     enabled: canMoney,
     retry: false,
   });
+  const locks = useCollabState(collab.store, (s) => s.locks);
+  const marks = useCollabState(collab.store, (s) => s.marks);
+  const presence = useCollabState(collab.store, (s) => s.presence);
   const nodesRevision = useTree(store, (s) => s.nodes);
   const revision = useTree(store, (s) => s.revision);
   const riskList = (tags.data ?? []).filter((tag) => tag.category === 'risk').map((tag) => tag.id);
@@ -248,6 +261,7 @@ function WorkScreen({
 
   const ctx: TreeContext = {
     highlight: deferredQuery,
+    collab: { locks, marks, canForce: data.my_permissions.includes('tree.lock.force') },
     canEdit: editRule(data, members, userId, offline),
     withoutExpert: new Set(data.disciplines.filter((d) => !d.has_expert).map((d) => d.discipline_id)),
     disciplineNames: new Map(data.disciplines.map((d) => [d.discipline_id, d.name])),
@@ -269,6 +283,7 @@ function WorkScreen({
         risks={risks}
         onShowNode={showNode}
         onRiskFilter={() => toggleFilter('risk')}
+        presence={presence.filter((p) => p.id !== userId)}
         readOnly={offline}
       />
       <FilterBar
@@ -307,6 +322,7 @@ function WorkScreen({
           onCollapsedChange={(collapsed) => setView((v) => ({ ...v, collapsed }))}
           visible={visible}
           onConfirm={confirm}
+          locking={collab}
         />
       </div>
     </div>

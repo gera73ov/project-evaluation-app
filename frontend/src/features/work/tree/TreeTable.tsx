@@ -33,7 +33,10 @@ import { formatHours, formatHoursInput, formatNumber, formatPercent } from '../.
 import { StatusBadge } from '../../../shared/ui/StatusBadge';
 import { nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
 import { CommentCell, HoursCell, MultiplierCell, type Norm } from '../cells/Cells';
-import { useCells, type CellRef, type CellsApi, type CommentLine } from '../cells/useCells';
+import { cellKey, useCells, type CellRef, type CellsApi, type CommentLine, type LockResult } from '../cells/useCells';
+import type { CellLock, CellMark } from '../collab/collabStore';
+import { ConflictDialog } from '../collab/ConflictDialog';
+import { userColor } from '../../../shared/ui/userColor';
 import type { TreeNode, TreeStore } from '../store/treeStore';
 import { useTree } from '../store/useProjectTree';
 import { MAX_INDENT_DEPTH, ancestorsOf, buildRows, indentOf, type TreeRow } from './rows';
@@ -54,6 +57,13 @@ export interface TreeContext {
   settingsHref: string | null;
   /** Строка поиска для подсветки совпадений (FE-024); пусто — без подсветки. */
   highlight?: string;
+  /** Чужие захваты ячеек и метки чужих правок (FE-026). */
+  collab?: {
+    locks: ReadonlyMap<string, CellLock>;
+    marks: ReadonlyMap<string, CellMark>;
+    /** Модератор: «Всё равно править». */
+    canForce: boolean;
+  };
 }
 
 /** Подсветка совпадений поиска тегом `<mark>` (DESIGN.md 9.3). */
@@ -195,6 +205,10 @@ const Row = memo(function Row({
   if (errorRow) classes.push('err');
   if (notNeeded) classes.push('not-needed');
   if (target) classes.push('target');
+  const mark = ctx.collab?.marks.get(id);
+  if (mark) classes.push('changed');
+  const lockOf = (field: 'o' | 'r' | 'p' | 'multiplier' | 'comment') => ctx.collab?.locks.get(cellKey(id, field));
+  const canForce = ctx.collab?.canForce ?? false;
   const toggle =
     row.hasChildren && !row.filtered ? (
       <button
@@ -245,6 +259,8 @@ const Row = memo(function Row({
         pending={pendingFields?.has(field) ?? false}
         cells={cells}
         roTitle={roTitle}
+        lock={lockOf(field)}
+        canForce={canForce}
       />
     );
   };
@@ -281,6 +297,16 @@ const Row = memo(function Row({
           <span className="pill warn">⚠ {t('tree.noExpert')}</span>
         ) : null}
         <Discussion node={node} />
+        {mark ? (
+          <span
+            key={mark.at}
+            className="author-mark"
+            style={{ background: userColor(mark.user) }}
+            title={mark.user.full_name}
+          >
+            {t('collab.changed', { initials: mark.user.initials })}
+          </span>
+        ) : null}
       </div>
       {row.kind === 'leaf' ? (
         <MultiplierCell
@@ -288,6 +314,8 @@ const Row = memo(function Row({
           value={result.node.multiplier}
           pending={pendingFields?.has('multiplier') ?? false}
           cells={cells}
+          lock={lockOf('multiplier')}
+          canForce={canForce}
         />
       ) : (
         <div className="td mul-c" role="cell" />
@@ -301,6 +329,8 @@ const Row = memo(function Row({
           placeholder={editable && row.kind === 'leaf'}
           norms={state === 'empty' ? typeNorms : []}
           highlight={highlight}
+          lock={lockOf('comment')}
+          canForce={canForce}
         />
       ) : (
         <div className="td cm" role="cell">
@@ -354,6 +384,7 @@ export function TreeTable({
   onCollapsedChange,
   visible = null,
   onConfirm,
+  locking,
 }: {
   store: TreeStore;
   ctx: TreeContext;
@@ -366,6 +397,11 @@ export function TreeTable({
   visible?: ReadonlySet<string> | null;
   /** Подтверждение правки сервером (`useProjectTree().confirm`); есть — ячейки редактируются. */
   onConfirm?: (node: components['schemas']['Node'], projectVersion: number) => void;
+  /** Захват ячеек при вводе (FE-026). */
+  locking?: {
+    lock: (cell: CellRef, force?: boolean) => Promise<LockResult>;
+    unlock: (cell: CellRef) => void;
+  };
 }) {
   const { t } = useTranslation();
   const revision = useTree(store, (s) => s.revision);
@@ -404,6 +440,7 @@ export function TreeTable({
     store,
     confirm: onConfirm ?? (() => undefined),
     leaves: editableLeaves,
+    ...(locking ? { lock: locking.lock, unlock: locking.unlock } : {}),
     onMove: (cell: CellRef) => {
       const index = rows.findIndex((r) => r.id === cell.nodeId);
       if (index >= 0) virtualizer.scrollToIndex(index, { align: 'auto' });
@@ -474,8 +511,12 @@ export function TreeTable({
     }
   }
 
+  const conflictNode = cells.conflict ? nodes.get(cells.conflict.nodeId) : undefined;
   return (
     <div className="tree" role="treegrid" aria-label={t('tree.label')} aria-rowcount={rows.length}>
+      {cells.conflict ? (
+        <ConflictDialog conflict={cells.conflict} title={conflictNode?.title ?? ''} onResolve={cells.resolveConflict} />
+      ) : null}
       <div className="tr th" role="row">
         <div className="td node" role="columnheader">
           {t('tree.col.node')}

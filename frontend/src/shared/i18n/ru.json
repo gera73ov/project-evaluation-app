@@ -698,6 +698,19 @@
     "commentAll": "Весь комментарий, строк: {{count}}",
     "noTag": "без метки",
     "norm": "Норма: {{label}} {{fork}}",
-    "normApply": "подставить"
+    "normApply": "подставить",
+    "lockedBy": "Сейчас редактирует {{name}}",
+    "force": "Всё равно править"
+  },
+  "collab": {
+    "changed": "{{initials}} изменил",
+    "conflictTitle": "Значение изменил {{name}}",
+    "someone": "другой участник",
+    "theirs": "Его:",
+    "yours": "Ваше:",
+    "accept": "Принять",
+    "keepMine": "Оставить моё",
+    "presence": "Сейчас в проекте: {{count}}",
+    "inProject": "сейчас в проекте"
   }
 }
