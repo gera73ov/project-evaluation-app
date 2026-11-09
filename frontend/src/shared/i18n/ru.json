@@ -610,5 +610,32 @@
     "tip": {
       "fork": "O–R–P за единицу"
     }
+  },
+  "top": {
+    "label": "Проект",
+    "back": "К списку оценок",
+    "level": "уровень «{{level}}»",
+    "deadline": "дедлайн {{date}}",
+    "deadlineLeft_one": "Осталось {{count}} рабочий день",
+    "deadlineLeft_few": "Осталось {{count}} рабочих дня",
+    "deadlineLeft_many": "Осталось {{count}} рабочих дней",
+    "deadlineLeft_other": "Осталось {{count}} рабочего дня",
+    "hoursTotal": "Итог часов",
+    "hours": "ч",
+    "inQuote": "в КП",
+    "money": "Сумма для КП",
+    "noVat": "в КП, без НДС",
+    "withVat": "с НДС {{percent}}",
+    "ratesMissing": "не заданы ставки: {{names}}",
+    "moneyLocked": "деньги — подтвердите вход кодом",
+    "open": "Открыто",
+    "openCount": "{{me}} мне / {{total}}",
+    "openTitle": "Открытые вопросы",
+    "noOpen": "Открытых вопросов нет",
+    "toMe": "вам: {{count}}",
+    "openN": "открыто: {{count}}",
+    "risks": "Риски",
+    "stats": "Статистика",
+    "settings": "Настройки"
   }
 }

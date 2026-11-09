@@ -9,7 +9,7 @@
  */
 import { Tooltip } from '@mantine/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { memo, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Link } from '../../../app/router';
@@ -29,7 +29,7 @@ import { StatusBadge } from '../../../shared/ui/StatusBadge';
 import { nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
 import type { TreeNode, TreeStore } from '../store/treeStore';
 import { useTree } from '../store/useProjectTree';
-import { MAX_INDENT_DEPTH, buildRows, indentOf, type TreeRow } from './rows';
+import { MAX_INDENT_DEPTH, ancestorsOf, buildRows, indentOf, type TreeRow } from './rows';
 
 export const ROW_HEIGHT = 38;
 
@@ -133,9 +133,10 @@ interface RowProps {
   pmE: Dec | null;
   largeThreshold: Dec | null;
   onToggle: (id: string) => void;
+  target?: boolean;
 }
 
-const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThreshold, onToggle }: RowProps) {
+const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThreshold, onToggle, target }: RowProps) {
   const { t } = useTranslation();
   if (row.kind === 'pm') {
     return (
@@ -174,6 +175,7 @@ const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThresh
   const classes = ['tr', row.kind];
   if (errorRow) classes.push('err');
   if (notNeeded) classes.push('not-needed');
+  if (target) classes.push('target');
   const toggle = row.hasChildren ? (
     <button
       type="button"
@@ -300,7 +302,22 @@ const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThresh
   );
 });
 
-export function TreeTable({ store, ctx, height }: { store: TreeStore; ctx: TreeContext; height?: number | string }) {
+/** Управление таблицей снаружи: показать строку узла (раскрыть предков и прокрутить к ней). */
+export interface TreeTableApi {
+  show: (nodeId: string) => void;
+}
+
+export function TreeTable({
+  store,
+  ctx,
+  height,
+  apiRef,
+}: {
+  store: TreeStore;
+  ctx: TreeContext;
+  height?: number | string;
+  apiRef?: Ref<TreeTableApi>;
+}) {
   const { t } = useTranslation();
   const revision = useTree(store, (s) => s.revision);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -324,6 +341,22 @@ export function TreeTable({ store, ctx, height }: { store: TreeStore; ctx: TreeC
     overscan: 12,
     initialRect: { width: 1366, height: 900 },
   });
+  const [target, setTarget] = useState<string | null>(null);
+  useImperativeHandle(apiRef, () => ({
+    show: (nodeId: string) => {
+      const calcNow = store.getState().calc;
+      if (!calcNow?.nodes.has(nodeId)) return;
+      const up = new Set(ancestorsOf(calcNow, nodeId));
+      setCollapsed((prev) => new Set([...prev].filter((id) => !up.has(id))));
+      setTarget(nodeId);
+    },
+  }));
+  // прокрутка после того, как раскрытые предки попали в список строк
+  useEffect(() => {
+    if (!target) return;
+    const index = rows.findIndex((r) => r.id === target);
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: 'center' });
+  }, [target, rows, virtualizer]);
   const largeThreshold = settings ? largeLeafThreshold(settings.detailLevel, DEFAULT_LARGE_LEAF_HOURS) : null;
 
   const toggle = (id: string) =>
@@ -348,6 +381,7 @@ export function TreeTable({ store, ctx, height }: { store: TreeStore; ctx: TreeC
       pmE: result?.pm.e ?? null,
       largeThreshold,
       onToggle: toggle,
+      target: row.id !== null && row.id === target,
     };
   };
 

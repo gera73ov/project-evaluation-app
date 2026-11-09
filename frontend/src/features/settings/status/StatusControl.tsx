@@ -163,7 +163,16 @@ function useStatusFacts(project: Project, enabled: boolean): StatusFacts | null 
   };
 }
 
-export function StatusControl({ project, readOnly }: { project: Project; readOnly: boolean }) {
+export function StatusControl({
+  project,
+  readOnly,
+  label = true,
+}: {
+  project: Project;
+  readOnly: boolean;
+  /** Подпись «Статус» — в шапке настроек; в верхней полосе её нет (DESIGN.md 9.2). */
+  label?: boolean;
+}) {
   const { t } = useTranslation();
   const client = useQueryClient();
   const canChange = project.my_permissions.includes('project.status');
@@ -193,7 +202,7 @@ export function StatusControl({ project, readOnly }: { project: Project; readOnl
   const transitions = TRANSITIONS.get(project.status) ?? [];
   return (
     <div className="status-ctl">
-      <span className="set-unit">{t('status.label')}</span>
+      {label ? <span className="set-unit">{t('status.label')}</span> : null}
       {canChange && !readOnly ? (
         <Menu position="bottom-end" width={240}>
           <Menu.Target>

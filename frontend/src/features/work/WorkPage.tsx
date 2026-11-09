@@ -3,22 +3,32 @@
  *
  * Кто что правит: модератор — все ветки, эксперт — ветки своих дисциплин (`tree.write`, область
  * own_discipline); в «Завершена» и «Архив» и без связи — только просмотр. Окончательно права
- * проверяет сервер (403). Верхняя полоса — FE-023, инструменты — FE-024.
+ * проверяет сервер (403). Сверху — полоса проекта (FE-023); инструменты — FE-024.
  */
-import { useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
+
+import { useSearchParam } from '../../app/router';
 
 import { useSession } from '../../app/session';
 import { api, type components } from '../../shared/api/client';
 import { call } from '../../shared/api/problem';
 import { ErrorText } from '../../shared/ui/ErrorText';
 import { useReadOnlyOffline } from '../../shared/ws/WsProvider';
+import { moneyKey } from '../settings/money/MoneySection';
 import { membersKey } from '../settings/team/TeamSection';
 import { useProject, type Project } from '../settings/useProject';
-import { useProjectTree } from './store/useProjectTree';
-import { TreeTable, type TreeContext } from './tree/TreeTable';
+import type { TreeState } from './store/treeStore';
+import { useProjectTree, useTree } from './store/useProjectTree';
+import { TopBar, type OpenQuestion } from './topbar/TopBar';
+import { TreeTable, type TreeContext, type TreeTableApi } from './tree/TreeTable';
 
 type Member = components['schemas']['Member'];
+type Money = components['schemas']['ProjectMoney'];
+
+interface CommentLine {
+  tag_id: string | null;
+}
 
 const READ_ONLY_STATUSES = new Set(['completed', 'archived']);
 
@@ -36,10 +46,36 @@ export function editRule(
   return (disciplineId) => allowed && (moderator || (disciplineId !== null && disciplines.has(disciplineId)));
 }
 
+/** Узлы с открытыми вопросами (счётчик «Открыто», 11.4 №3): сначала адресованные мне. */
+export function openQuestions(state: Pick<TreeState, 'nodes'>): OpenQuestion[] {
+  const out: OpenQuestion[] = [];
+  for (const node of state.nodes.values()) {
+    const extra = new Map(Object.entries(node.extra));
+    const open = Number(extra.get('open_questions') ?? 0);
+    if (open > 0)
+      out.push({ nodeId: node.id, title: node.title, open, toMe: Number(extra.get('questions_to_me') ?? 0) });
+  }
+  return out.sort((a, b) => b.toMe - a.toMe || a.title.localeCompare(b.title, 'ru'));
+}
+
+/** Листья с меткой категории «Риск» в комментарии (счётчик рисков, 11.4 №3). */
+export function riskCount(state: Pick<TreeState, 'nodes'>, riskTags: ReadonlySet<string>): number {
+  let count = 0;
+  for (const node of state.nodes.values()) {
+    const lines = (new Map(Object.entries(node.extra)).get('comment_lines') ?? []) as CommentLine[] | null;
+    if ((lines ?? []).some((l) => l.tag_id !== null && riskTags.has(l.tag_id))) count += 1;
+  }
+  return count;
+}
+
 export function WorkPage({ projectId }: { projectId: string }) {
-  const { t } = useTranslation();
   const project = useProject(projectId);
-  const tree = useProjectTree(project.data);
+  const client = useQueryClient();
+  const tree = useProjectTree(project.data, (event) => {
+    if (event.event === 'money.updated') void client.invalidateQueries({ queryKey: moneyKey(projectId) });
+  });
+  const tableRef = useRef<TreeTableApi>(null);
+  const focusNode = useSearchParam('node');
   const offline = useReadOnlyOffline();
   const { session } = useSession();
   const userId = session.state === 'ready' ? session.me.id : null;
@@ -59,8 +95,25 @@ export function WorkPage({ projectId }: { projectId: string }) {
     queryKey: ['dict', 'tags'],
     queryFn: () => call(() => api.GET('/admin/tags')),
     staleTime: 10 * 60_000,
-    select: (data) => new Map(data.items.map((tag) => [tag.id, tag.short_name])),
+    select: (data) => data.items,
   });
+  const canMoney = project.data?.my_permissions.includes('money.read') ?? false;
+  const money = useQuery({
+    queryKey: moneyKey(projectId),
+    queryFn: () => call(() => api.GET('/projects/{id}/money', { params: { path: { id: projectId } } })),
+    select: (data) => data as Money,
+    enabled: canMoney,
+    retry: false,
+  });
+  const nodesRevision = useTree(tree.store, (s) => s.nodes);
+  const riskTags = new Set((tags.data ?? []).filter((tag) => tag.category === 'risk').map((tag) => tag.id));
+  const questions = openQuestions({ nodes: nodesRevision });
+  const risks = riskCount({ nodes: nodesRevision }, riskTags);
+
+  // ссылка из уведомления `?node=` открывает строку узла (FR-NOTIF-01)
+  useEffect(() => {
+    if (tree.loaded && focusNode) tableRef.current?.show(focusNode);
+  }, [tree.loaded, focusNode]);
 
   if (project.error || tree.error) {
     return (
@@ -77,16 +130,27 @@ export function WorkPage({ projectId }: { projectId: string }) {
     withoutExpert: new Set(data.disciplines.filter((d) => !d.has_expert).map((d) => d.discipline_id)),
     disciplineNames: new Map(data.disciplines.map((d) => [d.discipline_id, d.name])),
     nodeTypes: nodeTypes.data ?? new Map(),
-    tags: tags.data ?? new Map(),
+    tags: new Map((tags.data ?? []).map((tag) => [tag.id, tag.short_name])),
     pmPercent: String(data.pm_percent),
     pmReason: data.pm_percent_reason ?? '',
     settingsHref: data.my_permissions.includes('project.settings.write') ? `/projects/${data.id}/settings` : null,
   };
 
   return (
-    <div className="work">
-      <h1 className="sr-only">{t('tree.title', { name: data.name })}</h1>
-      <TreeTable store={tree.store} ctx={ctx} />
+    <div className="work-page">
+      <TopBar
+        project={data}
+        store={tree.store}
+        money={money.data}
+        moneyError={money.error}
+        questions={questions}
+        risks={risks}
+        onShowNode={(id) => tableRef.current?.show(id)}
+        readOnly={offline}
+      />
+      <div className="work">
+        <TreeTable store={tree.store} ctx={ctx} apiRef={tableRef} />
+      </div>
     </div>
   );
 }

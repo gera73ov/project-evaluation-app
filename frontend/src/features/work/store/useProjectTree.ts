@@ -11,6 +11,7 @@ import { useStore } from 'zustand';
 
 import { api, type components } from '../../../shared/api/client';
 import { call } from '../../../shared/api/problem';
+import type { WsEvent } from '../../../shared/ws/client';
 import { useProjectChannel, useWsClient } from '../../../shared/ws/WsProvider';
 import { createTreeStore, settingsOf, type TreeEvent, type TreeState, type TreeStore } from './treeStore';
 
@@ -34,7 +35,11 @@ export interface ProjectTree {
   reload: () => Promise<void>;
 }
 
-export function useProjectTree(project: Project | undefined): ProjectTree {
+/**
+ * `onOtherEvent` — остальные события каналов проекта (деньги, обсуждения): у WS-клиента одна
+ * подписка на проект, поэтому все события приходят сюда.
+ */
+export function useProjectTree(project: Project | undefined, onOtherEvent?: (event: WsEvent) => void): ProjectTree {
   const projectId = project?.id ?? null;
   const ws = useWsClient();
   const [store] = useState(createTreeStore);
@@ -65,7 +70,10 @@ export function useProjectTree(project: Project | undefined): ProjectTree {
 
   useProjectChannel(loaded ? projectId : null, loaded ? version : null, {
     onEvent: (event) => {
-      if (!TREE_EVENTS.has(event.event) || typeof event.project_version !== 'number') return;
+      if (!TREE_EVENTS.has(event.event) || typeof event.project_version !== 'number') {
+        onOtherEvent?.(event);
+        return;
+      }
       store.getState().applyEvent(event as unknown as TreeEvent);
     },
     onResync: () => void tree.refetch(),
