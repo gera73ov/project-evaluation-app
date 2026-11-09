@@ -370,3 +370,53 @@ class NodeTypeList(_Strict):
 class LocalNodeType(_Strict):
     name: str = Field(min_length=1, max_length=50)
     icon: NodeTypeIcon
+
+
+# --- узлы: создание и правка (CORE-015) -------------------------------------------------------
+
+#: ``HoursInput``: O/R/P на вход строкой, ``null`` — очистить (BR-CALC-03)
+HoursInput = str | None
+_HOURS_PATTERN = r"^\d+([.,]\d+)?$"
+
+
+class NodeCreate(_Strict):
+    parent_id: uuid.UUID
+    after_id: uuid.UUID | None = None
+    type_id: uuid.UUID | None = None
+    title: str = Field(min_length=1, max_length=200)
+    o: HoursInput = Field(default=None, pattern=_HOURS_PATTERN, max_length=12)
+    r: HoursInput = Field(default=None, pattern=_HOURS_PATTERN, max_length=12)
+    p: HoursInput = Field(default=None, pattern=_HOURS_PATTERN, max_length=12)
+    multiplier: int = Field(default=None, ge=1, le=10000)  # type: ignore[assignment]
+
+
+class NodeChanges(_Strict):
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"minProperties": 1})
+
+    title: str = Field(default=None, min_length=1, max_length=200)  # type: ignore[assignment]
+    type_id: uuid.UUID | None = None
+    o: HoursInput = Field(default=None, pattern=_HOURS_PATTERN, max_length=12)
+    r: HoursInput = Field(default=None, pattern=_HOURS_PATTERN, max_length=12)
+    p: HoursInput = Field(default=None, pattern=_HOURS_PATTERN, max_length=12)
+    multiplier: int = Field(default=None, ge=1, le=10000)  # type: ignore[assignment]
+    comment_lines: list[CommentLine] | None = Field(default=None, max_length=10)
+
+
+class NodePatch(_Strict):
+    base_version: int = Field(ge=1)
+    changes: NodeChanges
+
+
+class AncestorTotals(_Strict):
+    id: uuid.UUID
+    e: str
+    sigma: str
+
+
+class NodeMutation(_Strict):
+    node: NodeOut
+    project_version: int
+    ancestors: list[AncestorTotals]
+    totals: HoursTotals
+    branch_status: BranchStatusChange | None
+    rounded: list[str] = Field(default=None)  # type: ignore[assignment]

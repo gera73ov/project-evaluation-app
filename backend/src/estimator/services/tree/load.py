@@ -200,33 +200,79 @@ def _ordered(nodes: list[Node], phase_order: Mapping[uuid.UUID, int]) -> list[No
     return out
 
 
-async def load_tree(db: AsyncSession, project: Project) -> dict[str, Any]:
-    """Тело ответа ``Tree`` (contracts/openapi.yaml): узлы, статусы веток, итоги, версия."""
+@dataclass
+class _Computed:
+    phases: list[PhaseRow]
+    disciplines: list[DisciplineRow]
+    nodes: list[Any]
+    status_rows: list[Any]
+    result: calc.ProjectResult
+    large: set[str]
+    repeating: set[str]
+
+
+async def _compute(db: AsyncSession, project: Project) -> _Computed:
+    """Строки дерева и расчёт: общий шаг :func:`load_tree` и :func:`mutation_view`."""
     phases = await project_phases(db, project.id)
     disciplines = await project_disciplines(db, project.id)
     nodes = await live_nodes(db, project.id)
-    status_rows = (
-        await db.execute(
-            select(BranchStatus, User.full_name, User.status)
-            .outerjoin(User, User.id == BranchStatus.changed_by)
-            .where(BranchStatus.project_id == project.id)
-        )
-    ).all()
+    status_rows = list(
+        (
+            await db.execute(
+                select(BranchStatus, User.full_name, User.status)
+                .outerjoin(User, User.id == BranchStatus.changed_by)
+                .where(BranchStatus.project_id == project.id)
+            )
+        ).all()
+    )
     statuses = {(b.phase_id, b.discipline_id): str(b.status) for b, _, _ in status_rows}
     result = calc.calculate(calc_input(project, phases, disciplines, nodes, statuses))
     settings = await read_settings(db, "method.large_leaf_hours")
     flags = decomposition(result, _thresholds(settings.get("method.large_leaf_hours")))
-    large, repeating = set(flags.large), set(flags.repeating)
+    return _Computed(
+        phases, disciplines, nodes, status_rows, result, set(flags.large), set(flags.repeating)
+    )
 
+
+async def _reviewers(db: AsyncSession, nodes: list[Any]) -> dict[uuid.UUID, dict[str, Any]]:
     reviewer_ids = {n.reviewed_by for n in nodes if n.reviewed_by}
-    reviewers: dict[uuid.UUID, dict[str, Any]] = {}
-    if reviewer_ids:
-        rows = await db.execute(
-            select(User.id, User.full_name, User.status).where(User.id.in_(reviewer_ids))
-        )
-        reviewers = {
-            uid: user_ref(uid, name, is_active=str(st) == "active") for uid, name, st in rows
-        }
+    if not reviewer_ids:
+        return {}
+    rows = await db.execute(
+        select(User.id, User.full_name, User.status).where(User.id.in_(reviewer_ids))
+    )
+    return {uid: user_ref(uid, name, is_active=str(st) == "active") for uid, name, st in rows}
+
+
+async def mutation_view(
+    db: AsyncSession, project: Project, node_id: uuid.UUID
+) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, str | None]]:
+    """Узел, его предки (id, E, σ) от родителя к корню и итог проекта — ответ правки (15.3).
+
+    Считает проект целиком, но собирает выходные строки только для узла и предков.
+    """
+    c = await _compute(db, project)
+    by_id = {n.id: n for n in c.nodes}
+    node = by_id[node_id]
+    reviewers = await _reviewers(db, [node])
+    cross_cutting = {p.phase_id for p in c.phases if p.is_cross_cutting}
+    out = _node_out(node, c.result, reviewers, cross_cutting, c.large, c.repeating)
+    ancestors = []
+    parent = node.parent_id
+    while parent is not None:
+        row = by_id[parent]
+        figures = _node_out(row, c.result, {}, cross_cutting, c.large, c.repeating)
+        ancestors.append({"id": figures["id"], "e": figures["e"], "sigma": figures["sigma"]})
+        parent = row.parent_id
+    return out, ancestors, _figures(c.result.total)
+
+
+async def load_tree(db: AsyncSession, project: Project) -> dict[str, Any]:
+    """Тело ответа ``Tree`` (contracts/openapi.yaml): узлы, статусы веток, итоги, версия."""
+    c = await _compute(db, project)
+    phases, disciplines, nodes, status_rows = c.phases, c.disciplines, c.nodes, c.status_rows
+    result, large, repeating = c.result, c.large, c.repeating
+    reviewers = await _reviewers(db, nodes)
 
     cross_cutting = {p.phase_id for p in phases if p.is_cross_cutting}
     order = {p.phase_id: i for i, p in enumerate(phases)}
