@@ -10,11 +10,12 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Query
 
 from estimator.api.common.router import ApiRouter
 from estimator.api.v1 import core_schemas as s
 from estimator.auth.mfa_policy import ActivePrincipal
+from estimator.db.enums import ProjectRole
 from estimator.db.models.projects import Project
 from estimator.db.session import DbSession
 from estimator.services import team
@@ -80,3 +81,20 @@ async def replace_member(
     await team.replace_member(db, principal, project, user_id, body.replacement_user_id)
     await db.flush()
     return {"items": await team.members_out(db, id)}
+
+
+@router.get(
+    "/projects/{id}/member-candidates",
+    permission="team.write",
+    response_model=s.MemberCandidates,
+    response_model_exclude_unset=True,
+)
+async def get_member_candidates(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    db: DbSession,
+    q: str = Query(min_length=2, max_length=100),
+    role: ProjectRole | None = None,
+    limit: int = Query(default=20, ge=1, le=50),
+) -> dict[str, Any]:
+    """CR-005: поиск людей для «+ добавить» и «Заменить» в команде."""
+    return {"items": await team.candidates(db, q, role, limit)}
