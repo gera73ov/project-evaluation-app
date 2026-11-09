@@ -76,3 +76,30 @@
 .phase-list{border:0;padding:0;margin:0 0 16px;display:grid;gap:8px}
 .phase-list .always{margin-left:8px}
 .muted-note{color:var(--muted);font-size:12px;margin:0 0 14px}
+/* FE-012 · настройки проекта (DESIGN.md 10.5) */
+.settings{padding:0 0 24px}
+.crumbs{display:flex;align-items:baseline;gap:4px;padding:14px 18px 0;color:var(--muted)}
+.crumbs a{color:var(--muted);text-decoration:none}
+.crumbs h1{font-size:14px;font-weight:700;color:var(--ink);margin:0}
+.set-tabs{background:var(--panel)}
+.set-tabs a{padding:11px 14px;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;text-decoration:none}
+.set-tabs a.on{color:var(--ink);border-bottom-color:var(--accent)}
+.set-readonly{margin:14px 18px 0;color:var(--muted)}
+.set-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;padding:18px;align-items:start}
+.set-grid.single{grid-template-columns:minmax(0,960px)}
+.set-col{display:grid;gap:18px}
+.set-sec h3{font-size:14px;margin:0 0 14px}
+.set-row{display:grid;grid-template-columns:170px minmax(0,1fr);gap:8px 14px;align-items:start;margin-bottom:14px}
+.set-label{color:var(--muted);padding-top:8px}
+.set-label.inline{padding-top:0;white-space:nowrap}
+.set-field{display:grid;gap:6px;min-width:0}
+.set-inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.set-inline .grow{flex:1;min-width:200px}
+.set-unit{color:var(--muted)}
+.set-hint{color:var(--muted);font-size:12px}
+.set-text{padding-top:8px;white-space:pre-wrap}
+.saved{color:var(--ok);font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;cursor:pointer}
+.chip.on{background:var(--accent-soft);border-color:#b8d8e4;color:var(--accent-ink)}
+.chip:disabled{cursor:default;opacity:.75}

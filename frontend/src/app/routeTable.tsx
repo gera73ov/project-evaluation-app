@@ -13,6 +13,7 @@ import { SetupInProgressPage } from '../features/auth/SetupInProgressPage';
 import { HomeRoute } from '../features/home/HomeRoute';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
+import { SettingsRoute } from '../features/settings/SettingsRoute';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
 import type { Params } from './router';
 import type { SystemRole } from './session';
@@ -64,7 +65,7 @@ export const ROUTES: readonly RouteDef[] = [
   { path: '/', access: 'private', nav: 'home', render: () => <HomeRoute /> },
   { path: '/projects/new', access: 'private', nav: 'home', roles: ['moderator'], render: () => <ProjectCreatePage /> },
   { path: '/projects/:id', access: 'private', render: stub('Рабочий экран проекта', 'FE-022') },
-  { path: '/projects/:id/settings', access: 'private', render: stub('Настройки проекта', 'FE-012') },
+  { path: '/projects/:id/settings', access: 'private', render: (params) => <SettingsRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/settings/documents', access: 'private', render: stub('Документы заказчика', 'FE-017') },
   { path: '/projects/:id/trash', access: 'private', render: stub('Корзина', 'FE-018') },
   { path: '/projects/:id/log', access: 'private', render: stub('Журнал проекта', 'FE-015') },
