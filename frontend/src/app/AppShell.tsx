@@ -1,6 +1,6 @@
 /**
  * FE-003 · шапка приложения (DESIGN.md 5.1): логотип, пункты по ролям (без права — не рисуются),
- * распорка, колокольчик (счётчик — FE-010), пользователь с меню «Профиль» и «Выйти».
+ * распорка, колокольчик (FE-010), пользователь с меню «Профиль» и «Выйти».
  */
 import { Menu } from '@mantine/core';
 import type { ReactNode } from 'react';
@@ -10,6 +10,7 @@ import { api } from '../shared/api/client';
 import { call } from '../shared/api/problem';
 import { OfflineBanner } from '../shared/ws/OfflineBanner';
 import { SessionExtend } from '../features/auth/SessionExtend';
+import { NotificationBell } from '../features/home/NotificationBell';
 import { Link, useNavigate } from './router';
 import { NAV, type NavKey } from './routeTable';
 import { hasRole, useSession, type Me } from './session';
@@ -63,9 +64,7 @@ export function AppShell({ me, active, children }: { me: Me; active?: NavKey | u
         </nav>
         <span className="sp" />
         {me.system_roles.includes('superadmin') ? <span className="pill bad">{t('roles.superadmin')}</span> : null}
-        <span className="bell" role="img" aria-label={t('nav.notifications')}>
-          🔔
-        </span>
+        <NotificationBell timeZone={me.timezone ?? undefined} />
         <Menu position="bottom-end">
           <Menu.Target>
             <button type="button" className="user-menu" aria-label={t('nav.userMenu')}>

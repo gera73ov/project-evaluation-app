@@ -33,3 +33,46 @@
 .app-shell{min-height:100vh;background:var(--bg)}
 .page-title{font-size:18px;font-weight:700;margin:0}
 .ybar{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 18px;background:var(--warn-soft);border-bottom:1px solid var(--warn-border);color:var(--warn-text-strong);font-size:13px;font-weight:600}
+/* FE-010 · «Мои оценки» (DESIGN.md 10.3) */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.faint{color:var(--faint)}
+.btn-primary{display:inline-flex;align-items:center;height:34px;padding:0 14px;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap}
+.btn-primary:hover{background:#1a6079}
+.home{background:var(--panel);margin:18px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.home-bar{display:flex;align-items:center;gap:12px;padding:14px 18px;flex-wrap:wrap}
+.home-bar h1{font-size:20px;font-weight:700;margin:0 12px 0 0}
+.home-search{width:300px}
+.home-filter{width:240px}
+.home-filter.narrow{width:170px}
+.hdr a.logo{color:inherit;text-decoration:none}
+.home-table tr.click{cursor:pointer}
+.home-table tr.click:hover td{background:#fafbfc}
+.home-table tr.click:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.home-name{color:var(--ink);font-weight:600;text-decoration:none}
+.home-table .sub{color:var(--muted);font-size:12px}
+.deadline-alert{color:var(--bad);font-weight:600}
+.count-bad{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--bad);color:#fff;font-size:11.5px;font-weight:700}
+.progress{display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+.progress .bar{display:inline-block;width:64px;height:5px;border-radius:3px;background:var(--line2);overflow:hidden}
+.progress .bar i{display:block;height:100%;background:var(--ok)}
+.figure{font-size:11.5px;color:var(--muted)}
+.home-foot{display:flex;align-items:center;gap:12px;padding:10px 18px;color:var(--muted);font-size:12px}
+.bell-count{position:absolute;top:-5px;right:-6px;background:var(--bad);color:#fff;font-size:10px;font-weight:700;border-radius:9px;padding:1px 5px;line-height:14px}
+.bell-list header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.bell-list ul{list-style:none;margin:0;padding:0;max-height:420px;overflow:auto}
+.bell-list li+li{border-top:1px solid var(--line2)}
+.bell-list li button{display:grid;gap:4px;width:100%;text-align:left;padding:10px 16px;background:none;border:0;font:inherit;color:inherit;cursor:pointer}
+.bell-list li button:hover{background:#fafbfc}
+.bell-kind{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.bell-kind.bad{color:var(--bad)} .bell-kind.acc{color:var(--accent)} .bell-kind.warn{color:var(--warn)}
+.bell-meta{font-size:12px;color:var(--muted)}
+.bell-empty{padding:16px;margin:0;color:var(--muted)}
+/* FE-011 · создание проекта (DESIGN.md 10.3: секция 720 px) */
+.page-narrow{max-width:756px;margin:0 auto;padding:18px}
+.page-narrow h1{font-size:20px;margin:0 0 14px}
+.create-form{max-width:720px}
+.field-label{font-size:13px;font-weight:500;margin-bottom:6px}
+.field-error{color:var(--bad);font-size:12px}
+.phase-list{border:0;padding:0;margin:0 0 16px;display:grid;gap:8px}
+.phase-list .always{margin-left:8px}
+.muted-note{color:var(--muted);font-size:12px;margin:0 0 14px}

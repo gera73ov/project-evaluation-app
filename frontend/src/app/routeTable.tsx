@@ -10,7 +10,9 @@ import { ForgotPasswordPage, ResetPasswordPage } from '../features/auth/Password
 import { LoginPage } from '../features/auth/LoginPage';
 import { PasswordExpiredPage } from '../features/auth/PasswordExpiredPage';
 import { SetupInProgressPage } from '../features/auth/SetupInProgressPage';
+import { HomeRoute } from '../features/home/HomeRoute';
 import { ProfilePage } from '../features/profile/ProfilePage';
+import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
 import type { Params } from './router';
 import type { SystemRole } from './session';
@@ -59,8 +61,8 @@ export const ROUTES: readonly RouteDef[] = [
   { path: '/enroll-totp', access: 'enroll', render: () => <TotpEnrollPage /> },
   { path: '/change-password', access: 'password', render: () => <PasswordExpiredPage /> },
 
-  { path: '/', access: 'private', nav: 'home', render: stub('Мои оценки', 'FE-010') },
-  { path: '/projects/new', access: 'private', nav: 'home', roles: ['moderator'], render: stub('Создание проекта', 'FE-011') },
+  { path: '/', access: 'private', nav: 'home', render: () => <HomeRoute /> },
+  { path: '/projects/new', access: 'private', nav: 'home', roles: ['moderator'], render: () => <ProjectCreatePage /> },
   { path: '/projects/:id', access: 'private', render: stub('Рабочий экран проекта', 'FE-022') },
   { path: '/projects/:id/settings', access: 'private', render: stub('Настройки проекта', 'FE-012') },
   { path: '/projects/:id/settings/documents', access: 'private', render: stub('Документы заказчика', 'FE-017') },
