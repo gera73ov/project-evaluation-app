@@ -10,7 +10,10 @@ import { ForgotPasswordPage, ResetPasswordPage } from '../features/auth/Password
 import { LoginPage } from '../features/auth/LoginPage';
 import { PasswordExpiredPage } from '../features/auth/PasswordExpiredPage';
 import { SetupInProgressPage } from '../features/auth/SetupInProgressPage';
+import { HomeRoute } from '../features/home/HomeRoute';
 import { ProfilePage } from '../features/profile/ProfilePage';
+import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
+import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
 import type { Params } from './router';
 import type { SystemRole } from './session';
@@ -59,13 +62,13 @@ export const ROUTES: readonly RouteDef[] = [
   { path: '/enroll-totp', access: 'enroll', render: () => <TotpEnrollPage /> },
   { path: '/change-password', access: 'password', render: () => <PasswordExpiredPage /> },
 
-  { path: '/', access: 'private', nav: 'home', render: stub('Мои оценки', 'FE-010') },
-  { path: '/projects/new', access: 'private', nav: 'home', roles: ['moderator'], render: stub('Создание проекта', 'FE-011') },
+  { path: '/', access: 'private', nav: 'home', render: () => <HomeRoute /> },
+  { path: '/projects/new', access: 'private', nav: 'home', roles: ['moderator'], render: () => <ProjectCreatePage /> },
   { path: '/projects/:id', access: 'private', render: stub('Рабочий экран проекта', 'FE-022') },
-  { path: '/projects/:id/settings', access: 'private', render: stub('Настройки проекта', 'FE-012') },
+  { path: '/projects/:id/settings', access: 'private', render: (params) => <SettingsRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/settings/documents', access: 'private', render: stub('Документы заказчика', 'FE-017') },
   { path: '/projects/:id/trash', access: 'private', render: stub('Корзина', 'FE-018') },
-  { path: '/projects/:id/log', access: 'private', render: stub('Журнал проекта', 'FE-015') },
+  { path: '/projects/:id/log', access: 'private', render: (params) => <JournalRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/stats', access: 'private', render: stub('Статистика', 'FE-040') },
   { path: '/projects/:id/stats/compare', access: 'private', render: stub('Сравнение со снимком', 'FE-044') },
   { path: '/projects/:id/stats/questions', access: 'private', render: stub('Вопросы заказчику', 'FE-043') },

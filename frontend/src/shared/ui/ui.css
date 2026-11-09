@@ -32,3 +32,125 @@
 .user-menu{background:none;border:0;font:inherit;color:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:500}
 .app-shell{min-height:100vh;background:var(--bg)}
 .page-title{font-size:18px;font-weight:700;margin:0}
+.ybar{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 18px;background:var(--warn-soft);border-bottom:1px solid var(--warn-border);color:var(--warn-text-strong);font-size:13px;font-weight:600}
+/* FE-010 · «Мои оценки» (DESIGN.md 10.3) */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.faint{color:var(--faint)}
+.btn-primary{display:inline-flex;align-items:center;height:34px;padding:0 14px;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap}
+.btn-primary:hover{background:#1a6079}
+.home{background:var(--panel);margin:18px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.home-bar{display:flex;align-items:center;gap:12px;padding:14px 18px;flex-wrap:wrap}
+.home-bar h1{font-size:20px;font-weight:700;margin:0 12px 0 0}
+.home-search{width:300px}
+.home-filter{width:240px}
+.home-filter.narrow{width:170px}
+.hdr a.logo{color:inherit;text-decoration:none}
+.home-table tr.click{cursor:pointer}
+.home-table tr.click:hover td{background:#fafbfc}
+.home-table tr.click:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.home-name{color:var(--ink);font-weight:600;text-decoration:none}
+.home-table .sub{color:var(--muted);font-size:12px}
+.deadline-alert{color:var(--bad);font-weight:600}
+.count-bad{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--bad);color:#fff;font-size:11.5px;font-weight:700}
+.progress{display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+.progress .bar{display:inline-block;width:64px;height:5px;border-radius:3px;background:var(--line2);overflow:hidden}
+.progress .bar i{display:block;height:100%;background:var(--ok)}
+.figure{font-size:11.5px;color:var(--muted)}
+.home-foot{display:flex;align-items:center;gap:12px;padding:10px 18px;color:var(--muted);font-size:12px}
+.bell-count{position:absolute;top:-5px;right:-6px;background:var(--bad);color:#fff;font-size:10px;font-weight:700;border-radius:9px;padding:1px 5px;line-height:14px}
+.bell-list header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.bell-list ul{list-style:none;margin:0;padding:0;max-height:420px;overflow:auto}
+.bell-list li+li{border-top:1px solid var(--line2)}
+.bell-list li button{display:grid;gap:4px;width:100%;text-align:left;padding:10px 16px;background:none;border:0;font:inherit;color:inherit;cursor:pointer}
+.bell-list li button:hover{background:#fafbfc}
+.bell-kind{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.bell-kind.bad{color:var(--bad)} .bell-kind.acc{color:var(--accent)} .bell-kind.warn{color:var(--warn)}
+.bell-meta{font-size:12px;color:var(--muted)}
+.bell-empty{padding:16px;margin:0;color:var(--muted)}
+/* FE-011 · создание проекта (DESIGN.md 10.3: секция 720 px) */
+.page-narrow{max-width:756px;margin:0 auto;padding:18px}
+.page-narrow h1{font-size:20px;margin:0 0 14px}
+.create-form{max-width:720px}
+.field-label{font-size:13px;font-weight:500;margin-bottom:6px}
+.field-error{color:var(--bad);font-size:12px}
+.phase-list{border:0;padding:0;margin:0 0 16px;display:grid;gap:8px}
+.phase-list .always{margin-left:8px}
+.muted-note{color:var(--muted);font-size:12px;margin:0 0 14px}
+/* FE-012 · настройки проекта (DESIGN.md 10.5) */
+.settings{padding:0 0 24px}
+.crumbs{display:flex;align-items:baseline;gap:4px;padding:14px 18px 0;color:var(--muted)}
+.crumbs a{color:var(--muted);text-decoration:none}
+.crumbs h1{font-size:14px;font-weight:700;color:var(--ink);margin:0}
+.set-tabs{background:var(--panel)}
+.set-tabs a{padding:11px 14px;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;text-decoration:none}
+.set-tabs a.on{color:var(--ink);border-bottom-color:var(--accent)}
+.set-readonly{margin:14px 18px 0;color:var(--muted)}
+.set-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;padding:18px;align-items:start}
+.set-grid.single{grid-template-columns:minmax(0,960px)}
+.set-col{display:grid;gap:18px}
+.set-sec h3{font-size:14px;margin:0 0 14px}
+.set-row{display:grid;grid-template-columns:170px minmax(0,1fr);gap:8px 14px;align-items:start;margin-bottom:14px}
+.set-label{color:var(--muted);padding-top:8px}
+.set-label.inline{padding-top:0;white-space:nowrap}
+.set-field{display:grid;gap:6px;min-width:0}
+.set-inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.set-inline .grow{flex:1;min-width:200px}
+.set-unit{color:var(--muted)}
+.set-hint{color:var(--muted);font-size:12px}
+.set-text{padding-top:8px;white-space:pre-wrap}
+.saved{color:var(--ok);font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;cursor:pointer}
+.chip.on{background:var(--accent-soft);border-color:#b8d8e4;color:var(--accent-ink)}
+.chip:disabled{cursor:default;opacity:.75}
+/* FE-013 · команда */
+.sec-head{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.sec-head h3{margin:0}
+.person{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 6px 0 3px;border:1px solid var(--line);border-radius:15px;background:#fff}
+.person.reviewer{background:var(--accent-soft);border-color:#b8d8e4}
+.person.blocked{background:var(--bad-soft);border-color:#f0c4c1;color:var(--bad)}
+.person-name{display:inline-flex;align-items:center;gap:6px;background:none;border:0;font:inherit;color:inherit;padding:0 4px 0 0;cursor:pointer}
+span.person-name{cursor:default}
+.person-x{background:none;border:0;color:var(--muted);font-size:15px;cursor:pointer;padding:0 4px}
+.person-x:disabled{cursor:not-allowed;opacity:.4}
+.av.sm{width:22px;height:22px;font-size:9.5px}
+.team-table{margin-top:6px}
+.team-table td:first-child{width:120px}
+.th-hint{font-weight:400}
+.ad-list{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px;max-height:260px;overflow:auto}
+.ad-list label{display:flex;gap:8px;align-items:center;cursor:pointer}
+.set-field>.mantine-SegmentedControl-root{justify-self:start}
+/* FE-014 · деньги */
+.money-sec{border-color:var(--money-border,#d9cff2);background:var(--money-surface,#fcfbff)}
+.money-note{margin:-6px 0 14px 184px}
+.money-rates-title{margin:8px 0 8px}
+.money-rate-label{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 0}
+.money-rate .num input,.money-rate input{text-align:right}
+.rate-missing input{background:var(--warn-soft);border-color:var(--warn-border)}
+.money-totals{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:16px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+.money-totals dt{margin:0}
+.money-totals dd{margin:0;text-align:right;color:var(--money)}
+.money-totals dd.strong{font-weight:700}
+.warnbox{background:var(--warn-soft);color:var(--warn-text-strong);border-radius:6px;padding:9px 12px;font-size:12px;margin-bottom:10px}
+
+/* FE-015 · статус проекта, «⋯», подтверждения, журнал (DESIGN.md 6.1, 6.11, 6.12, 10.5) */
+.crumbs .status-ctl{align-self:center}
+.status-ctl{display:flex;align-items:center;gap:8px;margin-right:10px}
+.status-btn{height:24px;padding:0 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-ink);font:600 12px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}
+.status-btn:hover{background:#d3e8f0}
+.ghost-btn{height:24px;min-width:24px;padding:0 6px;border:0;background:none;color:var(--muted);font-size:14px;border-radius:6px;cursor:pointer}
+.ghost-btn:hover{background:var(--line2)}
+.mantine-Menu-item.danger{color:var(--bad)}
+.confirm-warn{margin:0 0 4px;padding-left:18px;font-size:12.5px;color:var(--warn-text-strong)}
+.confirm-warn li+li{margin-top:4px}
+.char-count{text-align:right;font-size:11.5px;color:var(--muted)}
+.journal{margin:16px 18px;max-width:960px}
+.journal-list{list-style:none;margin:0 0 12px;padding:0}
+.journal-row{display:grid;grid-template-columns:200px 1fr;gap:16px;padding:10px 0;border-bottom:1px solid var(--line2)}
+.journal-meta{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}
+.journal-who{color:var(--ink);font-weight:500;font-size:13px}
+.journal-action{font-weight:600}
+.journal-changes{margin:4px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--muted)}
+.journal-changes.money{color:var(--money)}
+.journal-field{color:var(--ink)}
+.journal-changes.money .journal-field{color:var(--money)}

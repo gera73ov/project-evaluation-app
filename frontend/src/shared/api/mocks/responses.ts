@@ -13,6 +13,7 @@ import {
   DISCIPLINES,
   NODE_TYPES,
   PHASES,
+  PEOPLE,
   PROJECTS,
   disciplineId,
   hours,
@@ -21,10 +22,11 @@ import {
   profileId,
   projectKeyOf,
   typeId,
+  userRef,
   type DemoProject,
 } from './data';
 import { NOW, TODAY, minutesAgo, uuidFrom } from './ids';
-import { accessOf, personaId, type Persona } from './personas';
+import { PERSONAS, accessOf, personaId, type Persona } from './personas';
 import { sample, stripMoney } from './sample';
 
 export type MockResult = { status: number; body: unknown; binary?: boolean };
@@ -361,6 +363,29 @@ const DEMO: Record<string, Demo> = {
           }
         : {}),
     });
+  },
+
+  getJournal: (ctx) => {
+    const p = ctx.project;
+    if (!p) return undefined;
+    const by = userRef(PERSONAS.moderator);
+    const entry = (n: number, minutes: number, action: string, changes: object, extra: object = {}) => ({
+      id: uuidFrom('journal', p.key, String(n)),
+      created_at: minutesAgo(minutes),
+      user: by,
+      action,
+      changes,
+      ...extra,
+    });
+    // денежная запись приходит только с money.read (CORE-032, 15.2)
+    const items = [
+      entry(1, 35, 'project.settings', { pm_percent: ['15', '18'], deadline: [null, p.deadline] }),
+      ...(ctx.money ? [entry(2, 90, 'money.changed', {}, { money: { changes: { rate_rub: ['2800', '3000'] } } })] : []),
+      entry(3, 60 * 26, 'team.changed', { experts: [[], [PEOPLE.orlova.fullName]] }),
+      entry(4, 60 * 24 * 3, 'project.status', { status: ['preparation', 'estimation'] }),
+      entry(5, 60 * 24 * 14, 'project.created', {}),
+    ];
+    return { items, next_cursor: null };
   },
 
   listNotifications: (ctx) => {

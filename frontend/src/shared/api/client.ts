@@ -6,6 +6,7 @@
  * запросы (опрос, предзагрузка) помечаются `X-Background: 1` и не продлевают сессию (FR-SESS-02).
  */
 import createClient, { type Middleware } from 'openapi-fetch';
+import { activityMiddleware } from './activity';
 import type { paths } from './generated/schema';
 
 export type { paths, components, operations } from './generated/schema';
@@ -51,7 +52,7 @@ export const api = createClient<paths>({
   credentials: 'same-origin',
   fetch: (request) => globalThis.fetch(request),
 });
-api.use(csrfMiddleware);
+api.use(csrfMiddleware, activityMiddleware);
 
 /** Заголовки фонового запроса: `api.GET(path, { headers: background() })`. */
 export function background(): Record<string, string> {
