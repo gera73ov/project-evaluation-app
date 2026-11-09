@@ -13,6 +13,7 @@ import { SetupInProgressPage } from '../features/auth/SetupInProgressPage';
 import { HomeRoute } from '../features/home/HomeRoute';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
+import { OutcomePage } from '../features/settings/outcome/OutcomePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TrashPage } from '../features/trash/TrashPage';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
@@ -68,6 +69,11 @@ export const ROUTES: readonly RouteDef[] = [
   { path: '/projects/new', access: 'private', nav: 'home', roles: ['moderator'], render: () => <ProjectCreatePage /> },
   { path: '/projects/:id', access: 'private', render: (params) => <WorkRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/settings', access: 'private', render: (params) => <SettingsRoute id={params.id ?? ''} /> },
+  {
+    path: '/projects/:id/settings/outcome',
+    access: 'private',
+    render: (params) => <OutcomePage key={params.id} projectId={params.id ?? ''} />,
+  },
   { path: '/projects/:id/settings/documents', access: 'private', render: stub('Документы заказчика', 'FE-017') },
   {
     path: '/projects/:id/trash',

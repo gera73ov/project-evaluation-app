@@ -31,6 +31,7 @@ import {
   type DemoProject,
 } from "./data";
 import * as demoDiscussions from "./demoDiscussions";
+import * as demoOutcome from "./demoOutcome";
 import * as demoTree from "./demoTree";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
@@ -523,6 +524,45 @@ const DEMO: Record<string, Demo> = {
     }
     return result;
   },
+  getOutcome: (ctx) =>
+    ctx.project ? demoOutcome.outcomeOf(ctx.project) : undefined,
+  putOutcome: (ctx) => {
+    if (!ctx.project) return undefined;
+    const result = demoOutcome.putOutcome(
+      ctx.project,
+      ctx.body,
+      ctx.permissions.has("money.write"),
+    );
+    if ("error" in result) {
+      const err =
+        result.error === "FORBIDDEN"
+          ? problem(403, "FORBIDDEN", "Недостаточно прав")
+          : problem(422, "VALIDATION_FAILED", "Ошибка в данных");
+      return new MockProblem({
+        status: err.status,
+        body: {
+          ...(err.body as object),
+          ...(result.error === "VALIDATION_FAILED"
+            ? {
+                errors: [
+                  {
+                    field: `/${result.field}`,
+                    code: "required",
+                    message: "Обязательное поле",
+                  },
+                ],
+              }
+            : {}),
+        },
+      });
+    }
+    return result;
+  },
+  listLossReasons: (ctx, schema) =>
+    list(
+      schema,
+      demoOutcome.lossReasons(ctx.params.include_inactive === "true"),
+    ),
   restoreDocument: (ctx) =>
     ctx.project
       ? demoTree.restoreDocument(ctx.project, ctx.params.id ?? "")

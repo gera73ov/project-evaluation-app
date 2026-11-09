@@ -442,3 +442,10 @@ button.type-opt.sel{background:var(--accent-soft);border-color:#b8d8e4}
 .note-input{flex:1;min-height:32px;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px}
 .btn-sm.money{background:var(--money);border-color:var(--money);color:#fff;font-weight:600}
 .notes .money-guard{padding:10px 0}
+
+/* FE-016 · «Результат пресейла» (DESIGN.md 10.5; сумма — денежный цвет и замок, 8) */
+.outcome{max-width:760px}
+.outcome .set-hint{margin:0 0 14px}
+.outcome .set-readonly{margin:0 0 14px}
+.set-actions{display:flex;gap:10px;align-items:center}
+.money-row .money-input input{border-color:var(--money-border,#d9cff2);color:var(--money)}
