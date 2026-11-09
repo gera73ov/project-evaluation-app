@@ -126,6 +126,7 @@ export function WorkPage({ projectId }: { projectId: string }) {
     <WorkScreen
       project={data}
       store={tree.store}
+      confirm={tree.confirm}
       members={list}
       userId={userId}
       moderator={isModerator}
@@ -137,6 +138,7 @@ export function WorkPage({ projectId }: { projectId: string }) {
 function WorkScreen({
   project: data,
   store,
+  confirm,
   members,
   userId,
   moderator,
@@ -144,6 +146,7 @@ function WorkScreen({
 }: {
   project: Project;
   store: TreeStore;
+  confirm: ReturnType<typeof useProjectTree>['confirm'];
   members: Member[];
   userId: string | null;
   moderator: boolean;
@@ -163,7 +166,17 @@ function WorkScreen({
     queryKey: ['dict', 'node-types'],
     queryFn: () => call(() => api.GET('/admin/node-types')),
     staleTime: 10 * 60_000,
-    select: (data) => new Map(data.items.map((n) => [n.id, { name: n.name, icon: n.icon }])),
+    select: (data) =>
+      new Map(
+        data.items.map((n) => [
+          n.id,
+          {
+            name: n.name,
+            icon: n.icon,
+            norms: n.norms.map((m) => ({ ...m, o: String(m.o), r: String(m.r), p: String(m.p) })),
+          },
+        ]),
+      ),
   });
   const tags = useQuery({
     queryKey: ['dict', 'tags'],
@@ -293,6 +306,7 @@ function WorkScreen({
           collapsed={view.collapsed}
           onCollapsedChange={(collapsed) => setView((v) => ({ ...v, collapsed }))}
           visible={visible}
+          onConfirm={confirm}
         />
       </div>
     </div>

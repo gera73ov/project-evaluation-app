@@ -4,8 +4,9 @@
  *
  * Строки виртуализированы (@tanstack/react-virtual): в DOM не больше ~150 строк при 5 000 узлах.
  * Строки фазы и дисциплины прилипают под шапкой столбцов, пока видны их узлы: поверх прокрутки
- * рисуются копии ближайших сверху строк фазы и дисциплины. Ячейки пока только показывают значения;
- * ввод — FE-025, кнопки «+» и «⋯» — FE-027, статус ветки и «Проверено» — FE-029.
+ * рисуются копии ближайших сверху строк фазы и дисциплины. Ввод в ячейки своих листов — FE-025
+ * (`cells/*`, включается пропсом `onConfirm`); кнопки «+» и «⋯» — FE-027, статус ветки и
+ * «Проверено» — FE-029.
  *
  * Свёртку и набор видимых узлов может вести экран (FE-024: фильтры, поиск, сохранение вида);
  * без них таблица хранит свёртку сама.
@@ -16,6 +17,7 @@ import { memo, useEffect, useImperativeHandle, useMemo, useRef, useState, type R
 import { useTranslation } from 'react-i18next';
 
 import { Link } from '../../../app/router';
+import type { components } from '../../../shared/api/client';
 import {
   DEFAULT_LARGE_LEAF_HOURS,
   branchKey,
@@ -30,6 +32,8 @@ import {
 import { formatHours, formatHoursInput, formatNumber, formatPercent } from '../../../shared/format/number';
 import { StatusBadge } from '../../../shared/ui/StatusBadge';
 import { nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
+import { CommentCell, HoursCell, MultiplierCell, type Norm } from '../cells/Cells';
+import { useCells, type CellRef, type CellsApi, type CommentLine } from '../cells/useCells';
 import type { TreeNode, TreeStore } from '../store/treeStore';
 import { useTree } from '../store/useProjectTree';
 import { MAX_INDENT_DEPTH, ancestorsOf, buildRows, indentOf, type TreeRow } from './rows';
@@ -42,7 +46,7 @@ export interface TreeContext {
   /** Дисциплины без эксперта (11.6 №6). */
   withoutExpert: ReadonlySet<string>;
   disciplineNames: ReadonlyMap<string, string>;
-  nodeTypes: ReadonlyMap<string, { name: string; icon: string }>;
+  nodeTypes: ReadonlyMap<string, { name: string; icon: string; norms?: readonly Norm[] }>;
   tags: ReadonlyMap<string, string>;
   pmPercent: string;
   pmReason: string;
@@ -67,11 +71,6 @@ export function Highlight({ text, query }: { text: string; query: string | undef
   if (!parts.length) return <>{text}</>;
   parts.push(text.slice(from));
   return <>{parts}</>;
-}
-
-interface CommentLine {
-  tag_id: string | null;
-  text: string;
 }
 
 function extra<T>(node: TreeNode | undefined, key: string): T | undefined {
@@ -110,25 +109,6 @@ function SumTooltip({ result, children }: { result: NodeResult; children: ReactN
   );
 }
 
-function Comment({ lines, ctx, placeholder }: { lines: CommentLine[]; ctx: TreeContext; placeholder: boolean }) {
-  const { t } = useTranslation();
-  const [first, ...rest] = lines;
-  if (!first) return placeholder ? <span className="cm-empty">{t('tree.commentPlaceholder')}</span> : null;
-  const tag = first.tag_id ? ctx.tags.get(first.tag_id) : undefined;
-  const more = rest.map((l) => (l.tag_id ? ctx.tags.get(l.tag_id) : undefined)).filter(Boolean);
-  return (
-    <span className="cm-line">
-      {tag ? <span className="tag">{tag}</span> : null} <Highlight text={first.text} query={ctx.highlight} />
-      {rest.length ? (
-        <span className="tag more">
-          +{rest.length}
-          {more.length ? ` ${more.join(', ')}` : ''}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
 function Discussion({ node }: { node: TreeNode | undefined }) {
   const { t } = useTranslation();
   const count = extra<number>(node, 'messages_count') ?? 0;
@@ -156,9 +136,25 @@ interface RowProps {
   largeThreshold: Dec | null;
   onToggle: (id: string) => void;
   target?: boolean;
+  /** Ввод в ячейки (FE-025); нет — только просмотр. */
+  cells?: CellsApi | undefined;
+  /** Поля, ожидающие ответа сервера. */
+  pendingFields?: ReadonlySet<string> | undefined;
 }
 
-const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThreshold, onToggle, target }: RowProps) {
+const Row = memo(function Row({
+  row,
+  result,
+  node,
+  status,
+  ctx,
+  pmE,
+  largeThreshold,
+  onToggle,
+  target,
+  cells: cellsApi,
+  pendingFields,
+}: RowProps) {
   const { t } = useTranslation();
   if (row.kind === 'pm') {
     return (
@@ -190,6 +186,7 @@ const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThresh
   if (!result || !row.id) return null;
   const id = row.id;
   const editable = ctx.canEdit(row.disciplineId);
+  const cells = editable ? cellsApi : undefined;
   const notNeeded = status === 'not_needed';
   const leaf = row.kind === 'leaf' ? result.leaf : null;
   const state = leaf?.state;
@@ -231,25 +228,28 @@ const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThresh
     const value = field === 'o' ? o : field === 'r' ? r : p;
     const wrong =
       state === 'invalid' &&
-      ((field === 'o' && result.node.o !== null && result.node.r !== null && result.node.o.gt(result.node.r)) ||
-        (field === 'r' &&
-          result.node.r !== null &&
-          ((result.node.o !== null && result.node.o.gt(result.node.r)) ||
-            (result.node.p !== null && result.node.r.gt(result.node.p)))) ||
-        (field === 'p' && result.node.p !== null && result.node.r !== null && result.node.r.gt(result.node.p)));
-    const cls = ['cell'];
-    if (!editable) cls.push('ro');
+      ((field === 'o' && o !== null && r !== null && o.gt(r)) ||
+        (field === 'r' && r !== null && ((o !== null && o.gt(r)) || (p !== null && r.gt(p)))) ||
+        (field === 'p' && p !== null && r !== null && r.gt(p)));
+    const cls: string[] = [];
     if (state === 'empty') cls.push('empty');
     if (wrong) cls.push('wrong');
     if (state === 'zero') cls.push('zero');
     return (
-      <div className="td num" role="cell">
-        <span className={cls.join(' ')} {...(roTitle ? { title: roTitle } : {})}>
-          {formatHoursInput(value)}
-        </span>
-      </div>
+      <HoursCell
+        nodeId={id}
+        field={field}
+        value={value === null ? null : value.toFixed()}
+        classes={cls}
+        label={field.toUpperCase()}
+        pending={pendingFields?.has(field) ?? false}
+        cells={cells}
+        roTitle={roTitle}
+      />
     );
   };
+  const typeNorms = type?.norms ?? [];
+  const highlight = (text: string) => <Highlight text={text} query={ctx.highlight} />;
 
   return (
     <div className={classes.join(' ')} role="row" aria-level={row.depth + 1} data-node={id}>
@@ -282,18 +282,33 @@ const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThresh
         ) : null}
         <Discussion node={node} />
       </div>
-      <div className="td mul-c" role="cell">
-        {row.kind === 'leaf' ? (
-          <span className={result.node.multiplier === 1 ? 'mul one' : 'mul'}>×{result.node.multiplier}</span>
-        ) : null}
-      </div>
-      <div className="td cm" role="cell">
-        {row.kind === 'discipline' && !row.hasChildren ? (
-          <span className="cm-empty">{t('tree.emptyBranch')}</span>
-        ) : row.kind === 'leaf' || row.kind === 'node' ? (
-          <Comment lines={comments} ctx={ctx} placeholder={editable && row.kind === 'leaf'} />
-        ) : null}
-      </div>
+      {row.kind === 'leaf' ? (
+        <MultiplierCell
+          nodeId={id}
+          value={result.node.multiplier}
+          pending={pendingFields?.has('multiplier') ?? false}
+          cells={cells}
+        />
+      ) : (
+        <div className="td mul-c" role="cell" />
+      )}
+      {row.kind === 'leaf' || row.kind === 'node' ? (
+        <CommentCell
+          nodeId={id}
+          lines={comments}
+          tags={ctx.tags}
+          cells={cells}
+          placeholder={editable && row.kind === 'leaf'}
+          norms={state === 'empty' ? typeNorms : []}
+          highlight={highlight}
+        />
+      ) : (
+        <div className="td cm" role="cell">
+          {row.kind === 'discipline' && !row.hasChildren ? (
+            <span className="cm-empty">{t('tree.emptyBranch')}</span>
+          ) : null}
+        </div>
+      )}
       {row.kind === 'leaf' ? (
         <>
           {fork('o')}
@@ -338,6 +353,7 @@ export function TreeTable({
   collapsed: collapsedProp,
   onCollapsedChange,
   visible = null,
+  onConfirm,
 }: {
   store: TreeStore;
   ctx: TreeContext;
@@ -348,6 +364,8 @@ export function TreeTable({
   onCollapsedChange?: (next: ReadonlySet<string>) => void;
   /** Видимые узлы под фильтром; null — без фильтра. */
   visible?: ReadonlySet<string> | null;
+  /** Подтверждение правки сервером (`useProjectTree().confirm`); есть — ячейки редактируются. */
+  onConfirm?: (node: components['schemas']['Node'], projectVersion: number) => void;
 }) {
   const { t } = useTranslation();
   const revision = useTree(store, (s) => s.revision);
@@ -378,6 +396,19 @@ export function TreeTable({
     initialRect: { width: 1366, height: 900 },
   });
   const [target, setTarget] = useState<string | null>(null);
+  const editableLeaves = useMemo(
+    () => rows.filter((r) => r.kind === 'leaf' && r.id && ctx.canEdit(r.disciplineId)).map((r) => r.id as string),
+    [rows, ctx],
+  );
+  const cells = useCells({
+    store,
+    confirm: onConfirm ?? (() => undefined),
+    leaves: editableLeaves,
+    onMove: (cell: CellRef) => {
+      const index = rows.findIndex((r) => r.id === cell.nodeId);
+      if (index >= 0) virtualizer.scrollToIndex(index, { align: 'auto' });
+    },
+  });
   useImperativeHandle(apiRef, () => ({
     show: (nodeId: string) => {
       const calcNow = store.getState().calc;
@@ -418,6 +449,8 @@ export function TreeTable({
       largeThreshold,
       onToggle: toggle,
       target: row.id !== null && row.id === target,
+      cells: onConfirm ? cells : undefined,
+      pendingFields: edit ? new Set(Object.keys(edit)) : undefined,
     };
   };
 
@@ -489,7 +522,7 @@ export function TreeTable({
             return (
               <div
                 key={row.key}
-                className="vrow"
+                className={cells.editing && cells.editing.nodeId === row.id ? 'vrow editing' : 'vrow'}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, transform: `translateY(${item.start}px)` }}
               >
                 <Row {...rowProps(row)} />

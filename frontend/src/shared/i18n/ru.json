@@ -681,5 +681,23 @@
     "and": " и ",
     "nothing": "Под фильтр не попала ни одна строка",
     "reset": "Сбросить фильтры"
+  },
+  "cells": {
+    "numberError": "Введите число часов, например 12 или 12,5",
+    "rangeError": "Часы — от 0 до 99 999,5",
+    "multiplierError": "×N — целое число от 1 до 10 000",
+    "rounded": "округлено до {{value}}",
+    "multiplier": "Множитель ×N",
+    "commentEdit": "Изменить комментарий",
+    "commentEditor": "Комментарий листа",
+    "commentTag": "Метка строки {{n}}",
+    "commentLine": "Строка комментария {{n}}",
+    "commentRemove": "Убрать строку {{n}}",
+    "commentAdd": "+ строка",
+    "commentKeys": "Enter — сохранить, Esc — отмена",
+    "commentAll": "Весь комментарий, строк: {{count}}",
+    "noTag": "без метки",
+    "norm": "Норма: {{label}} {{fork}}",
+    "normApply": "подставить"
   }
 }

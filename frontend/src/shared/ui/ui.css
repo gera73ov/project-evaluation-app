@@ -261,3 +261,34 @@ span.person-name{cursor:default}
 .tools-nothing{padding:14px 18px;color:var(--muted);border-bottom:1px solid var(--line)}
 .tree mark{background:var(--warn-soft);color:var(--ink);border-radius:2px}
 .top button.risk-cnt{border:0;background:none;font:inherit;cursor:pointer;padding:0}
+
+/* FE-025 · ввод в ячейки (DESIGN.md 9.5–9.6) */
+.tree .td.num,.tree .td.mul-c,.tree .td.cm{position:relative}
+.tree button.cell{font:inherit;color:inherit;cursor:text;padding:0}
+.tree button.cell:hover{border-color:var(--accent)}
+.tree .cell.saving,.tree .mul.saving{border-style:dashed;border-color:var(--accent);color:var(--muted)}
+.tree .cell.error,.tree .mul.error{border:2px solid var(--bad);color:var(--bad)}
+.tree .cell-in{width:46px;height:26px;border:2px solid var(--accent);border-radius:5px;text-align:center;font:inherit;font-variant-numeric:tabular-nums;padding:0;outline:none}
+.tree .cell-in.error{border-color:var(--bad)}
+.tree .mul-in{width:44px}
+.tree button.mul{font:inherit;border:0;cursor:text;width:100%}
+.tree .cell-note{position:absolute;left:2px;top:calc(100% - 4px);z-index:4;white-space:nowrap;font-size:11px;background:#fff;border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--muted);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.tree .cell-note.bad{color:var(--bad);border-color:var(--bad-border)}
+.tree .vrow.editing,.tree .vrow:has(.cell-note){z-index:3}
+.tree .cm-click{cursor:text;min-height:26px;display:flex;align-items:center;outline-offset:2px}
+.tree .cm-view{display:flex;align-items:flex-start;gap:4px;min-width:0;font-size:12.5px;line-height:15px}
+.tree .cm-view .tag.more{border:0;cursor:pointer;flex:none;font:inherit;font-size:11px;font-weight:700}
+.tree .td.cm.saving .cm-view{color:var(--muted)}
+.tree .td.cm.error .cm-click{outline:2px solid var(--bad);border-radius:4px}
+.tree .norm{color:var(--muted);font-size:12px}
+.tree .norm .link{border:0;background:none;color:var(--accent);font:inherit;cursor:pointer;padding:0;text-decoration:underline}
+.tree .cm-editor{position:absolute;left:0;right:0;top:2px;z-index:5;background:#fff;border:2px solid var(--accent);border-radius:6px;padding:6px;box-shadow:0 6px 18px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:4px}
+.tree .cm-row{display:flex;gap:4px;align-items:center}
+.tree .cm-row select{height:26px;font:inherit;font-size:12px;border:1px solid var(--line);border-radius:4px}
+.tree .cm-row input{flex:1;height:26px;font:inherit;border:1px solid var(--line);border-radius:4px;padding:0 6px;min-width:0}
+.tree .cm-del{border:0;background:none;color:var(--muted);cursor:pointer;font-size:16px}
+.tree .cm-foot{display:flex;align-items:center;gap:8px}
+.tree .cm-keys{color:var(--faint);font-size:11px}
+.cm-all ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.cm-all .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px;background:#e8eef9;color:#2f4f8f}
+.tree .td.num .cell-note{left:auto;right:2px}

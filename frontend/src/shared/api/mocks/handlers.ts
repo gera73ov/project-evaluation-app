@@ -22,10 +22,18 @@ export function buildHandlers(options: HandlerOptions = {}) {
   // /projects/{id}/... раньше /projects/{id}: MSW берёт первый совпавший обработчик
   const ordered = [...operations].sort((a, b) => b.path.length - a.path.length);
   const httpHandlers = ordered.map((op) =>
-    http[op.method](mswPath(op.path), async ({ params }) => {
+    http[op.method](mswPath(op.path), async ({ params, request }) => {
       if (options.latencyMs) await delay(options.latencyMs);
       const flat = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]));
-      const result = mockResponse(op, flat, getPersona());
+      // тело JSON нужно демо-ответам правок (PATCH узла возвращает узел с изменениями)
+      const body: unknown =
+        op.method === 'get'
+          ? null
+          : await request
+              .clone()
+              .json()
+              .catch(() => null);
+      const result = mockResponse(op, flat, getPersona(), body);
       if (result.binary) {
         return new HttpResponse(String(result.body), {
           status: result.status,
