@@ -13,6 +13,7 @@ import { formatHours } from '../../../shared/format/number';
 import { HoursInput } from '../../../shared/ui/HoursInput';
 import { NODE_TYPE_ICON_KEYS, nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
 import type { MoveTarget } from './ops';
+import type { NodeTypeIcon } from './useTreeOps';
 
 export interface MenuType {
   id: string;
@@ -99,12 +100,12 @@ export function LocalTypeDialog({
   onClose,
 }: {
   busy: boolean;
-  onCreate: (name: string, icon: string) => void;
+  onCreate: (name: string, icon: NodeTypeIcon) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
-  const [icon, setIcon] = useState<string | null>(null);
+  const [icon, setIcon] = useState<NodeTypeIcon | null>(null);
   const trimmed = name.trim();
   return (
     <Modal opened onClose={onClose} title={t('menu.localTitle')} size={560} centered>

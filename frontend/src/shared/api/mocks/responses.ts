@@ -354,14 +354,19 @@ const DEMO: Record<string, Demo> = {
     ctx.project
       ? demoTree.copyBranchFrom(ctx.project, ctx.params.id ?? "", body(ctx))
       : undefined,
-  createLocalNodeType: (ctx) => ({
-    id: uuidFrom("node-type", "local", String(body(ctx).name)),
-    name: String(body(ctx).name),
-    icon: String(body(ctx).icon),
-    norms: [],
-    is_system: false,
-    is_active: true,
-  }),
+  // тип сразу работает в проекте: попадает в listProjectNodeTypes до перезагрузки
+  createLocalNodeType: (ctx) =>
+    ctx.project
+      ? demoTree.addLocalType({
+          id: uuidFrom("node-type", "local", String(body(ctx).name)),
+          name: String(body(ctx).name),
+          icon: String(body(ctx).icon),
+          norms: [],
+          is_system: false,
+          is_active: true,
+          project_id: ctx.project.id,
+        })
+      : undefined,
   patchDisciplineProfile: (ctx) => {
     const d = DISCIPLINES.find(
       (x) => disciplineId(x.key) === ctx.params.discipline_id,
@@ -717,6 +722,7 @@ const DEMO: Record<string, Demo> = {
                 },
               ]
             : []),
+          ...demoTree.localTypesOf(ctx.project),
         ])
       : undefined,
 };

@@ -33,6 +33,7 @@ let counter = 0;
 export function resetDemoTree(): void {
   edits.clear();
   historyLog.clear();
+  localTypes.length = 0;
   created.clear();
   deleted.clear();
 }
@@ -508,4 +509,19 @@ export function nodeHistory(p: DemoProject, id: string) {
     items: [...initial, ...(historyLog.get(id) ?? [])].reverse(),
     next_cursor: null,
   };
+}
+
+// --- FE-027 / CR-006: локальные типы, созданные за сессию -------------------------------
+
+const localTypes: Record<string, unknown>[] = [];
+
+export function addLocalType(
+  type: Record<string, unknown>,
+): Record<string, unknown> {
+  localTypes.push(type);
+  return type;
+}
+
+export function localTypesOf(p: DemoProject): Record<string, unknown>[] {
+  return localTypes.filter((t) => t.project_id === p.id);
 }
