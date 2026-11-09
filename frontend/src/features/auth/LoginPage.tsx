@@ -22,6 +22,7 @@ type LoginResponse = components['schemas']['LoginResponse'];
 type Step = { kind: 'credentials' } | { kind: 'totp'; ticket: string } | { kind: 'backup'; ticket: string };
 
 const BACKUP_RE = /^\d{8}$/;
+const TOTP_RE = /^\d{6}$/;
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -33,6 +34,7 @@ export function LoginPage() {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [backup, setBackup] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -116,6 +118,7 @@ export function LoginPage() {
       } catch (err) {
         if (err instanceof ApiError && err.code === 'LOGIN_STEP_EXPIRED') backToLogin();
         setAttempt((n) => n + 1);
+        setCode('');
         throw err;
       }
     });
@@ -125,6 +128,7 @@ export function LoginPage() {
     setStep({ kind: 'credentials' });
     setPassword('');
     setBackup('');
+    setCode('');
   }
 
   if (step.kind !== 'credentials') {
@@ -135,7 +139,23 @@ export function LoginPage() {
       >
         <ErrorText error={error} />
         {step.kind === 'totp' ? (
-          <TotpCodeInput key={attempt} disabled={busy} onComplete={(code) => submitCode(step.ticket, { code })} />
+          <>
+            <TotpCodeInput
+              key={attempt}
+              disabled={busy}
+              onChange={setCode}
+              onComplete={(value) => submitCode(step.ticket, { code: value })}
+            />
+            <Button
+              fullWidth
+              size="md"
+              loading={busy}
+              disabled={!TOTP_RE.test(code)}
+              onClick={() => submitCode(step.ticket, { code })}
+            >
+              {t('auth.totp.submit')}
+            </Button>
+          </>
         ) : (
           <form
             onSubmit={(e) => {
