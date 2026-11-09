@@ -159,7 +159,7 @@ describe('ввод в ячейки на рабочем экране', () => {
     const saved = { o: leaf.o, r: leaf.r, p: leaf.p };
     Object.assign(leaf, { o: null, r: null, p: null });
     server.use(
-      http.get(api('/admin/node-types'), () =>
+      http.get(api('/projects/:id/node-types'), () =>
         HttpResponse.json({
           items: [
             {
@@ -169,6 +169,7 @@ describe('ввод в ячейки на рабочем экране', () => {
               norms: [{ label: 'средняя функция', o: '5', r: '7', p: '10' }],
               is_system: false,
               is_active: true,
+              project_id: null,
             },
           ],
         }),

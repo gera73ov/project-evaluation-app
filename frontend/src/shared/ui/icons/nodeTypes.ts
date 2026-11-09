@@ -3,7 +3,11 @@
  * локальных типов. Пока в проекте нет набора Tabler, рисуется символ (у типов 5.2 — из SPEC);
  * неизвестный ключ — «•». Порядок набора — порядок сетки выбора иконки.
  */
-const SYMBOLS = new Map<string, string>([
+import type { components } from '../../api/client';
+
+type NodeTypeIcon = components['schemas']['NodeTypeIcon'];
+
+const SYMBOLS = new Map<NodeTypeIcon, string>([
   ['module', '▣'],
   ['function', 'ƒ'],
   ['screen', '▭'],
@@ -37,8 +41,8 @@ const SYMBOLS = new Map<string, string>([
 ]);
 
 /** Курируемый набор ключей (30), в порядке сетки. */
-export const NODE_TYPE_ICON_KEYS: readonly string[] = [...SYMBOLS.keys()];
+export const NODE_TYPE_ICON_KEYS: readonly NodeTypeIcon[] = [...SYMBOLS.keys()];
 
 export function nodeTypeSymbol(icon: string | null | undefined): string {
-  return (icon ? SYMBOLS.get(icon) : undefined) ?? '•';
+  return (icon ? SYMBOLS.get(icon as NodeTypeIcon) : undefined) ?? '•';
 }

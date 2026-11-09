@@ -25,7 +25,7 @@ import { useProject, type Project } from '../settings/useProject';
 import { useCollab, useCollabState, type Collab } from './collab/useCollab';
 import { FilterBar } from './filters/FilterBar';
 import type { MenuSetup } from './menu/useRowMenus';
-import { localTypesKey, useTreeOps } from './menu/useTreeOps';
+import { projectTypesKey, useTreeOps } from './menu/useTreeOps';
 import {
   chipCounts,
   collapseTo,
@@ -42,7 +42,6 @@ import { TreeTable, type TreeContext, type TreeTableApi } from './tree/TreeTable
 
 type Member = components['schemas']['Member'];
 type Money = components['schemas']['ProjectMoney'];
-type NodeType = components['schemas']['NodeType'];
 
 interface CommentLine {
   tag_id: string | null;
@@ -179,8 +178,9 @@ function WorkScreen({
   useSaveView(projectId, view);
 
   const nodeTypes = useQuery({
-    queryKey: ['dict', 'node-types'],
-    queryFn: () => call(() => api.GET('/admin/node-types')),
+    // типы словаря и локальные типы проекта (CR-006)
+    queryKey: projectTypesKey(projectId),
+    queryFn: () => call(() => api.GET('/projects/{id}/node-types', { params: { path: { id: projectId } } })),
     staleTime: 10 * 60_000,
     select: (data) =>
       new Map(
@@ -190,16 +190,11 @@ function WorkScreen({
             name: n.name,
             icon: n.icon,
             active: n.is_active,
+            local: n.project_id !== null && n.project_id !== undefined,
             norms: n.norms.map((m) => ({ ...m, o: String(m.o), r: String(m.r), p: String(m.p) })),
           },
         ]),
       ),
-  });
-  // локальные типы проекта, созданные в этой сессии (список с сервера — после CR-006)
-  const localTypes = useQuery({
-    queryKey: localTypesKey(projectId),
-    queryFn: () => [] as NodeType[],
-    staleTime: Infinity,
   });
   const profiles = useQuery({
     queryKey: ['dict', 'profiles'],
@@ -279,10 +274,7 @@ function WorkScreen({
     if (focusNode) tableRef.current?.show(focusNode);
   }, [focusNode]);
 
-  const allTypes = new Map(nodeTypes.data ?? []);
-  for (const local of localTypes.data ?? [])
-    allTypes.set(local.id, { name: local.name, icon: local.icon, active: true, norms: [] });
-  const localIds = new Set((localTypes.data ?? []).map((l) => l.id));
+  const allTypes = nodeTypes.data ?? new Map<string, never>();
   const typeName = (id: string) => allTypes.get(id)?.name ?? '?';
   const perms = new Set(data.my_permissions);
   const menus: MenuSetup = {
@@ -292,7 +284,7 @@ function WorkScreen({
     config: {
       types: [...allTypes]
         .filter(([, type]) => type.active)
-        .map(([id, type]) => ({ id, name: type.name, icon: type.icon, local: localIds.has(id) })),
+        .map(([id, type]) => ({ id, name: type.name, icon: type.icon, local: type.local })),
       chainOf: (disciplineId) => {
         const profileId = data.disciplines.find((d) => d.discipline_id === disciplineId)?.profile_id;
         return profiles.data?.find((p) => p.id === profileId)?.type_chain ?? [];
@@ -310,6 +302,7 @@ function WorkScreen({
     profileOf: (disciplineId) => data.disciplines.find((d) => d.discipline_id === disciplineId)?.profile_id ?? null,
   };
   const ctx: TreeContext = {
+    roleOf: (id) => (members.some((m) => m.user.id === id && m.role === 'moderator') ? t('history.moderator') : null),
     highlight: deferredQuery,
     collab: { locks, marks, canForce: data.my_permissions.includes('tree.lock.force') },
     canEdit: editRule(data, members, userId, offline),

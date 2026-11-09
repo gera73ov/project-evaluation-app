@@ -19,9 +19,10 @@ const canon = (value: string) => dec(value).toFixed();
 
 type ApiNode = components['schemas']['Node'];
 type NodeType = components['schemas']['NodeType'];
+export type NodeTypeIcon = components['schemas']['NodeTypeIcon'];
 
-/** Локальные типы, созданные в проекте за эту сессию (до CR-006 их нельзя прочитать списком). */
-export const localTypesKey = (projectId: string) => ['dict', 'node-types', 'local', projectId] as const;
+/** Типы словаря и локальные типы проекта (`GET /projects/{id}/node-types`, CR-006). */
+export const projectTypesKey = (projectId: string) => ['project-node-types', projectId] as const;
 
 export interface TreeOps {
   busy: boolean;
@@ -39,7 +40,7 @@ export interface TreeOps {
   copyFrom: (id: string, sourceNodeId: string) => Promise<boolean>;
   changeType: (id: string, typeId: string) => Promise<boolean>;
   setProfile: (disciplineId: string, profileId: string) => Promise<boolean>;
-  createLocalType: (name: string, icon: string) => Promise<NodeType | null>;
+  createLocalType: (name: string, icon: NodeTypeIcon) => Promise<NodeType | null>;
 }
 
 export function useTreeOps({
@@ -192,7 +193,7 @@ export function useTreeOps({
         const type = (await call(() =>
           api.POST('/projects/{id}/node-types', { params: { path: { id: projectId } }, body: { name, icon } }),
         )) as NodeType;
-        client.setQueryData<NodeType[]>(localTypesKey(projectId), (prev) => [...(prev ?? []), type]);
+        await client.invalidateQueries({ queryKey: projectTypesKey(projectId) });
         return type;
       }),
   };

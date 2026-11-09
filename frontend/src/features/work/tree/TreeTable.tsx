@@ -15,6 +15,7 @@ import { Tooltip } from '@mantine/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   memo,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -45,6 +46,7 @@ import { nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
 import { CommentCell, HoursCell, MultiplierCell, TitleCell, type Norm } from '../cells/Cells';
 import { cellKey, useCells, type CellRef, type CellsApi, type CommentLine, type LockResult } from '../cells/useCells';
 import type { CellLock, CellMark } from '../collab/collabStore';
+import { HistoryPanel } from '../history/HistoryPanel';
 import { AddMenu, NodeMenu, type RowMenuApi } from '../menu/RowMenus';
 import { useRowMenus, type MenuSetup } from '../menu/useRowMenus';
 import { ConflictDialog } from '../collab/ConflictDialog';
@@ -76,6 +78,8 @@ export interface TreeContext {
     /** Модератор: «Всё равно править». */
     canForce: boolean;
   };
+  /** Роль участника для подписи в истории («модератор»), FE-028. */
+  roleOf?: (userId: string) => string | null;
 }
 
 /** Подсветка совпадений поиска тегом `<mark>` (DESIGN.md 9.3). */
@@ -493,8 +497,19 @@ export function TreeTable({
     setTarget(nodeId);
   };
   useImperativeHandle(apiRef, () => ({ show }));
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
+  const closeHistory = useCallback(() => setHistoryFor(null), []);
+  // строка узла в прокручиваемой области (без прилипших копий)
+  const historyAnchor = useMemo(
+    () => () =>
+      historyFor
+        ? (scrollRef.current?.querySelector(`.vrow [data-node="${CSS.escape(historyFor)}"]`)?.getBoundingClientRect() ??
+          null)
+        : null,
+    [historyFor],
+  );
   const menus = useRowMenus({
-    setup: onConfirm ? menuSetup : undefined,
+    setup: onConfirm && menuSetup ? { ...menuSetup, onHistory: setHistoryFor } : undefined,
     store,
     canEdit: ctx.canEdit,
     onShow: show,
@@ -564,6 +579,20 @@ export function TreeTable({
   return (
     <div className="tree" role="treegrid" aria-label={t('tree.label')} aria-rowcount={rows.length}>
       {menus.dialogs}
+      {historyFor && onConfirm ? (
+        <HistoryPanel
+          key={historyFor}
+          nodeId={historyFor}
+          store={store}
+          anchor={historyAnchor}
+          canRevert={ctx.canEdit(nodes.get(historyFor)?.discipline_id ?? null)}
+          onConfirm={onConfirm}
+          roleOf={ctx.roleOf ?? (() => null)}
+          typeName={(id) => ctx.nodeTypes.get(id)?.name ?? '—'}
+          tags={ctx.tags}
+          onClose={closeHistory}
+        />
+      ) : null}
       {cells.conflict ? (
         <ConflictDialog conflict={cells.conflict} title={conflictNode?.title ?? ''} onResolve={cells.resolveConflict} />
       ) : null}
