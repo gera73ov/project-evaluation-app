@@ -279,3 +279,14 @@ async def test_options_and_security_headers(api: httpx.AsyncClient) -> None:
     assert big.status_code == 413
     assert big.json()["code"] == "PAYLOAD_TOO_LARGE"
     assert big.headers["Referrer-Policy"] == "same-origin"
+
+
+async def test_login_screen_opens_do_not_spend_login_budget(
+    api: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """CR-004: GET /auth/options не тратит 20 попыток входа с IP (FR-LOCK-02)."""
+    await complete_setup(db_session)
+    user = await make_user(db_session)
+    for _ in range(25):  # больше бюджета login_ip: экран входа открывают за NAT офиса
+        assert (await api.get("/api/v1/auth/options")).status_code == 200
+    assert (await _login(api, user.login)).status_code == 200

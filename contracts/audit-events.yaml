@@ -466,7 +466,7 @@ events:
     title: Превышение ограничения частоты
     spec: [SEC-AUD-01, SEC-WEB-07, FR-LOCK-02]
     object: null
-    details: {limit: "enum[login_ip, mutations, exports, messages, remind]", retry_after: int}
+    details: {limit: "enum[login_ip, auth_options, mutations, exports, messages, remind]", retry_after: int}
   security.file_infected:
     category: security
     title: Заражённый или непроверенный файл документа заказчика
