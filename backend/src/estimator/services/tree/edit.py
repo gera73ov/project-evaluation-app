@@ -67,7 +67,7 @@ ESTIMATE_KEYS = frozenset({"o", "r", "p", "multiplier"})
 RESETS_DONE = ESTIMATE_KEYS
 
 
-def _invalid(field: str, message: str) -> ApiError:
+def invalid(field: str, message: str) -> ApiError:
     return ApiError(
         "VALIDATION_FAILED",
         detail=message,
@@ -79,9 +79,9 @@ def clean_title(raw: str, field: str = "title") -> str:
     """BR-TREE-07: пробелы по краям обрезаются, 1–200 символов, без переводов строк."""
     title = raw.strip()
     if not title or len(title) > TITLE_MAX:
-        raise _invalid(field, f"Название — от 1 до {TITLE_MAX} символов")
+        raise invalid(field, f"Название — от 1 до {TITLE_MAX} символов")
     if "\n" in title or "\r" in title:
-        raise _invalid(field, "Название — одной строкой")
+        raise invalid(field, "Название — одной строкой")
     return title
 
 
@@ -90,7 +90,7 @@ def round_hours(raw: str, field: str) -> tuple[Decimal, bool]:
     try:
         value = parse_decimal(raw)
     except ValueError:
-        raise _invalid(field, "Ожидается число часов") from None
+        raise invalid(field, "Ожидается число часов") from None
     rounded = (value / HALF).quantize(Decimal(1), rounding=ROUND_HALF_UP) * HALF
     if rounded < 0 or rounded > HOURS_MAX:
         raise ApiError(
@@ -112,21 +112,21 @@ async def _check_comment(db: AsyncSession, lines: list[dict[str, Any]] | None) -
     if not lines:
         return None
     if len(lines) > COMMENT_LINES_MAX:
-        raise _invalid("comment_lines", f"Не больше {COMMENT_LINES_MAX} строк комментария")
+        raise invalid("comment_lines", f"Не больше {COMMENT_LINES_MAX} строк комментария")
     if sum(len(line["text"]) for line in lines) > COMMENT_MAX:
-        raise _invalid("comment_lines", f"Комментарий — не больше {COMMENT_MAX} символов")
+        raise invalid("comment_lines", f"Комментарий — не больше {COMMENT_MAX} символов")
     tags = {line["tag_id"] for line in lines if line["tag_id"] is not None}
     if tags:
         known = set((await db.scalars(select(CommentTag.id).where(CommentTag.id.in_(tags)))).all())
         if tags - known:
-            raise _invalid("comment_lines", "Метка не найдена в справочнике")
+            raise invalid("comment_lines", "Метка не найдена в справочнике")
     return [
         {"tag_id": str(line["tag_id"]) if line["tag_id"] else None, "text": line["text"]}
         for line in lines
     ]
 
 
-async def _work_type(db: AsyncSession) -> uuid.UUID:
+async def work_type(db: AsyncSession) -> uuid.UUID:
     """Тип «Работа» (BR-TREE-08): системный тип словаря."""
     return (await db.scalars(select(NodeType.id).where(NodeType.is_system))).one()
 
@@ -143,7 +143,7 @@ async def _check_type(
         or (row.project_id == project_id and row.proposal_status is not NodeTypeProposal.MERGED)
     )
     if not ok:
-        raise _invalid("type_id", "Тип узла не найден в проекте")
+        raise invalid("type_id", "Тип узла не найден в проекте")
     return type_id
 
 
@@ -175,7 +175,7 @@ async def suggest_type(db: AsyncSession, project_id: uuid.UUID, parent: Node) ->
             return await _check_type(db, project_id, candidate)
         except ApiError:
             pass  # тип цепочки выключен или объединён — «Работа»
-    return await _work_type(db)
+    return await work_type(db)
 
 
 async def has_live_children(db: AsyncSession, node_id: uuid.UUID) -> bool:
@@ -207,7 +207,7 @@ async def _is_cross_cutting(db: AsyncSession, phase_id: uuid.UUID) -> bool:
     return bool(await db.scalar(select(Phase.is_cross_cutting).where(Phase.id == phase_id)))
 
 
-def _history(
+def history(
     node: Node,
     principal: Principal,
     project_version: int,
@@ -233,6 +233,29 @@ def _history(
     )
 
 
+async def place(
+    db: AsyncSession,
+    parent_id: uuid.UUID,
+    after_id: uuid.UUID | None,
+    *,
+    exclude: uuid.UUID | None = None,
+) -> str:
+    """Позиция среди живых детей ``parent_id``: сразу за ``after_id``, без него — первой.
+
+    ``exclude`` — сам переносимый узел: его прежнее место не считается соседом.
+    """
+    siblings = select(Node.position).where(Node.parent_id == parent_id, Node.deleted_at.is_(None))
+    if exclude is not None:
+        siblings = siblings.where(Node.id != exclude)
+    if after_id is None:
+        return key_between(None, await db.scalar(siblings.order_by(Node.position).limit(1)))
+    before = await db.scalar(siblings.where(Node.id == after_id))
+    if before is None:
+        raise invalid("after_id", "Соседний узел не найден у этого родителя")
+    after = await db.scalar(siblings.where(Node.position > before).order_by(Node.position).limit(1))
+    return key_between(before, after)
+
+
 # --- создание ---------------------------------------------------------------------------------
 
 
@@ -247,11 +270,11 @@ async def create_node(
     if parent.kind is NodeKind.PHASE:
         if await _is_cross_cutting(db, parent.phase_id):
             raise ApiError("CROSS_CUTTING_PHASE_LOCKED")
-        raise _invalid("parent_id", "Ветки дисциплин добавляются через «Добавить дисциплину»")
+        raise invalid("parent_id", "Ветки дисциплин добавляются через «Добавить дисциплину»")
     if parent.o is not None or parent.r is not None or parent.p is not None:
-        raise _invalid("parent_id", "У листа есть оценка: разбейте его (BR-TREE-02)")
+        raise invalid("parent_id", "У листа есть оценка: разбейте его (BR-TREE-02)")
     if parent.multiplier != 1:
-        raise _invalid("parent_id", "У листа задан ×N: разбейте его (BR-TREE-02)")
+        raise invalid("parent_id", "У листа задан ×N: разбейте его (BR-TREE-02)")
     if await depth_below_branch(db, parent) + 1 > DEPTH_LIMIT:
         raise ApiError("DEPTH_LIMIT", max_depth=DEPTH_LIMIT)
     current = await count_live_nodes(db, project.id)
@@ -262,7 +285,7 @@ async def create_node(
     if "type_id" not in body:
         type_id = await suggest_type(db, project.id, parent)
     elif body["type_id"] is None:
-        type_id = await _work_type(db)
+        type_id = await work_type(db)
     else:
         type_id = await _check_type(db, project.id, body["type_id"])
 
@@ -278,17 +301,7 @@ async def create_node(
             rounded.append(key)
     multiplier = int(body.get("multiplier") or 1)
 
-    siblings = select(Node.position).where(Node.parent_id == parent.id, Node.deleted_at.is_(None))
-    after_id = body.get("after_id")
-    if after_id is None:
-        before, after = None, await db.scalar(siblings.order_by(Node.position).limit(1))
-    else:
-        before = await db.scalar(siblings.where(Node.id == after_id))
-        if before is None:
-            raise _invalid("after_id", "Соседний узел не найден у этого родителя")
-        after = await db.scalar(
-            siblings.where(Node.position > before).order_by(Node.position).limit(1)
-        )
+    position = await place(db, parent.id, body.get("after_id"))
 
     node = Node(
         id=uuid7(),
@@ -299,7 +312,7 @@ async def create_node(
         discipline_id=parent.discipline_id,
         type_id=type_id,
         title=title,
-        position=key_between(before, after),
+        position=position,
         o=hours["o"],
         r=hours["r"],
         p=hours["p"],
@@ -321,7 +334,7 @@ async def create_node(
     created |= {k: (None, v) for k, v in hours.items() if v is not None}
     if multiplier != 1:
         created["multiplier"] = (1, multiplier)
-    db.add(_history(node, principal, version, NodeAction.CREATE, created))
+    db.add(history(node, principal, version, NodeAction.CREATE, created))
     await marks.clear(db, principal, [parent, *await marks.ancestors(db, parent)])
     branch = None
     if node.discipline_id is not None:  # ребёнок ветки всегда в дисциплине (CHECK item_branch)
@@ -334,7 +347,7 @@ async def create_node(
 # --- изменение --------------------------------------------------------------------------------
 
 
-async def _conflicts(
+async def field_conflicts(
     db: AsyncSession, node: Node, principal: Principal, base_version: int, keys: set[str]
 ) -> list[dict[str, Any]]:
     """Поля из ``keys``, изменённые после ``base_version`` другим пользователем (FR-TREE-32)."""
@@ -376,9 +389,9 @@ async def patch_node(
 ) -> tuple[Node, dict[str, Any] | None, list[str]]:
     """Изменить поля узла; узел, изменение статуса ветки и округлённые поля (15.3)."""
     if node.kind is NodeKind.PHASE:
-        raise _invalid("changes", "Строку фазы не редактируют")
+        raise invalid("changes", "Строку фазы не редактируют")
     if node.kind is NodeKind.DISCIPLINE and ({"title", "type_id"} & changes.keys()):
-        raise _invalid("changes", "Название и тип ветки дисциплины задаёт справочник")
+        raise invalid("changes", "Название и тип ветки дисциплины задаёт справочник")
     if ESTIMATE_KEYS & changes.keys() and await has_live_children(db, node.id):
         raise ApiError("NODE_HAS_CHILDREN")
 
@@ -389,7 +402,7 @@ async def patch_node(
             new["title"] = clean_title(str(raw))
         elif field == "type_id":
             new["type_id"] = (
-                await _work_type(db)
+                await work_type(db)
                 if raw is None
                 else await _check_type(db, project.id, raw, node.type_id)
             )
@@ -412,7 +425,7 @@ async def patch_node(
         if not same:
             diff[field] = (old, value)
     keys = {FIELD_KEYS[f] for f in diff}
-    conflicts = await _conflicts(db, node, principal, base_version, keys)
+    conflicts = await field_conflicts(db, node, principal, base_version, keys)
     if conflicts:
         raise ApiError("FIELD_CONFLICT", conflicts=conflicts, current_version=node.version)
     for key in sorted(keys & locks.LOCK_FIELDS):
@@ -442,7 +455,7 @@ async def patch_node(
         {"node": node_event(node), "author": author, "changed_fields": sorted(keys)},
     )
     db.add(
-        _history(
+        history(
             node,
             principal,
             version,
