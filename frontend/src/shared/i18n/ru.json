@@ -428,6 +428,34 @@
         "customer": "От 1 до 200 символов",
         "reason": "Не более 1 000 символов"
       }
+    },
+    "team": {
+      "title": "Команда",
+      "moderators": "Модераторы",
+      "presale": "Пресейл",
+      "discipline": "Дисциплина",
+      "experts": "Эксперты",
+      "expertsHint": "(подсвечен ревьюер)",
+      "reviewer": "ревьюер",
+      "blocked": "заблокирован",
+      "replace": "Заменить",
+      "noExpert": "нет эксперта",
+      "remove": "Убрать {{name}}",
+      "makeReviewer": "Сделать ревьюером",
+      "unmakeReviewer": "Снять отметку ревьюера",
+      "lastModerator": "Последнего модератора убрать нельзя",
+      "addDiscipline": "+ Добавить дисциплину",
+      "addDisciplineTitle": "Добавить дисциплину",
+      "addDisciplineHint": "Ветки дисциплины сразу появятся во всех включённых фазах со статусом «не начато».",
+      "adSearch": "Найти в AD",
+      "adTitle": "Найти в AD",
+      "adQuery": "ФИО или логин",
+      "adFind": "Найти",
+      "adDiscipline": "Дисциплина",
+      "adReviewer": "Ревьюер",
+      "adAdd": "Назначить",
+      "adNotInGroup": "нет в группе доступа",
+      "adEmpty": "Никого не нашли"
     }
   }
 }

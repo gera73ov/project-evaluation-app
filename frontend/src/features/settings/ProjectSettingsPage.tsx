@@ -9,6 +9,7 @@ import { Link } from '../../app/router';
 import { useReadOnlyOffline } from '../../shared/ws/WsProvider';
 import { ErrorText } from '../../shared/ui/ErrorText';
 import { GeneralSection } from './general/GeneralSection';
+import { TeamSection } from './team/TeamSection';
 import { useProject, type Project } from './useProject';
 
 export const SETTINGS_TABS = [
@@ -72,6 +73,7 @@ export function ProjectSettingsPage({ projectId }: { projectId: string }) {
       <div className="set-grid">
         <div className="set-col">
           <GeneralSection project={data} readOnly={readOnly} />
+          <TeamSection project={data} readOnly={offline} />
         </div>
       </div>
     </div>
