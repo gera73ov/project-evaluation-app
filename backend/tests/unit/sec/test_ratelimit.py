@@ -181,3 +181,44 @@ async def test_default_identity_is_client_ip(redis_client: Redis) -> None:
     await RateLimiter(redis_client).reset(LIMITS[limit_name], ip)
     assert codes[:20] == [200] * 20
     assert codes[20] == 429
+
+
+async def test_auth_options_limit_is_separate_and_generous(redis_client: Redis) -> None:
+    """CR-004: свой лимит экрана входа на IP, без пятиминутного блока login_ip."""
+    limit = LIMITS["auth_options"]
+    assert (limit.max_hits, limit.window_seconds, limit.block_seconds) == (120, 60, 0)
+    clock = Clock()
+    limiter = RateLimiter(redis_client, clock)
+    ip = _id()
+    for _ in range(120):
+        assert (await limiter.hit(limit, ip)).allowed
+    assert (await limiter.hit(LIMITS["login_ip"], ip)).allowed, "бюджет входа не тронут"
+    denied = await limiter.hit(limit, ip)
+    assert not denied.allowed
+    assert denied.retry_after <= 60
+    await limiter.reset(limit, ip)
+    await limiter.reset(LIMITS["login_ip"], ip)
+
+
+def test_limit_names_match_audit_contract() -> None:
+    """Имена лимитов — значения ``details.limit`` события security.rate_limited."""
+    import re
+    from pathlib import Path
+
+    import yaml
+
+    contract = Path(__file__).resolve().parents[4] / "contracts" / "audit-events.yaml"
+    events = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    spec = next(v for k, v in _walk(events) if k == "security.rate_limited")
+    found = re.search(r"enum\[([^\]]+)\]", spec["details"]["limit"])
+    assert found
+    assert {n.strip() for n in found.group(1).split(",")} == set(LIMITS)
+
+
+def _walk(node: object) -> list[tuple[str, dict]]:
+    out: list[tuple[str, dict]] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            out.append((str(key), value))
+            out.extend(_walk(value))
+    return out

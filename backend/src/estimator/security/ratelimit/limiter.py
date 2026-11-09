@@ -69,6 +69,9 @@ LIMITS: dict[str, Limit] = {
         Limit("exports", 30, 3600),  # SEC-WEB-07, на пользователя
         Limit("messages", 60, 60),  # SEC-WEB-07, на пользователя
         Limit("login_ip", 20, 60, block_seconds=300),  # FR-LOCK-02, на IP
+        # GET /auth/options (CR-001) — не попытка входа: экран входа спрашивает режим при каждом
+        # открытии, и за NAT офиса общий с login_ip бюджет блокировал бы вход всем (CR-004)
+        Limit("auth_options", 120, 60),  # на IP, без блока
         Limit("remind", 1, 86400, error_code="REMIND_TOO_OFTEN"),  # 15.2, на проект
     )
 }
