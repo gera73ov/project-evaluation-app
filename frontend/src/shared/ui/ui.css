@@ -800,3 +800,16 @@ table.cq-table td{vertical-align:top}
 .set-danger{background:var(--bad);color:#fff;border-radius:6px;padding:9px 12px;margin:0;font-weight:600}
 .set-secret{max-width:420px}
 .set-time{max-width:200px}
+
+/* FE-063 · учётки, анонимизация, реестр */
+.sys-list-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sys-list-head .sp{flex:1}
+.sys-table{width:100%}
+.sys-table tr.on td{background:var(--accent-soft)}
+.sys-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0}
+.sys-dl dt{color:var(--muted)}
+.sys-dl dd{margin:0}
+.sys-actions{display:flex;flex-wrap:wrap;gap:8px}
+.sys-link{word-break:break-all;font-size:12px}
+.link-btn{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--accent-ink);cursor:pointer;text-align:left}
+.sys-form h3{margin:0;font-size:15px}

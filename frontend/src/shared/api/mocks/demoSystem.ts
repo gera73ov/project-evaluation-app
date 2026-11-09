@@ -62,42 +62,179 @@ export function health() {
   };
 }
 
+type Role = "superadmin" | "admin" | "security_auditor";
 type Account = {
+  id: string;
   login: string;
   full_name: string;
-  roles: ("superadmin" | "admin" | "security_auditor")[];
+  email: string | null;
+  roles: Role[];
+  status: "active" | "blocked" | "pending_password";
+  totp_enabled: boolean;
+  last_login_at: string | null;
 };
 
-const ACCOUNTS: Account[] = [
-  {
-    login: PERSONAS.superadmin.login,
-    full_name: PERSONAS.superadmin.fullName,
-    roles: ["superadmin"],
-  },
-  { login: "sa.petrova", full_name: "С. Петрова", roles: ["superadmin"] },
-  {
-    login: PERSONAS.admin.login,
-    full_name: PERSONAS.admin.fullName,
-    roles: ["admin"],
-  },
-  {
-    login: PERSONAS.auditor.login,
-    full_name: PERSONAS.auditor.fullName,
-    roles: ["security_auditor"],
-  },
-];
-
-export function admins() {
-  return ACCOUNTS.map((a, i) => ({
-    id: uuidFrom("user", a.login),
-    login: a.login,
-    full_name: a.full_name,
-    email: `${a.login}@corp.local`,
-    roles: a.roles,
-    status: "active" as const,
+function seedAccounts(): Account[] {
+  const seed: [string, string, Role, Account["status"]][] = [
+    [
+      PERSONAS.superadmin.login,
+      PERSONAS.superadmin.fullName,
+      "superadmin",
+      "active",
+    ],
+    ["sa.petrova", "С. Петрова", "superadmin", "active"],
+    [PERSONAS.admin.login, PERSONAS.admin.fullName, "admin", "active"],
+    ["v.blinov", "В. Блинов", "admin", "blocked"],
+    [
+      PERSONAS.auditor.login,
+      PERSONAS.auditor.fullName,
+      "security_auditor",
+      "active",
+    ],
+  ];
+  return seed.map(([login, name, role, status], i) => ({
+    id: uuidFrom("user", login),
+    login,
+    full_name: name,
+    email: `${login}@corp.local`,
+    roles: [role],
+    status,
     totp_enabled: true,
     last_login_at: i === 0 ? NOW : minutesAgo(60 * 24 * (i + 1)),
   }));
+}
+
+/** FE-063 · учётки раздела «Суперадминистраторы и администраторы», «Аудиторы ИБ» (FR-SA-05). */
+let accounts = seedAccounts();
+let anonymized = 0;
+
+export function admins() {
+  return accounts.map((a) => ({ ...a, roles: [...a.roles] }));
+}
+
+const activeSuperadmins = () =>
+  accounts.filter(
+    (a) => a.status === "active" && a.roles.includes("superadmin"),
+  );
+
+export type AccountError =
+  | "ALREADY_EXISTS"
+  | "SUPERADMIN_LIMIT"
+  | "LAST_SUPERADMIN"
+  | "ROLE_INCOMPATIBLE"
+  | "USER_NOT_BLOCKED"
+  | "NOT_FOUND"
+  | "VALIDATION_FAILED";
+
+/** Ссылка активации: почта настроена — письмо, ссылку не показываем (FR-AUTH-LOC-01). */
+function activation() {
+  return {
+    emailed: true,
+    activation_url: null,
+    expires_at: new Date(Date.parse(NOW) + 72 * 3600 * 1000).toISOString(),
+  };
+}
+
+export function createAdmin(
+  body: unknown,
+): { error: AccountError } | ReturnType<typeof activation> {
+  const b = new Map(
+    Object.entries(body && typeof body === "object" ? body : {}),
+  );
+  const login = String(b.get("login") ?? "").trim();
+  const role = b.get("role") as Role | undefined;
+  // без тела (проверка моков по контракту) — ответ без создания учётки
+  if (!login || !role) return activation();
+  if (accounts.some((a) => a.login === login))
+    return { error: "ALREADY_EXISTS" };
+  if (
+    role === "superadmin" &&
+    accounts.filter(
+      (a) => a.status !== "blocked" && a.roles.includes("superadmin"),
+    ).length >= 3
+  )
+    return { error: "SUPERADMIN_LIMIT" };
+  accounts.push({
+    id: uuidFrom("user", login),
+    login,
+    full_name: String(b.get("full_name") ?? login),
+    email: String(b.get("email") ?? "") || null,
+    roles: [role],
+    status: "pending_password",
+    totp_enabled: false,
+    last_login_at: null,
+  });
+  return activation();
+}
+
+export function patchAdmin(
+  id: string,
+  body: unknown,
+): { error: AccountError } | Account {
+  const a = accounts.find((x) => x.id === id);
+  if (!a) return { error: "NOT_FOUND" };
+  const b = new Map(
+    Object.entries(body && typeof body === "object" ? body : {}),
+  );
+  const roles = b.get("roles") as Role[] | undefined;
+  const status = b.get("status") as "active" | "blocked" | undefined;
+  const lastSa =
+    a.roles.includes("superadmin") &&
+    a.status === "active" &&
+    activeSuperadmins().length === 1;
+  if (roles) {
+    if (
+      roles.length > 1 &&
+      (roles.includes("superadmin") || roles.includes("security_auditor"))
+    )
+      return { error: "ROLE_INCOMPATIBLE" };
+    if (lastSa && !roles.includes("superadmin"))
+      return { error: "LAST_SUPERADMIN" };
+    if (
+      roles.includes("superadmin") &&
+      !a.roles.includes("superadmin") &&
+      activeSuperadmins().length >= 3
+    )
+      return { error: "SUPERADMIN_LIMIT" };
+    a.roles = [...roles];
+  }
+  if (status) {
+    if (status === "blocked" && lastSa) return { error: "LAST_SUPERADMIN" };
+    a.status = status;
+  }
+  return { ...a, roles: [...a.roles] };
+}
+
+export function demoteAdmin(id: string): AccountError | null {
+  const a = accounts.find((x) => x.id === id);
+  if (!a) return "NOT_FOUND";
+  if (
+    a.roles.includes("superadmin") &&
+    a.status === "active" &&
+    activeSuperadmins().length === 1
+  )
+    return "LAST_SUPERADMIN";
+  accounts = accounts.filter((x) => x.id !== id);
+  return null;
+}
+
+export function resetCredentials(
+  id: string,
+): AccountError | ReturnType<typeof activation> {
+  return accounts.some((a) => a.id === id) ? activation() : "NOT_FOUND";
+}
+
+/** SEC-PD-03: только заблокированного; ФИО → «Удалённый пользователь #N», логин и почта — случайные. */
+export function anonymize(id: string): AccountError | null {
+  const a = accounts.find((x) => x.id === id);
+  if (!a) return "NOT_FOUND";
+  if (a.status !== "blocked") return "USER_NOT_BLOCKED";
+  anonymized += 1;
+  a.full_name = `Удалённый пользователь #${anonymized}`;
+  a.login = `deleted-${uuidFrom("anon", String(anonymized)).slice(0, 8)}`;
+  a.email = null;
+  a.totp_enabled = false;
+  return null;
 }
 
 type SchemaProp = { default?: unknown; "x-secret"?: boolean };
@@ -176,6 +313,8 @@ let stepUpUntil = 0;
 export function resetDemoSystem() {
   saved.clear();
   stepUpUntil = 0;
+  accounts = seedAccounts();
+  anonymized = 0;
 }
 
 export const STEP_UP_MS = 5 * 60 * 1000;

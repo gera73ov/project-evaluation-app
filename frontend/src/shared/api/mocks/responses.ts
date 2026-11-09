@@ -88,6 +88,22 @@ function stepUpRequired() {
   );
 }
 
+const ACCOUNT_STATUS = new Map<demoSystem.AccountError, [number, string]>([
+  ["ALREADY_EXISTS", [409, "Такой логин уже есть"]],
+  ["SUPERADMIN_LIMIT", [409, "Суперадминистраторов не больше трёх"]],
+  ["LAST_SUPERADMIN", [409, "Последний суперадминистратор"]],
+  ["ROLE_INCOMPATIBLE", [409, "Роли несовместимы"]],
+  ["USER_NOT_BLOCKED", [409, "Пользователь не заблокирован"]],
+  ["NOT_FOUND", [404, "Не найдено"]],
+  ["VALIDATION_FAILED", [422, "Ошибка в данных"]],
+]);
+
+/** Ошибка действия с учёткой раздела «Система». */
+function accountProblem(code: demoSystem.AccountError) {
+  const [status, title] = ACCOUNT_STATUS.get(code) ?? [409, code];
+  return new MockProblem(problem(status, code, title));
+}
+
 function projectOf(
   op: Operation,
   params: Record<string, string>,
@@ -604,6 +620,38 @@ const DEMO: Record<string, Demo> = {
   // FE-060 · раздел «Система» (FR-SA-07, BR-ROLE-03, FR-SA-04)
   getHealth: () => demoSystem.health(),
   listAdmins: (_ctx, schema) => list(schema, demoSystem.admins()),
+  // FE-063 · учётки, сбросы, анонимизация (FR-SA-05, BR-ROLE-02/03, FR-2FA-03, SEC-PD-03)
+  createAdmin: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoSystem.createAdmin(ctx.body);
+    return "error" in out ? accountProblem(out.error) : out;
+  },
+  patchAdmin: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoSystem.patchAdmin(ctx.params.id ?? "", ctx.body);
+    return "error" in out ? accountProblem(out.error) : out;
+  },
+  demoteAdmin: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const err = demoSystem.demoteAdmin(ctx.params.id ?? "");
+    return err ? accountProblem(err) : undefined;
+  },
+  systemResetPassword: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoSystem.resetCredentials(ctx.params.id ?? "");
+    return typeof out === "string" ? accountProblem(out) : out;
+  },
+  systemResetTotp: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoSystem.resetCredentials(ctx.params.id ?? "");
+    return typeof out === "string" ? accountProblem(out) : undefined;
+  },
+  anonymizeUser: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const err = demoSystem.anonymize(ctx.params.id ?? "");
+    return err ? accountProblem(err) : undefined;
+  },
+  systemRegistry: (_ctx, schema) => list(schema, demoPortfolio.registry()),
   getSettings: (ctx) => demoSystem.settings(ctx.params.section ?? ""),
   // FE-061 · способ входа и AD (11.2 №2–6); критичные записи — со step-up (SEC-AUTH-05)
   stepUp: () => demoSystem.stepUp(),
