@@ -377,6 +377,7 @@ permissions:
     spec: [3.3, BR-ROLE-07]
     endpoints:
       - "PUT /projects/{id}/members"
+      - "GET /projects/{id}/member-candidates"
   team.replace_member:
     title: Заменить заблокированного участника в проекте
     spec: [FR-ADM-05]
