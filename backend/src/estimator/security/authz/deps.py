@@ -220,7 +220,14 @@ def _object_path(request: Request) -> tuple[str, uuid.UUID] | None:
     """
     raw = request.path_params.get("id")
     if raw is None:
-        return None
+        # ``/me/view-state/{project_id}`` (CORE-027): объект — проект из параметра project_id
+        project = request.path_params.get("project_id")
+        if project is None:
+            return None
+        try:
+            return PROJECT_PATH, uuid.UUID(str(project))
+        except ValueError:
+            raise HTTPException(404, detail={"code": "NOT_FOUND"}) from None
     path = request.url.path.removeprefix(API_PREFIX)
     for template in (PROJECT_PATH, *_RESOLVERS):
         if path.startswith(template.replace("{id}", str(raw))):

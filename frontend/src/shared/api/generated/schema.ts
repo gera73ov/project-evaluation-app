@@ -1349,6 +1349,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/member-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Поиск пользователей для команды проекта
+         * @description CR-005. Кандидаты для «+ добавить» и «Заменить» в команде: только активные пользователи, без суперадминистраторов и аудиторов ИБ (BR-ROLE-02). С `role=moderator` — пользователи с системной ролью «Модератор», с `role=presale` — с ролью «Пресейл», с `role=expert` или без `role` — любой из них. Поиск по ФИО без учёта регистра; логин, почта и статус в ответ не попадают. Порядок — по ФИО. Руководитель пресейла, пока он не модератор проекта, получает 403: себя он добавляет кнопкой «Стать модератором» (FR-PORT-03).
+         */
+        get: operations["getMemberCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{id}/members": {
         parameters: {
             query?: never;
@@ -3145,6 +3165,11 @@ export type components = {
             /** @description {поле: [было, стало]} */
             changes: Record<string, never>;
             money?: components["schemas"]["JournalEntryMoney"];
+        };
+        /** @description Кандидат в команду проекта (CR-005) — без логина, почты и статуса */
+        MemberCandidate: {
+            user: components["schemas"]["UserRef"];
+            system_roles: components["schemas"]["SystemRole"][];
         };
         SuggestItem: {
             /** @enum {string} */
@@ -6959,6 +6984,39 @@ export interface operations {
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getMemberCandidates: {
+        parameters: {
+            query: {
+                q: string;
+                role?: components["schemas"]["ProjectRole"];
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["MemberCandidate"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
             500: components["responses"]["Problem500"];
         };
     };

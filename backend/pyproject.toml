@@ -28,6 +28,7 @@ dependencies = [
   "typer>=0.27,<0.28",
   "jinja2>=3.1.6,<3.2",  # шаблоны писем с автоэкранированием (NTF-002)
   "pyyaml>=6.0.3,<7",  # каталог прав contracts/permissions.yaml (SEC-005); уже был через uvicorn[standard]
+  "python-multipart>=0.0.20,<0.1",  # multipart/form-data: CSV календаря (ADM-008), документы (FR-DOC-01)
 ]
 
 [project.scripts]
