@@ -218,7 +218,8 @@ def _object_path(request: Request) -> tuple[str, uuid.UUID] | None:
     Сравнивается фактический путь запроса, а не шаблон маршрута: так результат не зависит
     от того, с каким префиксом подключён роутер.
     """
-    raw = request.path_params.get("id")
+    # ``/trash/{batch_id}`` (CORE-017): объект — пакет корзины по зарегистрированному префиксу
+    raw = request.path_params.get("id") or request.path_params.get("batch_id")
     if raw is None:
         # ``/me/view-state/{project_id}`` (CORE-027): объект — проект из параметра project_id
         project = request.path_params.get("project_id")

@@ -27,6 +27,7 @@ from estimator.db.session import DbSession
 from estimator.security.authz import AuthorizerDep, Target
 from estimator.security.authz.deps import register_resolver
 from estimator.services.review import marks
+from estimator.services.trash import nodes as trash_nodes
 from estimator.services.tree import edit, structure
 from estimator.services.tree.load import load_tree, mutation_view
 
@@ -300,4 +301,21 @@ async def duplicate_node(
     """«Дублировать» (FR-TREE-23): копия поддерева сразу под узлом."""
     node, project = await _live(db, id)
     out = await structure.duplicate_node(db, principal, project, node)
+    return await _nodes_response(db, project.id, out)
+
+
+@router.delete(
+    "/nodes/{id}",
+    permission="tree.write",
+    response_model=s.NodesMutation,
+    response_model_exclude_unset=True,
+)
+async def delete_node(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    principal: ActivePrincipal,
+    db: DbSession,
+) -> dict[str, Any]:
+    """Удалить узел с поддеревом в корзину одним пакетом (FR-TREE-24)."""
+    node, project = await _live(db, id)
+    out = await trash_nodes.delete_node(db, principal, project, node)
     return await _nodes_response(db, project.id, out)

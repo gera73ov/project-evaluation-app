@@ -106,7 +106,7 @@ def _unreview(node: Node, versions: dict[str, Any], changes: dict[str, tuple[Any
     return True
 
 
-async def _touch(
+async def touch_branch(
     db: AsyncSession,
     principal: Principal,
     project: Project,
@@ -227,9 +227,9 @@ async def move_node(
     new_ancestors = [new_parent, *await marks.ancestors(db, new_parent)]
     out.touched(new_ancestors)
     await marks.clear(db, principal, [*subtree, *old_ancestors, *new_ancestors])
-    await _touch(db, principal, project, old_branch, out)
+    await touch_branch(db, principal, project, old_branch, out)
     if cross:
-        await _touch(db, principal, project, (node.phase_id, node.discipline_id), out)
+        await touch_branch(db, principal, project, (node.phase_id, node.discipline_id), out)
     return out
 
 
@@ -324,7 +324,7 @@ async def split_node(
     await marks.clear(db, principal, ancestors)
     out = Outcome(node_ids=[node.id, child.id])
     out.touched(ancestors)
-    await _touch(db, principal, project, (node.phase_id, node.discipline_id), out)
+    await touch_branch(db, principal, project, (node.phase_id, node.discipline_id), out)
     return out
 
 
@@ -399,7 +399,7 @@ async def collapse_node(
     await marks.clear(db, principal, ancestors)
     out.node_ids.append(node.id)
     out.touched(ancestors)
-    await _touch(db, principal, project, (node.phase_id, node.discipline_id), out)
+    await touch_branch(db, principal, project, (node.phase_id, node.discipline_id), out)
     return out
 
 
@@ -477,5 +477,5 @@ async def duplicate_node(
     ancestors = [parent, *await marks.ancestors(db, parent)]
     await marks.clear(db, principal, ancestors)
     out.touched(ancestors)
-    await _touch(db, principal, project, (node.phase_id, node.discipline_id), out)
+    await touch_branch(db, principal, project, (node.phase_id, node.discipline_id), out)
     return out
