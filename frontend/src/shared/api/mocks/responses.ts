@@ -617,6 +617,46 @@ const DEMO: Record<string, Demo> = {
     ),
   exportAssumptions: () =>
     demoExports.createExport("assumptions_docx", "Допущения_и_риски.docx"),
+  // FE-043: вопросы заказчику и обсуждения проекта
+  listCustomerQuestions: (ctx) =>
+    ctx.project
+      ? demoDiscussions.customerQuestions(ctx.project, ctx.params)
+      : undefined,
+  listThreads: (ctx) =>
+    ctx.project
+      ? demoDiscussions.projectThreads(
+          ctx.project,
+          ctx.params,
+          userRef(ctx.persona).id,
+        )
+      : undefined,
+  exportCustomerQuestions: (ctx) => {
+    const req = body(ctx);
+    const ids = Array.isArray(req.thread_ids)
+      ? (req.thread_ids as string[])
+      : [];
+    if (ctx.project) demoDiscussions.markSent(ctx.project, ids);
+    return req.format === "xlsx"
+      ? demoExports.createExport("cq_xlsx", "Вопросы_заказчику.xlsx")
+      : demoExports.createExport("cq_docx", "Вопросы_заказчику.docx");
+  },
+  answerCustomerQuestion: (ctx) =>
+    ctx.project
+      ? demoDiscussions.answerQuestion(
+          ctx.project,
+          ctx.params.id ?? "",
+          String(body(ctx).body ?? ""),
+          userRef(ctx.persona),
+        )
+      : undefined,
+  withdrawCustomerQuestion: (ctx) =>
+    ctx.project
+      ? demoDiscussions.withdrawQuestion(
+          ctx.project,
+          ctx.params.id ?? "",
+          String(body(ctx).reason ?? ""),
+        )
+      : undefined,
   getExport: (ctx) => demoExports.exportJob(ctx.params.id ?? "") ?? undefined,
   joinAsModerator: (ctx, schema) => {
     const result = demoPortfolio.joinAsModerator(

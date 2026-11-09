@@ -136,7 +136,7 @@ describe('обсуждение под строкой', () => {
   });
 
   it('@ с автодополнением и «нужен ответ» открывают вопрос дисциплине', async () => {
-    const { panel, calls, input } = await openDiscussion('expert', 'Авторизация');
+    const { panel, calls, input } = await openDiscussion('expert', 'Профиль дилера');
     await within(panel).findByText(/Сообщений пока нет/);
     fireEvent.change(input, { target: { value: 'Проверьте @Бэ', selectionStart: 13 } });
     const list = await screen.findByRole('listbox', { name: 'Адресаты' });
@@ -219,13 +219,15 @@ describe('обсуждение под строкой', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(toggle);
     const panel = await screen.findByRole('region', { name: `Обсуждение: ${portal.name}` });
-    await within(panel).findByText(/Сообщений пока нет/);
+    // вопрос заказчику В-004 «Проект целиком» из демо
+    await within(panel).findByText(/мобильных браузеров/);
     const input = within(panel).getByRole('combobox', { name: 'Сообщение' });
     fireEvent.change(input, { target: { value: 'Созвон с заказчиком в четверг' } });
     fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
     await within(panel).findByText('Созвон с заказчиком в четверг');
+    // открытый вопрос В-004 — ответ уходит в него
     expect(calls.at(-1)).toEqual({
-      path: `/api/v1/projects/${portal.id}/messages`,
+      path: `/api/v1/threads/${uuidFrom('thread', 'portal', 'cq-4')}/messages`,
       body: { body: 'Созвон с заказчиком в четверг', needs_answer: false, addressees: [] },
     });
     fireEvent.click(toggle);
