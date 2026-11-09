@@ -199,4 +199,36 @@ describe('обсуждение под строкой', () => {
     expect(within(panel).queryByText('Открытый вопрос')).toBeNull();
     expect(within(panel).getByRole('button', { name: 'Открыть снова' })).toBeTruthy();
   });
+
+  it('обсуждение проекта в шапке: лента проекта и сообщение в неё (CR-007)', async () => {
+    persona.current = PERSONAS.expert;
+    const calls: { path: string; body: unknown }[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method !== 'POST') return;
+      const entry = { path: new URL(request.url).pathname, body: null as unknown };
+      calls.push(entry);
+      void request
+        .clone()
+        .json()
+        .then((b) => (entry.body = b))
+        .catch(() => undefined);
+    });
+    renderApp(`/projects/${portal.id}`);
+    await screen.findByRole('treegrid', { name: 'Дерево оценки' });
+    const toggle = screen.getByRole('button', { name: /Обсуждение проекта/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    const panel = await screen.findByRole('region', { name: `Обсуждение: ${portal.name}` });
+    await within(panel).findByText(/Сообщений пока нет/);
+    const input = within(panel).getByRole('combobox', { name: 'Сообщение' });
+    fireEvent.change(input, { target: { value: 'Созвон с заказчиком в четверг' } });
+    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
+    await within(panel).findByText('Созвон с заказчиком в четверг');
+    expect(calls.at(-1)).toEqual({
+      path: `/api/v1/projects/${portal.id}/messages`,
+      body: { body: 'Созвон с заказчиком в четверг', needs_answer: false, addressees: [] },
+    });
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('region', { name: `Обсуждение: ${portal.name}` })).toBeNull();
+  });
 });
