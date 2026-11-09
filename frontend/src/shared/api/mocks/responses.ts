@@ -906,6 +906,30 @@ const DEMO: Record<string, Demo> = {
       ? list(schema, demoSnapshots.snapshotsOf(ctx.project))
       : undefined,
 
+  // FE-045: снимок, «ошибочный» и экспорт проекта (FR-SNAP-01/02, FR-EXP-01…05)
+  createSnapshot: (ctx) =>
+    ctx.project
+      ? demoSnapshots.createSnapshot(
+          ctx.project,
+          body(ctx),
+          userRef(ctx.persona),
+        )
+      : undefined,
+  invalidateSnapshot: (ctx) =>
+    ctx.project
+      ? demoSnapshots.invalidateSnapshot(ctx.project, ctx.params.id ?? "")
+      : undefined,
+  createExport: (ctx) => {
+    const req = body(ctx);
+    const money = req.kind === "money_xlsx";
+    const snap = typeof req.snapshot_id === "string" ? req.snapshot_id : null;
+    const name = `${ctx.project?.name ?? "Проект"}_${snap ? "снимок" : TODAY}_${money ? "деньги" : "часы"}.xlsx`;
+    return demoExports.createExport(
+      money ? "money_xlsx" : "hours_xlsx",
+      name.replace(/[\\/:*?"<>|]/g, "_"),
+      4000,
+    );
+  },
   diffSnapshot: (ctx) =>
     ctx.project
       ? demoSnapshots.diffOf(

@@ -7,24 +7,25 @@ import { uuidFrom } from "./ids";
 /** Задания выгрузки демо: готовы через 1,5 с после создания. */
 const jobs = new Map<
   string,
-  { kind: string; createdAt: number; name: string }
+  { kind: string; createdAt: number; name: string; delay: number }
 >();
 
-export function createExport(kind: string, name: string) {
+/** `delay` — через сколько миллисекунд задание готово (выгрузка проекта — дольше 3 с, FR-EXP-05). */
+export function createExport(kind: string, name: string, delay = 1500) {
   const id = uuidFrom(
     "export",
     kind,
     String(jobs.size + 1),
     String(Date.now()),
   );
-  jobs.set(id, { kind, createdAt: Date.now(), name });
+  jobs.set(id, { kind, createdAt: Date.now(), name, delay });
   return exportJob(id);
 }
 
 export function exportJob(id: string) {
   const job = jobs.get(id);
   if (!job) return null;
-  const ready = Date.now() - job.createdAt >= 1500;
+  const ready = Date.now() - job.createdAt >= job.delay;
   return {
     id,
     kind: job.kind,

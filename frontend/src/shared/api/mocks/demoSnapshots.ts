@@ -52,7 +52,67 @@ const DESCRIPTIONS = new Map([
   ["v0", "Снят с не той ставкой QA"],
 ]);
 
+/** Снимки, сделанные за сессию, и пометки «ошибочный» (FR-SNAP-01/02). */
+const created: {
+  project: string;
+  snapshot: ReturnType<typeof seededSnapshots>[number];
+}[] = [];
+const invalidated = new Set<string>();
+let counter = 0;
+
+export function resetDemoSnapshots(): void {
+  created.length = 0;
+  invalidated.clear();
+  counter = 0;
+}
+
 export function snapshotsOf(p: DemoProject) {
+  return [
+    ...created.filter((c) => c.project === p.key).map((c) => c.snapshot),
+    ...seededSnapshots(p),
+  ].map((s) => (invalidated.has(s.id) ? { ...s, is_invalid: true } : s));
+}
+
+/** `POST /projects/{id}/snapshots`: снимок текущего состояния. */
+export function createSnapshot(
+  p: DemoProject,
+  body: Record<string, unknown>,
+  by: ReturnType<typeof userRef>,
+) {
+  counter += 1;
+  const total = p.totals.total;
+  const snapshot = {
+    id: uuidFrom("snapshot", p.key, "session", String(counter)),
+    name: String(body.name ?? ""),
+    description: String(body.description ?? ""),
+    created_by: by,
+    created_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+    is_invalid: false,
+    project_version: 20 + counter,
+    totals: {
+      e: hours(total.e),
+      sigma: hours(total.sigma),
+      p80: hours(total.p80 ?? total.e),
+      p90: hours(total.p90 ?? total.e),
+    },
+    money: {
+      currency: p.money.currency,
+      quote_cur: p.money.figures.p80.total_cur,
+    },
+  };
+  created.unshift({ project: p.key, snapshot });
+  return snapshot;
+}
+
+/** `POST /snapshots/{id}/invalidate`: снимок остаётся в списке зачёркнутым. */
+export function invalidateSnapshot(p: DemoProject, id: string) {
+  const snap = snapshotsOf(p).find((s) => s.id === id);
+  if (!snap) return undefined;
+  invalidated.add(id);
+  return { ...snap, is_invalid: true };
+}
+
+function seededSnapshots(p: DemoProject) {
   if (p.key !== "portal") return [];
   const total = p.totals.total;
   const quote = p.money.figures.p80.total_cur;
