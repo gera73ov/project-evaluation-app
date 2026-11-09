@@ -16,6 +16,7 @@ import { call } from '../../../shared/api/problem';
 import { formatDate, formatTime } from '../../../shared/format/date';
 import { formatHours, formatNumber } from '../../../shared/format/number';
 import { ErrorText } from '../../../shared/ui/ErrorText';
+import { compareHref, orderPair } from '../../compare/compare';
 import { StatsShell } from './StatsShell';
 
 type Snapshot = components['schemas']['Snapshot'];
@@ -39,8 +40,15 @@ export function SnapshotsPage({ projectId }: { projectId: string }) {
     queryFn: () => call(() => api.GET('/projects/{id}/snapshots', { params: { path: { id: projectId } } })),
     select: (data) => ([...data.items] as Snapshot[]).sort((a, b) => b.created_at.localeCompare(a.created_at)),
   });
-  const compare = (a: string, b?: string) =>
-    navigate(`/projects/${projectId}/stats/compare?a=${a}${b ? `&b=${b}` : ''}`);
+  /** Одиночный снимок сравнивается с текущим; из двух «было» — более ранний (11.12 №1). */
+  const compare = (a: string, b?: string) => {
+    const x = items.find((s) => s.id === a);
+    const y = b ? items.find((s) => s.id === b) : undefined;
+    if (x && y) {
+      const { older, newer } = orderPair(x, y);
+      navigate(compareHref(projectId, newer.id, older.id));
+    } else navigate(compareHref(projectId, 'current', a));
+  };
   const items = snapshots.data ?? [];
   const currency = items.find((s) => s.money)?.money?.currency;
   const withMoney = currency !== undefined;

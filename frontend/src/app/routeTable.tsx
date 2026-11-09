@@ -17,6 +17,7 @@ import { DocumentsPage } from '../features/documents/DocumentsPage';
 import { ReadinessPage } from '../features/stats/grid/ReadinessPage';
 import { CandidatesPage, SharesPage, TagsPage, VolumesPage } from '../features/stats/details/DetailsPages';
 import { SnapshotsPage } from '../features/stats/details/SnapshotsPage';
+import { ComparePage } from '../features/compare/ComparePage';
 import { DiscussionsPage } from '../features/stats/questions/DiscussionsPage';
 import { QuestionsPage } from '../features/stats/questions/QuestionsPage';
 import { TotalsPage } from '../features/stats/totals/TotalsPage';
@@ -144,7 +145,7 @@ export const ROUTES: readonly RouteDef[] = [
     access: 'private',
     render: (params) => <SnapshotsPage projectId={params.id ?? ''} />,
   },
-  { path: '/projects/:id/stats/compare', access: 'private', render: stub('Сравнение со снимком', 'FE-044') },
+  { path: '/projects/:id/stats/compare', access: 'private', render: (p) => <ComparePage projectId={p.id ?? ''} /> },
   { path: '/projects/:id/stats/questions', access: 'private', render: (p) => <QuestionsPage projectId={p.id ?? ''} /> },
   { path: '/profile', access: 'private', render: () => <ProfilePage /> },
   { path: '/admin', access: 'private', nav: 'admin', roles: ['admin'], render: stub('Админка', 'FE-070') },

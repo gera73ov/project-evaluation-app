@@ -906,6 +906,17 @@ const DEMO: Record<string, Demo> = {
       ? list(schema, demoSnapshots.snapshotsOf(ctx.project))
       : undefined,
 
+  diffSnapshot: (ctx) =>
+    ctx.project
+      ? demoSnapshots.diffOf(
+          ctx.project,
+          ctx.params.id ?? "",
+          ctx.params.with ?? "current",
+        )
+      : undefined,
+  exportDiff: () =>
+    demoExports.createExport("snapshot_diff_xlsx", "Сравнение.xlsx"),
+
   getStats: (ctx, schema) => {
     const p = ctx.project;
     if (!p) return undefined;
