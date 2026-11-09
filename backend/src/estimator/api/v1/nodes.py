@@ -29,7 +29,7 @@ from estimator.security.authz import AuthorizerDep, Target
 from estimator.security.authz.deps import register_resolver
 from estimator.services.review import marks
 from estimator.services.trash import nodes as trash_nodes
-from estimator.services.tree import edit, structure
+from estimator.services.tree import copy_branch, edit, structure
 from estimator.services.tree import history as node_history
 from estimator.services.tree.load import load_tree, mutation_view
 from estimator.services.tree.moderator_edits import notify_experts
@@ -360,3 +360,38 @@ async def get_node_history(
         "items": items,
         "next_cursor": encode_cursor(HISTORY_SCOPE, position) if position else None,
     }
+
+
+@router.post(
+    "/nodes/{id}/copy-from",
+    permission="branch.copy_from",
+    status_code=201,
+    response_model=s.NodesMutation,
+    response_model_exclude_unset=True,
+)
+async def copy_branch_from(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    body: s.CopyFrom,
+    principal: ActivePrincipal,
+    db: DbSession,
+    authz: AuthorizerDep,
+) -> dict[str, Any]:
+    """CORE-024: ветка другого проекта — детьми узла (FR-PRJ-03); источник — только проект, где
+    пользователь сейчас участник (BR-ROLE-06, M3.4-09), иначе 404."""
+    node, project = await _live(db, id)
+    source = await db.get(Node, body.source_node_id)
+    if source is None or source.deleted_at is not None:
+        raise HTTPException(404, detail={"code": "NOT_FOUND"})
+    source_project = await _project(db, source.project_id)
+    await authz.check(
+        "branch.copy_from",
+        Target(
+            project_id=source_project.id,
+            project_status=str(source_project.status),
+            disciplines=frozenset({source.discipline_id}) if source.discipline_id else frozenset(),
+            as_source=True,
+        ),
+    )
+    out = await copy_branch.copy_from(db, principal, project, node, source_project, source)
+    await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
+    return await _nodes_response(db, project.id, out)

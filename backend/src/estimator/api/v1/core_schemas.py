@@ -500,3 +500,11 @@ class HistoryEntry(_Strict):
 class HistoryPage(_Strict):
     items: list[HistoryEntry]
     next_cursor: str | None
+
+
+class CopyProject(_Strict):
+    name: str = Field(default=None, min_length=3, max_length=200)  # type: ignore[assignment]
+
+
+class CopyFrom(_Strict):
+    source_node_id: uuid.UUID
