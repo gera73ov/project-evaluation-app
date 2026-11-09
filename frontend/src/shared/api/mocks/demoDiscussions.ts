@@ -181,7 +181,8 @@ function withMessage(p: DemoProject, thread: DemoThread) {
 }
 
 /** `GET /nodes/{id}/messages`: лента по времени и вопросы узла. */
-export function nodeFeed(p: DemoProject, id: string) {
+/** Лента узла; `null` — обсуждение проекта (CR-007). */
+export function nodeFeed(p: DemoProject, id: string | null) {
   const items = allMessages(p).filter((m) => m.node_id === id);
   const threads = allThreads(p)
     .filter((t) => t.node_id === id)
