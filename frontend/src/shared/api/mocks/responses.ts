@@ -37,6 +37,11 @@ import { sample, stripMoney } from "./sample";
 
 export type MockResult = { status: number; body: unknown; binary?: boolean };
 
+/** Ответ демо с ошибкой (Problem) вместо успеха: например, 409 при восстановлении из корзины. */
+class MockProblem {
+  constructor(readonly result: MockResult) {}
+}
+
 /** Пути, объекты которых принадлежат проекту (права — по членству в нём). */
 const PROJECT_SCOPED =
   /^\/(projects\/\{id\}|nodes|threads|messages|notes|documents|snapshots|trash|exports|me\/view-state)(\/|$)/;
@@ -125,6 +130,7 @@ export function mockResponse(
   if (binary) return { status, body: "mock file", binary: true };
   if (!schema) return { status, body: null };
   const custom = DEMO[op.operationId]?.(ctx, schema);
+  if (custom instanceof MockProblem) return custom.result;
   const body =
     custom === undefined
       ? sample(schema, { money: ctx.money }, op.operationId)
@@ -383,7 +389,53 @@ const DEMO: Record<string, Demo> = {
       : undefined,
   deleteNode: (ctx) =>
     ctx.project
-      ? demoTree.deleteNode(ctx.project, ctx.params.id ?? "")
+      ? demoTree.deleteNode(
+          ctx.project,
+          ctx.params.id ?? "",
+          userRef(ctx.persona),
+        )
+      : undefined,
+
+  // FE-018: корзина. Модератор видит всё, эксперт — свою дисциплину, документы — модератор и
+  // пресейл (FR-TREE-24, GAP-06)
+  getTrash: (ctx) => {
+    const p = ctx.project;
+    if (!p) return undefined;
+    const member = ctx.persona.projects[p.key];
+    const role = member?.role;
+    const own = member?.discipline ? disciplineId(member.discipline) : null;
+    return {
+      items: demoTree.trashOf(p, (kind, discipline) =>
+        kind === "document"
+          ? role === "moderator" || role === "presale"
+          : role === "moderator" || (own !== null && discipline === own),
+      ),
+    };
+  },
+  restoreTrash: (ctx) => {
+    if (!ctx.project) return undefined;
+    const target = body(ctx).target_parent_id;
+    const result = demoTree.restoreTrash(
+      ctx.project,
+      ctx.params.batch_id ?? "",
+      typeof target === "string" ? target : null,
+    );
+    if (result && "unavailable" in result) {
+      const err = problem(
+        409,
+        "RESTORE_TARGET_UNAVAILABLE",
+        "Прежнее место недоступно",
+      );
+      return new MockProblem({
+        status: 409,
+        body: { ...(err.body as object), reason: result.unavailable },
+      });
+    }
+    return result;
+  },
+  restoreDocument: (ctx) =>
+    ctx.project
+      ? demoTree.restoreDocument(ctx.project, ctx.params.id ?? "")
       : undefined,
   copyBranchFrom: (ctx) =>
     ctx.project
