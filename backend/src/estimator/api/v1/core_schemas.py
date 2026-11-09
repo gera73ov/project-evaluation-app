@@ -424,3 +424,7 @@ class NodeMutation(_Strict):
 
 class BranchStatusPut(_Strict):
     status: BranchStatusValue
+
+
+class NodeReview(_Strict):
+    reviewed: bool

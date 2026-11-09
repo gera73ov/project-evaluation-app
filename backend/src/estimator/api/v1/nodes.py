@@ -25,8 +25,9 @@ from estimator.db.models.tree import Node
 from estimator.db.session import DbSession
 from estimator.security.authz import AuthorizerDep, Target
 from estimator.security.authz.deps import register_resolver
+from estimator.services.review import marks
 from estimator.services.tree import edit
-from estimator.services.tree.load import mutation_view
+from estimator.services.tree.load import load_tree, mutation_view
 
 router = ApiRouter(tags=["Дерево"])
 
@@ -151,3 +152,32 @@ async def patch_node(
         db, principal, project, node, body.base_version, changes
     )
     return await _response(db, project.id, node.id, branch, rounded)
+
+
+@router.post(
+    "/nodes/{id}/review",
+    permission="review.mark",
+    response_model=s.NodesMutation,
+    response_model_exclude_unset=True,
+)
+async def review_node(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    body: s.NodeReview,
+    principal: ActivePrincipal,
+    db: DbSession,
+) -> dict[str, Any]:
+    """CORE-019: «Проверено» на узле и поддереве (FR-REV-01, FR-REV-04)."""
+    node = await edit.live_node(db, id)
+    if node is None:  # pragma: no cover — gate уже ответил 404
+        raise HTTPException(404, detail={"code": "NOT_FOUND"})
+    changed = await marks.mark(db, principal, node, body.reviewed)
+    await db.flush()
+    project = await _project(db, node.project_id)
+    tree = await load_tree(db, project)
+    ids = {str(i) for i in changed}
+    return {
+        "nodes": [n for n in tree["nodes"] if n["id"] in ids],
+        "project_version": project.version,
+        "totals": tree["totals"]["total"],
+        "branch_statuses": [],
+    }
