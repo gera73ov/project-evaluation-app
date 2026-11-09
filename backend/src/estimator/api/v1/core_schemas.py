@@ -485,3 +485,18 @@ class TrashBatch(_Strict):
 
 class TrashList(_Strict):
     items: list[TrashBatch]
+
+
+class HistoryEntry(_Strict):
+    id: uuid.UUID
+    created_at: str
+    user: UserRef | None
+    action: Literal["create", "update", "move", "delete", "restore", "split", "collapse", "review"]
+    changes: dict[str, Any]
+    node_version: int
+    project_version: int
+
+
+class HistoryPage(_Strict):
+    items: list[HistoryEntry]
+    next_cursor: str | None

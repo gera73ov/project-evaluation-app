@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from estimator.api.common.errors import ApiError
+from estimator.api.common.pagination import PageParams, encode_cursor
 from estimator.api.common.router import ApiRouter
 from estimator.api.v1 import core_schemas as s
 from estimator.auth.mfa_policy import ActivePrincipal
@@ -29,7 +30,9 @@ from estimator.security.authz.deps import register_resolver
 from estimator.services.review import marks
 from estimator.services.trash import nodes as trash_nodes
 from estimator.services.tree import edit, structure
+from estimator.services.tree import history as node_history
 from estimator.services.tree.load import load_tree, mutation_view
+from estimator.services.tree.moderator_edits import notify_experts
 
 router = ApiRouter(tags=["Дерево"])
 
@@ -118,6 +121,7 @@ async def create_node(
     node, branch, rounded = await edit.create_node(
         db, principal, project, parent, body.model_dump(exclude_unset=True)
     )
+    await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
     return await _response(db, project.id, node.id, branch, rounded)
 
 
@@ -150,9 +154,13 @@ async def patch_node(
         await authz.check("tree.write", target)
     if "comment_lines" in changes:
         await authz.check("comment.write", target)
+    was = node.version
     node, branch, rounded = await edit.patch_node(
         db, principal, project, node, body.base_version, changes
     )
+    if node.version != was:  # FR-TREE-34: какие поля правка действительно изменила
+        fields = [k for k, v in node.field_versions.items() if v == node.version]
+        await notify_experts(db, principal, project.id, node.id, node.discipline_id, fields)
     return await _response(db, project.id, node.id, branch, rounded)
 
 
@@ -229,9 +237,13 @@ async def move_node(
     if structure.is_cross_branch(node, new_parent):
         await authz.check("tree.move.cross_branch", _target(node, project))
         await authz.check("tree.move.cross_branch", _target(new_parent, project))
+    from_discipline = node.discipline_id
     out = await structure.move_node(
         db, principal, project, node, new_parent, body.after_id, body.base_version
     )
+    if out.node_ids:
+        for discipline in {from_discipline, node.discipline_id}:
+            await notify_experts(db, principal, project.id, node.id, discipline, ["move"])
     return await _nodes_response(db, project.id, out)
 
 
@@ -250,6 +262,7 @@ async def split_node(
     """«Разбить лист» (BR-TREE-02)."""
     node, project = await _live(db, id)
     out = await structure.split_node(db, principal, project, node, body.base_version)
+    await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
     return await _nodes_response(db, project.id, out)
 
 
@@ -283,6 +296,7 @@ async def collapse_node(
     node, project = await _live(db, id)
     values = body.model_dump(exclude={"base_version"})
     out = await structure.collapse_node(db, principal, project, node, body.base_version, values)
+    await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
     return await _nodes_response(db, project.id, out)
 
 
@@ -301,6 +315,7 @@ async def duplicate_node(
     """«Дублировать» (FR-TREE-23): копия поддерева сразу под узлом."""
     node, project = await _live(db, id)
     out = await structure.duplicate_node(db, principal, project, node)
+    await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
     return await _nodes_response(db, project.id, out)
 
 
@@ -318,4 +333,30 @@ async def delete_node(
     """Удалить узел с поддеревом в корзину одним пакетом (FR-TREE-24)."""
     node, project = await _live(db, id)
     out = await trash_nodes.delete_node(db, principal, project, node)
+    await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
     return await _nodes_response(db, project.id, out)
+
+
+HISTORY_SCOPE = "node-history"
+
+
+@router.get(
+    "/nodes/{id}/history",
+    permission="tree.read",
+    response_model=s.HistoryPage,
+    response_model_exclude_unset=True,
+)
+async def get_node_history(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    page: PageParams,
+    db: DbSession,
+) -> dict[str, Any]:
+    """История узла, новые сверху (FR-TREE-25); «Вернуть» — обычный ``PATCH``."""
+    after = page.position(HISTORY_SCOPE)
+    if after is not None and not (isinstance(after.get("v"), int) and "id" in after):
+        raise ApiError("CURSOR_INVALID")
+    items, position = await node_history.node_history(db, id, after=after, limit=page.limit)
+    return {
+        "items": items,
+        "next_cursor": encode_cursor(HISTORY_SCOPE, position) if position else None,
+    }
