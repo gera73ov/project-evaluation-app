@@ -31,7 +31,10 @@ import {
   type DemoProject,
 } from "./data";
 import * as demoDiscussions from "./demoDiscussions";
+import * as demoDocuments from "./demoDocuments";
 import * as demoOutcome from "./demoOutcome";
+import * as demoPortfolio from "./demoPortfolio";
+import * as demoSystem from "./demoSystem";
 import * as demoTree from "./demoTree";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
@@ -99,7 +102,16 @@ export function mockResponse(
 ): MockResult {
   const project = projectOf(op, params);
   const global = accessOf(persona, null);
-  const scoped = project ? accessOf(persona, project.key) : null;
+  // проекты портфеля без демо-данных (FE-050): «Стать модератором» проверяется как в чужом проекте
+  const portfolioOnly =
+    project === null &&
+    op.operationId === "joinAsModerator" &&
+    demoPortfolio.isPortfolioOnly(params.id ?? "");
+  const scoped = project
+    ? accessOf(persona, project.key)
+    : portfolioOnly
+      ? accessOf(persona, "portfolio")
+      : null;
   const permissions = new Set([
     ...global.permissions,
     ...(scoped?.permissions ?? []),
@@ -130,7 +142,12 @@ export function mockResponse(
   };
   const { status, schema, binary } = successResponse(op);
   if (binary) return { status, body: "mock file", binary: true };
-  if (!schema) return { status, body: null };
+  if (!schema) {
+    // ответ без тела (204), но демо может отказать или запомнить действие (удаление документа)
+    const done = DEMO[op.operationId]?.(ctx, {} as Schema);
+    if (done instanceof MockProblem) return done.result;
+    return { status, body: null };
+  }
   const custom = DEMO[op.operationId]?.(ctx, schema);
   if (custom instanceof MockProblem) return custom.result;
   const body =
@@ -275,6 +292,16 @@ function profileChain(name: string): string[] {
 }
 
 const body = (ctx: Ctx) => (ctx.body ?? {}) as Record<string, unknown>;
+
+/** Справочник контрольных соотношений демо: QA к (Бэкенд + Фронтенд), норма 25–35% (6.6). */
+const DEMO_RATIO = {
+  id: uuidFrom("ratio", "qa-dev"),
+  discipline_a_id: disciplineId("d-qa"),
+  disciplines_b: [disciplineId("d-backend"), disciplineId("d-frontend")],
+  min_pct: "25",
+  max_pct: "35",
+  is_active: true,
+};
 
 const DEMO: Record<string, Demo> = {
   // правка узла: тот же узел с изменениями и новой версией; данные демо не меняются
@@ -563,6 +590,78 @@ const DEMO: Record<string, Demo> = {
       schema,
       demoOutcome.lossReasons(ctx.params.include_inactive === "true"),
     ),
+  // FE-060 · раздел «Система» (FR-SA-07, BR-ROLE-03, FR-SA-04)
+  getHealth: () => demoSystem.health(),
+  listAdmins: (_ctx, schema) => list(schema, demoSystem.admins()),
+  getSettings: (ctx) => demoSystem.settings(ctx.params.section ?? ""),
+  // FE-050 · портфель руководителя пресейла (FR-PORT-01…03)
+  portfolioProjects: (ctx, schema) =>
+    list(schema, demoPortfolio.portfolioProjects(ctx.params)),
+  portfolioSummary: (ctx) => demoPortfolio.portfolioSummary(ctx.params),
+  portfolioExport: (ctx) => {
+    const b = body(ctx);
+    const from = typeof b.from === "string" ? b.from : TODAY;
+    const to = typeof b.to === "string" ? b.to : TODAY;
+    return demoPortfolio.createExport(
+      "portfolio_xlsx",
+      `Портфель_${from}_${to}.xlsx`,
+    );
+  },
+  getExport: (ctx) => demoPortfolio.exportJob(ctx.params.id ?? "") ?? undefined,
+  joinAsModerator: (ctx, schema) => {
+    const result = demoPortfolio.joinAsModerator(
+      ctx.params.id ?? "",
+      ctx.persona,
+    );
+    if ("error" in result)
+      return new MockProblem(
+        result.error === "NOT_FOUND"
+          ? problem(404, "NOT_FOUND", "Не найдено")
+          : problem(
+              409,
+              "PROJECT_STATUS_CONFLICT",
+              "Сначала восстановите проект",
+            ),
+      );
+    return list(
+      schema,
+      result.map((user) => ({
+        user,
+        role: "moderator",
+        discipline_id: null,
+        is_reviewer: false,
+        status: "active",
+        added_by_admin_self: false,
+      })),
+    );
+  },
+  listDocuments: (ctx) =>
+    ctx.project ? demoDocuments.listDocuments(ctx.project) : undefined,
+  uploadDocument: (ctx) => {
+    if (!ctx.project) return undefined;
+    const result = demoDocuments.uploadDocument(
+      ctx.project,
+      ctx.body,
+      userRef(ctx.persona),
+    );
+    if (!("error" in result)) return result;
+    const status = new Map([
+      ["VALIDATION_FAILED", 422],
+      ["UNSUPPORTED_MEDIA_TYPE", 415],
+      ["PAYLOAD_TOO_LARGE", 413],
+      ["PROJECT_STORAGE_LIMIT", 409],
+    ]).get(result.error);
+    return new MockProblem(problem(status ?? 422, result.error, result.error));
+  },
+  deleteDocument: (ctx) =>
+    ctx.project &&
+    !demoDocuments.deleteDocument(
+      ctx.project,
+      ctx.params.id ?? "",
+      userRef(ctx.persona),
+    )
+      ? new MockProblem(problem(404, "NOT_FOUND", "Не найдено"))
+      : undefined,
   restoreDocument: (ctx) =>
     ctx.project
       ? demoTree.restoreDocument(ctx.project, ctx.params.id ?? "")
@@ -804,6 +903,49 @@ const DEMO: Record<string, Demo> = {
         quote_figure: "p80",
         duration_weeks: p.key === "portal" ? 12 : 6,
       },
+      // контрольное соотношение QA к (Бэкенд + Фронтенд), норма 25–35% (6.6, `stats.png` №9)
+      ratios: (() => {
+        const e = (key: string) =>
+          new Decimal(
+            new Map(Object.entries(t.byDiscipline)).get(key)?.e ?? "0",
+          );
+        const base = e("d-backend").plus(e("d-frontend"));
+        const pct = base.isZero()
+          ? null
+          : e("d-qa").div(base).times(100).toFixed(1);
+        const n = pct === null ? null : Number(pct);
+        return [
+          {
+            ratio_id: DEMO_RATIO.id,
+            pct,
+            min_pct: "25",
+            max_pct: "35",
+            verdict:
+              n === null ? null : n < 25 ? "below" : n > 35 ? "above" : "ok",
+          },
+        ];
+      })(),
+      // «Проверено ревьюерами» как на `stats.png` №10
+      reviewed:
+        p.key === "portal"
+          ? [
+              {
+                discipline_id: disciplineId("d-backend"),
+                reviewed_pct: "13.7",
+                self_review_pct: "100",
+              },
+              {
+                discipline_id: disciplineId("d-frontend"),
+                reviewed_pct: "100",
+                self_review_pct: "0",
+              },
+              {
+                discipline_id: disciplineId("d-qa"),
+                reviewed_pct: "0",
+                self_review_pct: null,
+              },
+            ]
+          : [],
       dynamics: [
         {
           date: TODAY,
@@ -822,6 +964,19 @@ const DEMO: Record<string, Demo> = {
                 p80: moneyFigure(p, "p80"),
                 p90: moneyFigure(p, "p90"),
               },
+              // E дисциплины × ставка по всем фазам; ставки нет — null («—», 11.8 №6)
+              cost_by_discipline: Object.entries(t.byDiscipline).map(
+                ([key, row]) => {
+                  const rate = new Map(Object.entries(p.money.rates)).get(key);
+                  return {
+                    discipline_id: disciplineId(key),
+                    cost_rub: rate
+                      ? new Decimal(row.e).times(rate).toFixed(0)
+                      : null,
+                  };
+                },
+              ),
+              cost_by_phase: [],
             },
           }
         : {}),
@@ -894,6 +1049,7 @@ const DEMO: Record<string, Demo> = {
     return { items, unread: items.length, next_cursor: null };
   },
 
+  listRatios: (_ctx, schema) => list(schema, [DEMO_RATIO]),
   listPhases: (_ctx, schema) =>
     list(
       schema,

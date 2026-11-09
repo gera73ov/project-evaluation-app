@@ -46,6 +46,13 @@ export function formatMoney(value: Value | null, currency = 'RUB'): string {
   return `${formatNumber(value, 0)}${NBSP}${symbol}`;
 }
 
+/** Крупные деньги в сводках — «млн» с 1 знаком (DESIGN.md 11): `18,2 млн ₽`. */
+export function formatMillions(value: Value | null, currency = 'RUB'): string {
+  if (value === null) return DASH;
+  const symbol = currency === 'RUB' ? '₽' : currency;
+  return `${formatNumber(new D(value).div(1_000_000), 1)}${NBSP}млн${NBSP}${symbol}`;
+}
+
 /** Проценты — целые: `27%`; `null` (знаменатель 0) — «—». */
 export function formatPercent(value: Value | null, places = 0): string {
   if (value === null) return DASH;

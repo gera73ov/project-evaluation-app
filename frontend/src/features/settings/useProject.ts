@@ -16,7 +16,8 @@ type PatchBody = components['schemas']['ProjectPatch'];
 
 export const projectKey = (id: string) => ['project', id] as const;
 
-export function useProject(id: string) {
+/** `onEvent` — прочие события проекта для экрана (подписка на проект у клиента WS одна). */
+export function useProject(id: string, onEvent?: (event: { event: string; data?: unknown }) => void) {
   const client = useQueryClient();
   const query = useQuery({
     queryKey: projectKey(id),
@@ -28,7 +29,7 @@ export function useProject(id: string) {
       if (event.event === 'project.updated' || event.event === 'member.updated') {
         void client.invalidateQueries({ queryKey: projectKey(id) });
         void client.invalidateQueries({ queryKey: ['members', id] });
-      }
+      } else onEvent?.(event);
     },
     onResync: () => void client.invalidateQueries({ queryKey: projectKey(id) }),
   });
@@ -61,9 +62,12 @@ export function useProjectPatch(id: string) {
   const [saved, setSaved] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   const mutation = useMutation({
     mutationFn: ({ patch }: { patch: PatchBody; field: string }) =>

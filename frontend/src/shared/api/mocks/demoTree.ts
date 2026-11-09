@@ -793,6 +793,45 @@ export function restoreTrash(
   return mutation(back);
 }
 
+/** `DELETE /documents/{id}` (FR-DOC-01): документ уходит в корзину отдельным пакетом. */
+export function trashDocument(
+  p: DemoProject,
+  document: Record<string, unknown> & { id: string; file_name: string },
+  by: ReturnType<typeof userRef>,
+) {
+  const deletedAt = new Date().toISOString();
+  sessionTrash.push({
+    batch_id: uuidFrom(
+      "trash",
+      "document",
+      document.id,
+      String(sessionTrash.length),
+    ),
+    project: p,
+    deleted_at: deletedAt,
+    deleted_by: by,
+    kind: "document",
+    root_title: document.file_name,
+    discipline_id: null,
+    parent_id: null,
+    nodes: [],
+    session: true,
+    document: { ...document, deleted_at: deletedAt },
+  });
+}
+
+/** Документ в корзине проекта (не восстановлен). */
+export function documentInTrash(p: DemoProject, id: string): boolean {
+  return trashEntries(p).some((e) => e.document?.id === id);
+}
+
+/** Документы, восстановленные из корзины за сессию, — снова в списке вкладки. */
+export function restoredDocuments(p: DemoProject): Record<string, unknown>[] {
+  return [...sessionTrash.filter((e) => e.project === p), ...seededTrash(p)]
+    .filter((e) => restored.has(e.batch_id) && e.document)
+    .map((e) => ({ ...e.document, deleted_at: null }));
+}
+
 /** `POST /documents/{id}/restore` (FR-DOC-01, GAP-06). */
 export function restoreDocument(p: DemoProject, id: string) {
   const entry = trashEntries(p).find((e) => e.document?.id === id);

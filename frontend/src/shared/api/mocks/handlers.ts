@@ -17,6 +17,23 @@ export type HandlerOptions = {
   ws?: WsSimulatorOptions;
 };
 
+/** multipart (загрузка документа): файлы — их имя, размер и тип; содержимое моку не нужно. */
+async function formFields(request: Request): Promise<Record<string, unknown> | null> {
+  const form = await request
+    .clone()
+    .formData()
+    .catch(() => null);
+  if (!form) return null;
+  const out = new Map<string, unknown>();
+  form.forEach((value, key) => {
+    out.set(
+      key,
+      typeof value === 'string' ? value : { file_name: value.name, size_bytes: value.size, mime: value.type },
+    );
+  });
+  return Object.fromEntries(out);
+}
+
 export function buildHandlers(options: HandlerOptions = {}) {
   const getPersona = options.persona ?? currentPersona;
   // /projects/{id}/... раньше /projects/{id}: MSW берёт первый совпавший обработчик
@@ -33,10 +50,12 @@ export function buildHandlers(options: HandlerOptions = {}) {
       const body: unknown =
         op.method === 'get'
           ? null
-          : await request
-              .clone()
-              .json()
-              .catch(() => null);
+          : (request.headers.get('content-type') ?? '').startsWith('multipart/form-data')
+            ? await formFields(request)
+            : await request
+                .clone()
+                .json()
+                .catch(() => null);
       const result = mockResponse(op, flat, getPersona(), body);
       if (result.binary) {
         return new HttpResponse(String(result.body), {
