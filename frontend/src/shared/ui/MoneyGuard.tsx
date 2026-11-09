@@ -20,6 +20,7 @@ export function MoneyGuard({
   totpEnabled,
   onUnlocked,
   onEnroll,
+  enrollText,
   children,
 }: {
   /** Ошибка запроса денег; не TOTP_REQUIRED — блок рисуется как обычно */
@@ -27,6 +28,8 @@ export function MoneyGuard({
   totpEnabled: boolean;
   onUnlocked: () => void;
   onEnroll: () => void;
+  /** Подсказка без подключённого TOTP: по умолчанию — про деньги («Чтобы видеть деньги…»). */
+  enrollText?: string;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -35,7 +38,7 @@ export function MoneyGuard({
   return (
     <div className="money-guard">
       <span className="lock">
-        {t(totpEnabled ? 'money.guard.confirm' : 'money.guard.enroll')}{' '}
+        {totpEnabled ? t('money.guard.confirm') : (enrollText ?? t('money.guard.enroll'))}{' '}
         <Button size="compact-xs" variant="default" onClick={() => (totpEnabled ? setOpen(true) : onEnroll())}>
           {t(totpEnabled ? 'money.guard.enterCode' : 'money.guard.enrollButton')}
         </Button>
