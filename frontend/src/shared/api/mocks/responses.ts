@@ -337,6 +337,7 @@ const DEMO: Record<string, Demo> = {
     norms: [],
     is_system: false,
     is_active: true,
+    project_id: ctx.project?.id ?? String(ctx.params.id),
   }),
   patchDisciplineProfile: (ctx) => {
     const d = DISCIPLINES.find(
