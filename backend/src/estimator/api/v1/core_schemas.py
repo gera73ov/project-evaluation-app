@@ -23,6 +23,7 @@ from estimator.db.enums import (
     QuoteFigure,
     SystemRole,
 )
+from estimator.services.tree.local_types import NodeTypeIcon
 
 
 class _Strict(BaseModel):
@@ -340,3 +341,32 @@ class MemberCandidate(_Strict):
 
 class MemberCandidates(_Strict):
     items: list[MemberCandidate]
+
+
+# --- типы узлов проекта (CORE-020, CR-006) ----------------------------------------------------
+
+
+class Norm(_Strict):
+    label: str = Field(min_length=1, max_length=50)
+    o: DecimalString
+    r: DecimalString
+    p: DecimalString
+
+
+class NodeType(_Strict):
+    id: uuid.UUID
+    name: str = Field(min_length=1, max_length=50)
+    icon: str = Field(max_length=64)
+    norms: list[Norm] = Field(max_length=20)
+    is_system: bool
+    is_active: bool
+    project_id: uuid.UUID | None
+
+
+class NodeTypeList(_Strict):
+    items: list[NodeType]
+
+
+class LocalNodeType(_Strict):
+    name: str = Field(min_length=1, max_length=50)
+    icon: NodeTypeIcon
