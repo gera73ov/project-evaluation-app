@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 from redis.asyncio import Redis
 
+from estimator.api.v1 import schemas
 from estimator.auth import profile
 from estimator.auth.context import SessionServiceDep
 from estimator.auth.mfa_policy import ActivePrincipal
@@ -48,12 +49,12 @@ class NotificationSettings(BaseModel):
     notify_questions: bool
 
 
-@router.get("/me", openapi_extra=AUTHENTICATED)
+@router.get("/me", openapi_extra=AUTHENTICATED, response_model=schemas.Me)
 async def get_me(principal: ActivePrincipal, db: DbSession) -> dict[str, Any]:
     return await profile.me(db, principal)
 
 
-@router.patch("/me", openapi_extra=AUTHENTICATED)
+@router.patch("/me", openapi_extra=AUTHENTICATED, response_model=schemas.Me)
 async def patch_me(body: MePatch, principal: ActivePrincipal, db: DbSession) -> dict[str, Any]:
     await profile.update_me(
         db,
@@ -65,7 +66,7 @@ async def patch_me(body: MePatch, principal: ActivePrincipal, db: DbSession) -> 
     return await profile.me(db, principal)
 
 
-@router.get("/me/sessions", openapi_extra=AUTHENTICATED)
+@router.get("/me/sessions", openapi_extra=AUTHENTICATED, response_model=schemas.SessionList)
 async def my_sessions(
     principal: ActivePrincipal, db: DbSession, sessions: SessionServiceDep
 ) -> dict[str, list[dict[str, Any]]]:
@@ -100,7 +101,11 @@ async def end_my_sessions(
     return response
 
 
-@router.post("/me/totp", openapi_extra=AUTHENTICATED)
+@router.post(
+    "/me/totp",
+    openapi_extra=AUTHENTICATED,
+    response_model=schemas.TotpEnrollStart | schemas.BackupCodes,
+)
 async def enable_totp(
     body: TotpEnable,
     principal: ActivePrincipal,
@@ -135,19 +140,27 @@ async def disable_totp(
     return Response(status_code=204)
 
 
-@router.post("/me/backup-codes", openapi_extra=AUTHENTICATED)
+@router.post("/me/backup-codes", openapi_extra=AUTHENTICATED, response_model=schemas.BackupCodes)
 async def regenerate_backup_codes(
     principal: ActivePrincipal, db: DbSession
 ) -> dict[str, list[str]]:
     return {"backup_codes": await profile.regenerate_backup_codes(db, principal)}
 
 
-@router.get("/me/notification-settings", openapi_extra=AUTHENTICATED)
+@router.get(
+    "/me/notification-settings",
+    openapi_extra=AUTHENTICATED,
+    response_model=schemas.NotificationSettings,
+)
 async def get_notification_settings(principal: ActivePrincipal, db: DbSession) -> dict[str, bool]:
     return await profile.notification_settings(db, principal)
 
 
-@router.put("/me/notification-settings", openapi_extra=AUTHENTICATED)
+@router.put(
+    "/me/notification-settings",
+    openapi_extra=AUTHENTICATED,
+    response_model=schemas.NotificationSettings,
+)
 async def put_notification_settings(
     body: NotificationSettings, principal: ActivePrincipal, db: DbSession
 ) -> dict[str, bool]:

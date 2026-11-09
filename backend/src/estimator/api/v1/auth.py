@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from redis.asyncio import Redis
 
+from estimator.api.v1 import schemas
 from estimator.auth.context import SessionServiceDep
 from estimator.auth.login import AuthError, LoginOutcome, LoginService
 from estimator.auth.mfa_policy import (
@@ -112,7 +113,12 @@ def _ua(request: Request) -> str | None:
     return request.headers.get("user-agent")
 
 
-@router.post("/auth/login", openapi_extra=_perm("public"))
+@router.post(
+    "/auth/login",
+    openapi_extra=_perm("public"),
+    response_model=schemas.LoginResponse,
+    response_model_exclude_none=True,
+)
 async def login(
     body: LoginRequest,
     request: Request,
@@ -127,13 +133,23 @@ async def login(
     return _apply(response, outcome)
 
 
-@router.get("/auth/options", openapi_extra=_perm("public"), dependencies=LOGIN_RATE)
+@router.get(
+    "/auth/options",
+    openapi_extra=_perm("public"),
+    dependencies=LOGIN_RATE,
+    response_model=schemas.AuthOptions,
+)
 async def auth_options(db: DbSession) -> dict[str, str]:
     mode = await load_auth_mode(db)
     return {"auth_mode": "app" if mode == "local" else "ad"}
 
 
-@router.post("/auth/totp", openapi_extra=_perm("token.login_step"))
+@router.post(
+    "/auth/totp",
+    openapi_extra=_perm("token.login_step"),
+    response_model=schemas.LoginResponse,
+    response_model_exclude_none=True,
+)
 async def login_totp(
     body: TotpLoginRequest,
     request: Request,
@@ -168,7 +184,11 @@ async def logout(
     return response
 
 
-@router.post("/auth/totp/enroll", openapi_extra=_perm("session.pre_mfa"))
+@router.post(
+    "/auth/totp/enroll",
+    openapi_extra=_perm("session.pre_mfa"),
+    response_model=schemas.TotpEnrollStart,
+)
 async def totp_enroll_start(
     principal: PreMfaPrincipal, db: DbSession, redis: RedisDep
 ) -> dict[str, str]:
@@ -176,7 +196,11 @@ async def totp_enroll_start(
     return {"otpauth_uri": started.otpauth_uri, "secret": started.secret}
 
 
-@router.post("/auth/totp/enroll/confirm", openapi_extra=_perm("session.pre_mfa"))
+@router.post(
+    "/auth/totp/enroll/confirm",
+    openapi_extra=_perm("session.pre_mfa"),
+    response_model=schemas.BackupCodes,
+)
 async def totp_enroll_confirm(
     body: TotpCode,
     principal: PreMfaPrincipal,
@@ -193,7 +217,11 @@ async def totp_enroll_confirm(
     return {"backup_codes": list(rotated.backup_codes)}
 
 
-@router.post("/auth/step-up", openapi_extra=_perm("authenticated"))
+@router.post(
+    "/auth/step-up",
+    openapi_extra=_perm("authenticated"),
+    response_model=schemas.StepUpResponse,
+)
 async def auth_step_up(
     body: StepUpRequest,
     principal: ActivePrincipal,

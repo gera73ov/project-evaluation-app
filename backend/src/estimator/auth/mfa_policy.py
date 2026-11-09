@@ -15,6 +15,8 @@ SPEC FR-SA-04, FR-2FA-02, FR-2FA-04, FR-2FA-05, R-05.
   - :data:`PasswordChangePrincipal` — смена пароля: сессия с истёкшим паролем (FR-AUTH-LOC-02,
     решение владельца 06.11.2026: вход пускает только к смене пароля) или полная сессия;
   - :data:`AnySessionPrincipal` — любая сессия с CSRF (выход);
+  - изменяющие запросы (кроме выхода) считаются в лимите ``mutations`` — 300 в минуту на
+    пользователя (SEC-WEB-07); превышение — 429 ``RATE_LIMITED`` с ``Retry-After``;
   - :func:`require_totp` — денежные и заметочные эндпоинты (403 ``TOTP_REQUIRED``, R-05);
   - :func:`require_step_up` — действия SEC-AUTH-05 (403 ``STEP_UP_REQUIRED``).
 """
@@ -26,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from estimator.auth.context import Principal, current_principal
@@ -33,7 +36,9 @@ from estimator.auth.policy import read_settings
 from estimator.auth.setup_gate import ensure_setup_allows
 from estimator.db.enums import SystemRole
 from estimator.db.session import DbSession
-from estimator.security.web.csrf import check_csrf
+from estimator.redis_client import get_redis
+from estimator.security.ratelimit.limiter import LIMITS, RateLimiter
+from estimator.security.web.csrf import SAFE_METHODS, check_csrf
 
 #: Ключ ``user`` — пользователь без системных ролей (contracts/settings.schema.json).
 PLAIN_USER = "user"
@@ -76,8 +81,21 @@ class ForbiddenError(HTTPException):
         super().__init__(status_code=403, detail={"code": code})
 
 
+RedisDep = Annotated[Redis, Depends(get_redis)]
+
+
+async def _guard_mutation(request: Request, principal: Principal, redis: Redis) -> None:
+    """CSRF и лимит 300 изменяющих запросов в минуту на пользователя (SEC-WEB-04, SEC-WEB-07)."""
+    check_csrf(request, principal.session.csrf)
+    if request.method.upper() not in SAFE_METHODS:
+        await RateLimiter(redis).check(LIMITS["mutations"], str(principal.user_id))
+
+
 async def active_principal(
-    request: Request, principal: Annotated[Principal, Depends(current_principal)], db: DbSession
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+    db: DbSession,
+    redis: RedisDep,
 ) -> Principal:
     """Порядок проверок — contracts/api-conventions.md 4.2: настройка, сессия, смена пароля,
     TOTP, CSRF."""
@@ -86,26 +104,29 @@ async def active_principal(
         raise ForbiddenError("PASSWORD_CHANGE_REQUIRED")
     if principal.enrollment_required:
         raise ForbiddenError("TOTP_ENROLL_REQUIRED")
-    check_csrf(request, principal.session.csrf)
+    await _guard_mutation(request, principal, redis)
     return principal
 
 
-def pre_mfa_principal(
-    request: Request, principal: Annotated[Principal, Depends(current_principal)]
+async def pre_mfa_principal(
+    request: Request, principal: Annotated[Principal, Depends(current_principal)], redis: RedisDep
 ) -> Principal:
     if principal.password_change_required:
         raise ForbiddenError("PASSWORD_CHANGE_REQUIRED")
-    check_csrf(request, principal.session.csrf)
+    await _guard_mutation(request, principal, redis)
     return principal
 
 
 async def password_change_principal(
-    request: Request, principal: Annotated[Principal, Depends(current_principal)], db: DbSession
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+    db: DbSession,
+    redis: RedisDep,
 ) -> Principal:
     """``session.password_change``: сессия с истёкшим паролем; иначе — как полная сессия."""
     if not principal.password_change_required:
-        return await active_principal(request, principal, db)
-    check_csrf(request, principal.session.csrf)
+        return await active_principal(request, principal, db, redis)
+    await _guard_mutation(request, principal, redis)
     return principal
 
 
