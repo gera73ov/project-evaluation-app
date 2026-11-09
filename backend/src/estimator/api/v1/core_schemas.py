@@ -454,3 +454,34 @@ class CollapseSuggestion(_Strict):
     r: str
     p: str
     multiplier: Literal[1]
+
+
+class TrashRestore(_Strict):
+    target_parent_id: uuid.UUID | None = None
+
+
+class DocumentOut(_Strict):
+    id: uuid.UUID
+    file_name: str
+    mime: str
+    size_bytes: int
+    scan_status: Literal["pending", "clean", "infected", "error"]
+    uploaded_by: UserRef
+    uploaded_at: str
+    deleted_at: str | None
+
+
+class TrashBatch(_Strict):
+    batch_id: uuid.UUID
+    kind: Literal["nodes", "document"]
+    root_title: str
+    nodes_count: int
+    discipline_id: uuid.UUID | None
+    deleted_at: str
+    deleted_by: UserRef | None
+    purge_at: str
+    document: DocumentOut | None
+
+
+class TrashList(_Strict):
+    items: list[TrashBatch]

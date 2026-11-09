@@ -76,7 +76,8 @@ class ApiRouter(APIRouter):
             codes = _normalize(extra["x-permission"])
         else:
             codes = _normalize(permission)
-            extra["x-permission"] = codes[0] if len(codes) == 1 else list(codes)
+            # форма как в контракте: строка или список (в т. ч. из одного кода)
+            extra["x-permission"] = permission if isinstance(permission, str) else list(codes)
             if not is_self_checked(codes):
                 dependencies.insert(0, permission_guard(codes))
         super().add_api_route(
