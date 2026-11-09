@@ -96,7 +96,6 @@ async def test_delete_list_and_restore(
     assert (await s.moderator.delete(f"/nodes/{branch.id}")).status_code == 403
 
 
-@pytest.mark.spec("G-15")
 async def test_restore_into_not_needed_branch(world: World, db_session: AsyncSession) -> None:
     """G-15: ветка стала «не нужно» — 409 с выбором места в той же дисциплине."""
     s = await _setup(world, db_session)
@@ -173,7 +172,6 @@ async def test_restore_collapse_batch(world: World, db_session: AsyncSession) ->
     assert actions[-2:] == [NodeAction.COLLAPSE, NodeAction.UPDATE]
 
 
-@pytest.mark.spec("G-16")
 @pytest.mark.spec("Q-04")
 async def test_purge_after_30_days(world: World, db_session: AsyncSession) -> None:
     """G-16: через 30 дней ночная задача удаляет узел окончательно."""
