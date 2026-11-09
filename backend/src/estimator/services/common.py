@@ -17,6 +17,7 @@ from estimator.auth.policy import read_settings
 from estimator.config import get_settings
 from estimator.db.models.tree import ChangeLog
 from estimator.domain.calc import round_half_up
+from estimator.realtime.bus import publish
 
 _BUMP = text("UPDATE projects SET version = version + 1 WHERE id = :id RETURNING version")
 
@@ -76,3 +77,14 @@ def log_change(
 ) -> None:
     """Запись ``change_log`` для догона после переподключения (ARCH-02); событие без денег."""
     db.add(ChangeLog(project_id=project_id, version=version, event=dict(event)))
+
+
+async def emit(db: AsyncSession, project_id: uuid.UUID, event: str, data: Mapping[str, Any]) -> int:
+    """Событие проекта со своей версией: ``version++``, публикация после commit, ``change_log``.
+
+    Одна версия — одно событие (ключ ``change_log`` — проект и версия, ARCH-02).
+    """
+    version = await bump_version(db, project_id)
+    message = publish(db, f"project:{project_id}", event, data, project_version=version)
+    log_change(db, project_id, version, message)
+    return version

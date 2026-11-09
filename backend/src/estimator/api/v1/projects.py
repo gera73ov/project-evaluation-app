@@ -25,6 +25,7 @@ from estimator.security.authz import Access, Authorizer, AuthorizerDep, Target
 from estimator.security.authz.catalog import PSEUDO
 from estimator.security.authz.engine import AccessDenied, decide
 from estimator.services import projects as service
+from estimator.services.projects import lifecycle
 
 router = ApiRouter(tags=["Проекты"])
 
@@ -167,3 +168,19 @@ async def patch_project(
     await db.refresh(project)
     access = await authz.project(project.id, "project.read")
     return {"project": await _body(db, authz, project, access), "project_version": version}
+
+
+@router.post(
+    "/projects/{id}/status",
+    permission="project.status",
+    response_model=s.StatusChangeResult,
+)
+async def change_status(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    body: s.StatusChange,
+    principal: ActivePrincipal,
+    db: DbSession,
+) -> dict[str, Any]:
+    project = await _load(db, id)
+    version, warnings = await lifecycle.change_status(db, principal, project, body.to, body.reason)
+    return {"status": body.to.value, "project_version": version, "warnings": warnings}

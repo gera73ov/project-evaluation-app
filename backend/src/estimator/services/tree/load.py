@@ -331,3 +331,29 @@ def _node_out(
         "unaccounted_leaves": totals.unaccounted,
     }
     return out
+
+
+def node_event(node: Node) -> dict[str, Any]:
+    """Узел для событий WebSocket (``$defs/Node`` ws-events): без сумм и без денег (ARCH-03)."""
+    return {
+        "id": str(node.id),
+        "parent_id": str(node.parent_id) if node.parent_id else None,
+        "kind": str(node.kind),
+        "phase_id": str(node.phase_id),
+        "discipline_id": str(node.discipline_id) if node.discipline_id else None,
+        "type_id": str(node.type_id) if node.type_id else None,
+        "title": node.title,
+        "position": node.position,
+        "o": _dec(node.o),
+        "r": _dec(node.r),
+        "p": _dec(node.p),
+        "multiplier": node.multiplier,
+        "comment_lines": node.comment_lines,
+        "reviewed_by": str(node.reviewed_by) if node.reviewed_by else None,
+        "reviewed_at": (
+            node.reviewed_at.isoformat().replace("+00:00", "Z") if node.reviewed_at else None
+        ),
+        "self_review": node.self_review,
+        "version": node.version,
+        "field_versions": node.field_versions,
+    }

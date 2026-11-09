@@ -18,6 +18,7 @@ from estimator.db.enums import (
     BranchStatusValue,
     DetailLevel,
     ProjectOutcome,
+    ProjectRole,
     ProjectStatus,
     QuoteFigure,
 )
@@ -250,3 +251,82 @@ class NotificationList(_Strict):
 class NotificationsRead(_Strict):
     ids: list[uuid.UUID] = Field(default=None)  # type: ignore[assignment]
     all: bool = False
+
+
+# --- статус проекта ---------------------------------------------------------------------------
+
+
+class StatusChange(_Strict):
+    to: ProjectStatus
+    reason: str = Field(default=None, min_length=10, max_length=500)  # type: ignore[assignment]
+
+
+class StatusWarning(_Strict):
+    code: Literal[
+        "branches_not_done", "open_customer_questions", "no_snapshot", "disciplines_without_expert"
+    ]
+    count: int
+
+
+class StatusChangeResult(_Strict):
+    status: ProjectStatus
+    project_version: int
+    warnings: list[StatusWarning]
+
+
+# --- команда ----------------------------------------------------------------------------------
+
+
+class MemberIn(_Strict):
+    user_id: uuid.UUID
+    role: ProjectRole
+    discipline_id: uuid.UUID | None = None
+    is_reviewer: bool = False
+
+
+class MembersPut(_Strict):
+    members: list[MemberIn]
+
+
+class MemberOut(_Strict):
+    user: UserRef
+    role: ProjectRole
+    discipline_id: uuid.UUID | None
+    is_reviewer: bool
+    status: Literal["active", "blocked", "pending_password"]
+    added_by_admin_self: bool
+
+
+class MemberList(_Strict):
+    items: list[MemberOut]
+
+
+class MemberReplace(_Strict):
+    replacement_user_id: uuid.UUID
+
+
+# --- дисциплины проекта -----------------------------------------------------------------------
+
+
+class DisciplineAdd(_Strict):
+    discipline_id: uuid.UUID
+
+
+class DisciplineProfilePatch(_Strict):
+    profile_id: uuid.UUID
+
+
+class BranchStatusChange(_Strict):
+    phase_id: uuid.UUID
+    discipline_id: uuid.UUID
+    status: BranchStatusValue
+    was: BranchStatusValue
+
+
+class NodesMutation(_Strict):
+    nodes: list[NodeOut]
+    deleted_ids: list[uuid.UUID] = Field(default=None)  # type: ignore[assignment]
+    project_version: int
+    totals: HoursTotals
+    branch_statuses: list[BranchStatusChange]
+    batch_id: uuid.UUID | None = None

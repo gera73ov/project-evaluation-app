@@ -8,7 +8,9 @@ from fastapi import APIRouter
 from estimator.api.v1 import (
     admin_calendar,
     auth,
+    disciplines,
     me,
+    members,
     notifications,
     projects,
     tree,
@@ -23,5 +25,7 @@ router.include_router(me.router)
 router.include_router(view_state.router)
 router.include_router(projects.router)
 router.include_router(tree.router)
+router.include_router(members.router)
+router.include_router(disciplines.router)
 router.include_router(notifications.router)
 router.include_router(admin_calendar.router)
