@@ -106,7 +106,8 @@ async def _state(db: AsyncSession, project: Project) -> _State:
     if row is None:  # pragma: no cover — строка создаётся вместе с проектом
         raise ApiError("NOT_FOUND")
     settings = await money_settings(db, project.id)
-    assert settings is not None  # noqa: S101 — строка проверена выше
+    if settings is None:  # pragma: no cover — строка проверена выше
+        raise ApiError("NOT_FOUND")
     rates = list(
         (await db.scalars(select(ProjectRate).where(ProjectRate.project_id == project.id))).all()
     )
