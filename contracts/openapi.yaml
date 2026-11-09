@@ -1301,6 +1301,56 @@ paths:
           $ref: '#/components/responses/Problem404'
         '500':
           $ref: '#/components/responses/Problem500'
+  /system/smtp/test:
+    post:
+      operationId: smtpTest
+      summary: Отправить тестовое письмо
+      description: 'CR-009. Письмо на адрес to с параметрами из values (несохранёнными, ключи smtp.* по
+        settings.schema.json); без values — с сохранёнными. Ничего не записывает. Сохранённый smtp.password
+        подставляется, только если host, port и username в values совпадают с сохранёнными: иначе пароль из
+        хранилища ушёл бы на чужой сервер, и без smtp.password в values ответ 422 VALIDATION_FAILED. Ошибка
+        отправки — ok: false и detail, а не код ошибки.'
+      tags:
+      - Система
+      x-permission: system.settings.write
+      x-spec:
+      - '7.1'
+      - FR-NOTIF-02
+      x-network-restricted: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmtpTest'
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - CSRF_FAILED
+      - RATE_LIMITED
+      - VALIDATION_FAILED
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmtpTestResult'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '500':
+          $ref: '#/components/responses/Problem500'
   /system/admins:
     get:
       operationId: listAdmins
@@ -9605,7 +9655,8 @@ components:
           type: object
           properties: {}
           description: 'CR-009. Несохранённые параметры формы (ключи auth.ad.* по settings.schema.json), как у
-            adTestConnection; без него — сохранённые'
+            adTestConnection; без него — сохранённые. Сохранённый пароль сервисной учётки подставляется, только если
+            адрес сервера и учётка bind совпадают с сохранёнными'
         login:
           type: string
           minLength: 1
@@ -9826,6 +9877,36 @@ components:
       - by
       - resolved
       - report
+      additionalProperties: false
+    SmtpTest:
+      type: object
+      properties:
+        values:
+          type: object
+          properties: {}
+          description: Ключи smtp.server и необязательный smtp.password по contracts/settings.schema.json
+        to:
+          type: string
+          format: email
+          maxLength: 254
+      required:
+      - to
+      additionalProperties: false
+    SmtpTestResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        elapsed_ms:
+          type: integer
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - ok
+      - elapsed_ms
+      - detail
       additionalProperties: false
     AdminAccount:
       type: object

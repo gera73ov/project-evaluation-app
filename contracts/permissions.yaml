@@ -161,6 +161,7 @@ permissions:
     step_up: true
     endpoints:
       - "PUT /system/settings/{section}"
+      - "POST /system/smtp/test"
   system.auth.test:
     title: Проверить подключение и вход AD (без сохранения)
     spec: [FR-AUTH-AD-03]

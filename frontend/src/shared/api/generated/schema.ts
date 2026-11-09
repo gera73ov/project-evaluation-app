@@ -469,6 +469,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/system/smtp/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отправить тестовое письмо
+         * @description CR-009. Письмо на адрес to с параметрами из values (несохранёнными, ключи smtp.* по settings.schema.json); без values — с сохранёнными. Ничего не записывает. Сохранённый smtp.password подставляется, только если host, port и username в values совпадают с сохранёнными: иначе пароль из хранилища ушёл бы на чужой сервер, и без smtp.password в values ответ 422 VALIDATION_FAILED. Ошибка отправки — ok: false и detail, а не код ошибки.
+         */
+        post: operations["smtpTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/admins": {
         parameters: {
             query?: never;
@@ -2646,7 +2666,7 @@ export type components = {
             values: Record<string, never>;
         };
         AdTestLogin: {
-            /** @description CR-009. Несохранённые параметры формы (ключи auth.ad.* по settings.schema.json), как у adTestConnection; без него — сохранённые */
+            /** @description CR-009. Несохранённые параметры формы (ключи auth.ad.* по settings.schema.json), как у adTestConnection; без него — сохранённые. Сохранённый пароль сервисной учётки подставляется, только если адрес сервера и учётка bind совпадают с сохранёнными */
             values?: Record<string, never>;
             login: string;
             /** Format: password */
@@ -2715,6 +2735,17 @@ export type components = {
             /** @description Сколько неоднозначных совпадений решено после перехода */
             resolved: number;
             report: components["schemas"]["SwitchReport"];
+        };
+        SmtpTest: {
+            /** @description Ключи smtp.server и необязательный smtp.password по contracts/settings.schema.json */
+            values?: Record<string, never>;
+            /** Format: email */
+            to: string;
+        };
+        SmtpTestResult: {
+            ok: boolean;
+            elapsed_ms: number;
+            detail: string | null;
         };
         AdminAccount: {
             id: components["schemas"]["Uuid"];
@@ -4883,6 +4914,36 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    smtpTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SmtpTest"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmtpTestResult"];
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
     };
