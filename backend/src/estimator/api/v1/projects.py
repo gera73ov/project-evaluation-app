@@ -25,6 +25,7 @@ from estimator.security.authz import Access, Authorizer, AuthorizerDep, Target
 from estimator.security.authz.catalog import PSEUDO
 from estimator.security.authz.engine import AccessDenied, decide
 from estimator.services import projects as service
+from estimator.services.projects import copy as project_copy
 from estimator.services.projects import lifecycle
 
 router = ApiRouter(tags=["Проекты"])
@@ -184,3 +185,28 @@ async def change_status(
     project = await _load(db, id)
     version, warnings = await lifecycle.change_status(db, principal, project, body.to, body.reason)
     return {"status": body.to.value, "project_version": version, "warnings": warnings}
+
+
+@router.post(
+    "/projects/{id}/copy",
+    permission="project.copy",
+    status_code=201,
+    response_model=s.ProjectVersioned,
+    response_model_exclude_unset=True,
+)
+async def copy_project(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    body: s.CopyProject,
+    principal: ActivePrincipal,
+    db: DbSession,
+    authz: AuthorizerDep,
+) -> dict[str, Any]:
+    """CORE-023: копия в «Подготовке» с настройками, командой и деревом (FR-PRJ-02)."""
+    source = await _load(db, id)
+    project, _ = await project_copy.copy_project(
+        db, principal, source, body.model_dump(exclude_unset=True).get("name")
+    )
+    await db.flush()
+    await db.refresh(project)
+    access = await authz.project(project.id, "project.read")
+    return {"project": await _body(db, authz, project, access), "project_version": project.version}
