@@ -19,7 +19,7 @@ import { call } from '../../shared/api/problem';
 import { DEFAULT_LARGE_LEAF_HOURS, largeLeafThreshold } from '../../shared/calc';
 import { ErrorText } from '../../shared/ui/ErrorText';
 import { useReadOnlyOffline } from '../../shared/ws/WsProvider';
-import { feedKey, type DiscussionSetup } from '../discussions/DiscussionPanel';
+import { DiscussionPanel, feedKey, projectFeedKey, type DiscussionSetup } from '../discussions/DiscussionPanel';
 import { moneyKey } from '../settings/money/MoneySection';
 import { membersKey } from '../settings/team/TeamSection';
 import { useProject, type Project } from '../settings/useProject';
@@ -111,7 +111,11 @@ export function WorkPage({ projectId }: { projectId: string }) {
         // новое сообщение или вопрос — перечитать ленту узла, если она раскрыта (FE-030)
         const data = new Map(Object.entries(event.data ?? {}));
         const item = (data.get('message') ?? data.get('thread')) as { node_id?: string | null } | undefined;
-        if (item?.node_id) void client.invalidateQueries({ queryKey: feedKey(item.node_id) });
+        // `node_id = null` — обсуждение проекта в шапке (CR-007)
+        if (item)
+          void client.invalidateQueries({
+            queryKey: item.node_id ? feedKey(item.node_id) : projectFeedKey(projectId),
+          });
       } else collab.onEvent(event);
     },
     collab.onEvent,
@@ -181,6 +185,7 @@ function WorkScreen({
   const offline = useReadOnlyOffline();
   const [view, setView] = useState<WorkView>(initial);
   const [query, setQuery] = useState('');
+  const [projectDisc, setProjectDisc] = useState(false);
   const deferredQuery = useDeferredValue(query);
   useSaveView(projectId, view);
 
@@ -375,7 +380,14 @@ function WorkScreen({
         onRiskFilter={() => toggleFilter('risk')}
         presence={presence.filter((p) => p.id !== userId)}
         readOnly={offline}
+        discussionOpen={projectDisc}
+        onDiscussion={() => setProjectDisc((v) => !v)}
       />
+      {projectDisc ? (
+        <div className="project-disc">
+          <DiscussionPanel nodeId={null} title={data.name} setup={discussion} />
+        </div>
+      ) : null}
       <FilterBar
         query={query}
         onQuery={setQuery}

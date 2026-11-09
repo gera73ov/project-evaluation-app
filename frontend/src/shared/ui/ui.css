@@ -449,3 +449,9 @@ button.type-opt.sel{background:var(--accent-soft);border-color:#b8d8e4}
 .outcome .set-readonly{margin:0 0 14px}
 .set-actions{display:flex;gap:10px;align-items:center}
 .money-row .money-input input{border-color:var(--money-border,#d9cff2);color:var(--money)}
+
+/* CR-007 · обсуждение проекта в шапке (FR-DISC-01): лента под верхней полосой */
+.project-disc{padding:8px 16px 0}
+.project-disc .disc-panel{max-width:980px}
+.disc-toggle{font:inherit;cursor:pointer}
+.disc-toggle.on{background:var(--acc-soft,#e8f1f4)}

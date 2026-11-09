@@ -90,4 +90,20 @@ describe('закрытые заметки', () => {
     expect(within(panel).getByRole('button', { name: 'Ввести код' })).toBeTruthy();
     expect(within(panel).queryByRole('textbox', { name: 'Закрытая заметка' })).toBeNull();
   });
+
+  it('заметки проекта в шапке: только заметки без узла', async () => {
+    persona.current = PERSONAS.moderator;
+    renderApp(`/projects/${portal.id}`);
+    await screen.findByRole('treegrid', { name: 'Дерево оценки' });
+    fireEvent.click(screen.getByRole('button', { name: /Обсуждение проекта/ }));
+    const panel = await screen.findByRole('region', { name: `Обсуждение: ${portal.name}` });
+    fireEvent.click(await within(panel).findByRole('tab', { name: /Заметки/ }));
+    await within(panel).findByText(/Заметок пока нет/);
+    expect(panel.textContent).not.toContain('Заказчик торгуется');
+    fireEvent.change(within(panel).getByRole('textbox', { name: 'Закрытая заметка' }), {
+      target: { value: 'Бюджет согласуют в декабре' },
+    });
+    fireEvent.click(within(panel).getByRole('button', { name: 'Добавить заметку' }));
+    await within(panel).findByText('Бюджет согласуют в декабре');
+  });
 });

@@ -55,6 +55,8 @@ export interface DiscussionSetup {
 }
 
 export const feedKey = (nodeId: string) => ['feed', nodeId] as const;
+/** Лента обсуждения проекта целиком (CR-007, `node_id = null`). */
+export const projectFeedKey = (projectId: string) => ['feed', 'project', projectId] as const;
 const SHOWN = 3;
 
 function initialsOf(name: string): string {
@@ -96,7 +98,8 @@ export function DiscussionPanel({
   path,
   setup,
 }: {
-  nodeId: string;
+  /** `null` — обсуждение проекта целиком в шапке (FR-DISC-01, CR-007). */
+  nodeId: string | null;
   title: string;
   /** «Обмен с 1С · Разработка › Бэкенд» справа от вкладок. */
   path?: string;
@@ -118,15 +121,18 @@ export function DiscussionPanel({
   const [revoking, setRevoking] = useState<string | null>(null);
   const [conclude, setConclude] = useState<{ thread: Thread; text: string; tag: string | null } | null>(null);
 
+  const key = nodeId ? feedKey(nodeId) : projectFeedKey(setup.projectId);
   const feed = useInfiniteQuery({
-    queryKey: feedKey(nodeId),
+    queryKey: key,
     initialPageParam: null as string | null,
-    queryFn: ({ pageParam }) =>
-      call(() =>
-        api.GET('/nodes/{id}/messages', {
-          params: { path: { id: nodeId }, query: { limit: 100, ...(pageParam ? { cursor: pageParam } : {}) } },
-        }),
-      ),
+    queryFn: ({ pageParam }) => {
+      const query = { limit: 100, ...(pageParam ? { cursor: pageParam } : {}) };
+      return call(() =>
+        nodeId
+          ? api.GET('/nodes/{id}/messages', { params: { path: { id: nodeId }, query } })
+          : api.GET('/projects/{id}/messages', { params: { path: { id: setup.projectId }, query } }),
+      );
+    },
     getNextPageParam: (last) => last.next_cursor,
   });
   const items = (feed.data?.pages.flatMap((p) => p.items) ?? []) as Message[];
@@ -150,7 +156,7 @@ export function DiscussionPanel({
     setError(null);
     try {
       await request();
-      await client.invalidateQueries({ queryKey: feedKey(nodeId) });
+      await client.invalidateQueries({ queryKey: key });
       return true;
     } catch (e) {
       setError(errorMessage(e));
@@ -169,13 +175,14 @@ export function DiscussionPanel({
             body: { body, needs_answer: false, addressees },
           }),
         );
-      else
+      else {
+        const message = { body, needs_answer: needsAnswer, addressees };
         await call(() =>
-          api.POST('/nodes/{id}/messages', {
-            params: { path: { id: nodeId } },
-            body: { body, needs_answer: needsAnswer, addressees },
-          }),
+          nodeId
+            ? api.POST('/nodes/{id}/messages', { params: { path: { id: nodeId } }, body: message })
+            : api.POST('/projects/{id}/messages', { params: { path: { id: setup.projectId } }, body: message }),
         );
+      }
       // новый вопрос — ответы по умолчанию в него
       if (needsAnswer) setTargetId(undefined);
     });
@@ -427,7 +434,7 @@ export function DiscussionPanel({
                   : null
               }
               canResolve={target ? canResolve(target, setup) : false}
-              canConclude={setup.isLeaf(nodeId)}
+              canConclude={nodeId ? setup.isLeaf(nodeId) : false}
               onSend={send}
               onResolve={(withConclusion) => {
                 if (!target) return;

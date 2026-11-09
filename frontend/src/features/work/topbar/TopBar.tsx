@@ -107,6 +107,8 @@ export function TopBar({
   onRiskFilter,
   presence = [],
   readOnly,
+  discussionOpen = false,
+  onDiscussion,
 }: {
   project: Project;
   store: TreeStore;
@@ -119,6 +121,9 @@ export function TopBar({
   /** Кто сейчас в проекте, кроме меня. */
   presence?: readonly Peer[];
   readOnly: boolean;
+  /** Обсуждение проекта целиком (FR-DISC-01, CR-007): кнопка раскрывает ленту под полосой. */
+  discussionOpen?: boolean;
+  onDiscussion?: () => void;
 }) {
   const { t } = useTranslation();
   const [openList, setOpenList] = useState(false);
@@ -243,6 +248,16 @@ export function TopBar({
             </span>
           ) : null}
         </span>
+      ) : null}
+      {onDiscussion ? (
+        <button
+          type="button"
+          className={discussionOpen ? 'btn-link disc-toggle on' : 'btn-link disc-toggle'}
+          aria-expanded={discussionOpen}
+          onClick={onDiscussion}
+        >
+          💬 {t('top.discussion')}
+        </button>
       ) : null}
       <Link to={`/projects/${project.id}/stats`} className="btn-link">
         {t('top.stats')}

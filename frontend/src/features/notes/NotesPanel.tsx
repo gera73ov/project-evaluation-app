@@ -32,6 +32,8 @@ export function useNotes(projectId: string, nodeId: string | null, enabled: bool
           params: { path: { id: projectId }, query: { limit: 100, ...(nodeId ? { node_id: nodeId } : {}) } },
         }),
       ),
+    // без `node_id` контракт не обещает только заметки проекта — оставляем записи с `node_id = null`
+    select: (data) => (nodeId ? data : { ...data, items: data.items.filter((n) => n.node_id === null) }),
     enabled,
     retry: false,
   });
