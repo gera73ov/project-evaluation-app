@@ -24,7 +24,11 @@ export function buildHandlers(options: HandlerOptions = {}) {
   const httpHandlers = ordered.map((op) =>
     http[op.method](mswPath(op.path), async ({ params, request }) => {
       if (options.latencyMs) await delay(options.latencyMs);
-      const flat = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]));
+      // параметры запроса (`?q=`) — тоже в params; параметры пути важнее
+      const flat = {
+        ...Object.fromEntries(new URL(request.url).searchParams),
+        ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+      };
       // тело JSON нужно демо-ответам правок (PATCH узла возвращает узел с изменениями)
       const body: unknown =
         op.method === 'get'

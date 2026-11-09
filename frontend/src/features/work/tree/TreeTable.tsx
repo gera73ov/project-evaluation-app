@@ -49,6 +49,7 @@ import type { CellLock, CellMark } from '../collab/collabStore';
 import { BranchControls, ReviewCell } from '../branch/BranchControls';
 import { branchReadiness, type BranchReadiness } from '../branch/branch';
 import { useBranch, type BranchApi, type BranchSetup } from '../branch/useBranch';
+import { DiscussionPanel, type DiscussionSetup } from '../../discussions/DiscussionPanel';
 import { HistoryPanel } from '../history/HistoryPanel';
 import { AddMenu, NodeMenu, type RowMenuApi } from '../menu/RowMenus';
 import { useRowMenus, type MenuSetup } from '../menu/useRowMenus';
@@ -83,6 +84,8 @@ export interface TreeContext {
   };
   /** Роль участника для подписи в истории («модератор»), FE-028. */
   roleOf?: (userId: string) => string | null;
+  /** Обсуждения под строкой (FE-030); нет — значок без раскрытия. */
+  discussion?: DiscussionSetup | undefined;
 }
 
 /** Подсветка совпадений поиска тегом `<mark>` (DESIGN.md 9.3). */
@@ -138,20 +141,46 @@ function SumTooltip({ result, children }: { result: NodeResult; children: ReactN
   );
 }
 
-function Discussion({ node }: { node: TreeNode | undefined }) {
+/** Значок 💬 (11.4 №13): число сообщений, оранжевый — открытый вопрос, точка — вопрос мне. */
+function Discussion({
+  node,
+  expanded,
+  onToggle,
+}: {
+  node: TreeNode | undefined;
+  /** Обсуждение раскрыто под строкой. */
+  expanded?: boolean | undefined;
+  /** Есть — значок кнопка (FE-030); у строки без сообщений — бледный при наведении. */
+  onToggle?: (() => void) | undefined;
+}) {
   const { t } = useTranslation();
   const count = extra<number>(node, 'messages_count') ?? 0;
-  if (!count) return null;
+  if (!count && !onToggle) return null;
   const open = (extra<number>(node, 'open_questions') ?? 0) > 0;
   const mine = (extra<number>(node, 'questions_to_me') ?? 0) > 0;
+  const label = t('tree.discussion', { count }) + (mine ? `, ${t('tree.questionToMe')}` : '');
+  const className = ['disc', open ? 'open' : '', !count ? 'ghost' : '', expanded ? 'on' : ''].filter(Boolean).join(' ');
+  if (!onToggle)
+    return (
+      <span className={className} aria-label={label}>
+        💬 {count}
+        {mine ? <span className="dot" aria-hidden="true" /> : null}
+      </span>
+    );
   return (
-    <span
-      className={open ? 'disc open' : 'disc'}
-      aria-label={t('tree.discussion', { count }) + (mine ? `, ${t('tree.questionToMe')}` : '')}
+    <button
+      type="button"
+      className={className}
+      aria-label={count ? label : t('discussion.start', { name: node?.title ?? '' })}
+      aria-expanded={Boolean(expanded)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
     >
-      💬 {count}
+      💬{count ? ` ${count}` : ''}
       {mine ? <span className="dot" aria-hidden="true" /> : null}
-    </span>
+    </button>
   );
 }
 
@@ -173,6 +202,9 @@ interface RowProps {
   menu?: RowMenuApi | undefined;
   /** Статус ветки и «Проверено» (FE-029). */
   branch?: BranchApi | undefined;
+  /** Обсуждение раскрыто под строкой; есть `onDiscussion` — значок кнопка (FE-030). */
+  discOpen?: boolean | undefined;
+  onDiscussion?: ((nodeId: string) => void) | undefined;
   /** Готовность ветки (только у строки дисциплины). */
   readiness?: BranchReadiness | undefined;
 }
@@ -192,6 +224,8 @@ const Row = memo(function Row({
   menu: menuApi,
   branch: branchApi,
   readiness,
+  discOpen,
+  onDiscussion,
 }: RowProps) {
   const { t } = useTranslation();
   if (row.kind === 'pm') {
@@ -348,7 +382,11 @@ const Row = memo(function Row({
         {row.kind === 'discipline' && row.disciplineId && ctx.withoutExpert.has(row.disciplineId) ? (
           <span className="pill warn">⚠ {t('tree.noExpert')}</span>
         ) : null}
-        <Discussion node={node} />
+        <Discussion
+          node={node}
+          expanded={discOpen}
+          onToggle={onDiscussion && row.id ? () => onDiscussion(row.id as string) : undefined}
+        />
         {mark ? (
           <span
             key={mark.at}
@@ -488,7 +526,11 @@ export function TreeTable({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (index) => {
+      const id = rows.at(index)?.id;
+      return id && discOpen.has(id) ? ROW_HEIGHT + 260 : ROW_HEIGHT;
+    },
+    getItemKey: (index) => rows.at(index)?.key ?? index,
     overscan: 12,
     initialRect: { width: 1366, height: 900 },
   });
@@ -518,6 +560,20 @@ export function TreeTable({
   };
   useImperativeHandle(apiRef, () => ({ show }));
   const [historyFor, setHistoryFor] = useState<string | null>(null);
+  // раскрытые обсуждения под строками (FE-030)
+  const [discOpen, setDiscOpen] = useState<ReadonlySet<string>>(new Set());
+  const toggleDiscussion = (nodeId: string) => {
+    const closing = discOpen.has(nodeId);
+    setDiscOpen((prev) => {
+      const next = new Set(prev);
+      if (closing) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+    // закрытая панель больше не измеряется — вернуть строке обычную высоту
+    const index = rows.findIndex((r) => r.id === nodeId);
+    if (closing && index >= 0) virtualizer.resizeItem(index, ROW_HEIGHT);
+  };
   const closeHistory = useCallback(() => setHistoryFor(null), []);
   // строка узла в прокручиваемой области (без прилипших копий)
   const historyAnchor = useMemo(
@@ -587,6 +643,8 @@ export function TreeTable({
       menu: menus.api,
       branch,
       readiness: row.kind === 'discipline' && row.id && branch ? branchReadiness(state, row.id) : undefined,
+      discOpen: row.id !== null && discOpen.has(row.id),
+      onDiscussion: ctx.discussion ? toggleDiscussion : undefined,
     };
   };
 
@@ -675,13 +733,21 @@ export function TreeTable({
           {items.map((item) => {
             const row = rows.at(item.index);
             if (!row) return null;
+            const disc = row.id && ctx.discussion && discOpen.has(row.id) ? row.id : null;
             return (
               <div
                 key={row.key}
+                data-index={item.index}
+                ref={disc ? virtualizer.measureElement : undefined}
                 className={cells.editing && cells.editing.nodeId === row.id ? 'vrow editing' : 'vrow'}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, transform: `translateY(${item.start}px)` }}
               >
                 <Row {...rowProps(row)} />
+                {disc && ctx.discussion ? (
+                  <div className="disc-wrap" style={{ paddingLeft: indentOf(row.depth) + 40 }}>
+                    <DiscussionPanel nodeId={disc} title={nodes.get(disc)?.title ?? ''} setup={ctx.discussion} />
+                  </div>
+                ) : null}
               </div>
             );
           })}

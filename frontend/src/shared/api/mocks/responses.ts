@@ -30,6 +30,7 @@ import {
   userRef,
   type DemoProject,
 } from "./data";
+import * as demoDiscussions from "./demoDiscussions";
 import * as demoTree from "./demoTree";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
@@ -394,6 +395,69 @@ const DEMO: Record<string, Demo> = {
           ctx.params.id ?? "",
           userRef(ctx.persona),
         )
+      : undefined,
+
+  // FE-030: обсуждения под строкой
+  listNodeMessages: (ctx) =>
+    ctx.project
+      ? demoDiscussions.nodeFeed(ctx.project, ctx.params.id ?? "")
+      : undefined,
+  postNodeMessage: (ctx) =>
+    ctx.project
+      ? demoDiscussions.postMessage(
+          ctx.project,
+          ctx.params.id ?? "",
+          body(ctx),
+          userRef(ctx.persona),
+        )
+      : undefined,
+  replyThread: (ctx) =>
+    ctx.project
+      ? demoDiscussions.replyThread(
+          ctx.project,
+          ctx.params.id ?? "",
+          body(ctx),
+          userRef(ctx.persona),
+        )
+      : undefined,
+  editMessage: (ctx) =>
+    ctx.project
+      ? demoDiscussions.editMessage(ctx.project, ctx.params.id ?? "", {
+          body: String(body(ctx).body ?? ""),
+        })
+      : undefined,
+  revokeMessage: (ctx) =>
+    ctx.project
+      ? demoDiscussions.editMessage(ctx.project, ctx.params.id ?? "", {
+          revoked: true,
+        })
+      : undefined,
+  resolveThread: (ctx) =>
+    ctx.project
+      ? demoDiscussions.setThreadStatus(
+          ctx.project,
+          ctx.params.id ?? "",
+          true,
+          userRef(ctx.persona),
+        )
+      : undefined,
+  reopenThread: (ctx) =>
+    ctx.project
+      ? demoDiscussions.setThreadStatus(
+          ctx.project,
+          ctx.params.id ?? "",
+          false,
+          userRef(ctx.persona),
+        )
+      : undefined,
+  suggestAddressees: (ctx) =>
+    ctx.project
+      ? {
+          items: demoDiscussions.suggest(
+            ctx.project,
+            String(ctx.params.q ?? ""),
+          ),
+        }
       : undefined,
 
   // FE-018: корзина. Модератор видит всё, эксперт — свою дисциплину, документы — модератор и
