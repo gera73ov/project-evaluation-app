@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import uuid
 from collections.abc import AsyncIterator
 
 import pytest
 from redis.asyncio import Redis
 
 from estimator.config import get_settings
+from estimator.services.projects import totals
 
 #: Адрес тестового Redis, например ``redis://127.0.0.1:6379/15``. Без него тесты с фикстурой
 #: :func:`redis_client` пропускаются. Тесты не чистят базу: ключи у каждого теста свои
@@ -24,6 +26,18 @@ def _fresh_settings(monkeypatch: pytest.MonkeyPatch):
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def totals_queue(monkeypatch: pytest.MonkeyPatch) -> list[uuid.UUID]:
+    """Постановка пересчёта кэша итогов (CORE-026) без брокера: id проектов по порядку."""
+    calls: list[uuid.UUID] = []
+
+    async def record(project_id: uuid.UUID) -> None:
+        calls.append(project_id)
+
+    monkeypatch.setattr(totals, "enqueue", record)
+    return calls
 
 
 @pytest.fixture
