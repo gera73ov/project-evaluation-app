@@ -31,6 +31,7 @@ import {
   type DemoProject,
 } from "./data";
 import * as demoDiscussions from "./demoDiscussions";
+import * as demoDocuments from "./demoDocuments";
 import * as demoOutcome from "./demoOutcome";
 import * as demoTree from "./demoTree";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
@@ -130,7 +131,12 @@ export function mockResponse(
   };
   const { status, schema, binary } = successResponse(op);
   if (binary) return { status, body: "mock file", binary: true };
-  if (!schema) return { status, body: null };
+  if (!schema) {
+    // ответ без тела (204), но демо может отказать или запомнить действие (удаление документа)
+    const done = DEMO[op.operationId]?.(ctx, {} as Schema);
+    if (done instanceof MockProblem) return done.result;
+    return { status, body: null };
+  }
   const custom = DEMO[op.operationId]?.(ctx, schema);
   if (custom instanceof MockProblem) return custom.result;
   const body =
@@ -563,6 +569,33 @@ const DEMO: Record<string, Demo> = {
       schema,
       demoOutcome.lossReasons(ctx.params.include_inactive === "true"),
     ),
+  listDocuments: (ctx) =>
+    ctx.project ? demoDocuments.listDocuments(ctx.project) : undefined,
+  uploadDocument: (ctx) => {
+    if (!ctx.project) return undefined;
+    const result = demoDocuments.uploadDocument(
+      ctx.project,
+      ctx.body,
+      userRef(ctx.persona),
+    );
+    if (!("error" in result)) return result;
+    const status = new Map([
+      ["VALIDATION_FAILED", 422],
+      ["UNSUPPORTED_MEDIA_TYPE", 415],
+      ["PAYLOAD_TOO_LARGE", 413],
+      ["PROJECT_STORAGE_LIMIT", 409],
+    ]).get(result.error);
+    return new MockProblem(problem(status ?? 422, result.error, result.error));
+  },
+  deleteDocument: (ctx) =>
+    ctx.project &&
+    !demoDocuments.deleteDocument(
+      ctx.project,
+      ctx.params.id ?? "",
+      userRef(ctx.persona),
+    )
+      ? new MockProblem(problem(404, "NOT_FOUND", "Не найдено"))
+      : undefined,
   restoreDocument: (ctx) =>
     ctx.project
       ? demoTree.restoreDocument(ctx.project, ctx.params.id ?? "")

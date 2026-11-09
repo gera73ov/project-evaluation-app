@@ -455,3 +455,38 @@ button.type-opt.sel{background:var(--accent-soft);border-color:#b8d8e4}
 .project-disc .disc-panel{max-width:980px}
 .disc-toggle{font:inherit;cursor:pointer}
 .disc-toggle.on{background:var(--acc-soft,#e8f1f4)}
+
+/* FE-017 · документы заказчика (DESIGN.md 10.6, 2.5; шаблон «Таблица с боковыми карточками») */
+.docs-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;padding:18px 22px 22px;align-items:start}
+.dropzone{display:flex;gap:14px;align-items:center;border:1.5px dashed #9cc7d6;border-radius:10px;background:var(--accent-soft);padding:16px 22px;margin-bottom:14px}
+.dropzone.on{border-color:var(--accent);background:#d6e9f1}
+.dropzone .dz-ic{font-size:24px;color:var(--ink)}
+.dropzone b{font-size:14px}
+.dropzone .link{font:inherit;font-weight:600}
+.dz-hint{color:var(--muted);font-size:12.5px;margin-top:4px}
+.docs-main .err,.docs-main .res{margin-bottom:12px}
+.docs-table{width:100%;border-collapse:collapse;background:var(--panel)}
+.docs-table .num{text-align:right;white-space:nowrap}
+.docs-table tr.row-error td{background:var(--row-error,#fffafa)}
+.doc-name{display:flex;gap:10px;align-items:center}
+.doc-ic{width:30px;height:34px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:-.4px;color:#fff;flex:none;overflow:hidden}
+.doc-ic.pdf{background:#c2413b} .doc-ic.docx{background:#2f5aa8} .doc-ic.xlsx{background:#2f8a4a} .doc-ic.off{background:#9aa4ae}
+.doc-file{font-size:13.5px}
+.doc-file.off{color:var(--muted)}
+.doc-sub{font-size:12px;color:var(--muted)}
+.doc-sub a{color:var(--accent);font-weight:600;text-decoration:none}
+.doc-acts{text-align:right;white-space:nowrap}
+.doc-acts .btn-sm+.btn-sm{margin-left:6px}
+tr:target td{background:var(--accent-soft)}
+.docs-note{color:var(--muted);font-size:12.5px;margin:12px 0 0}
+.docs-side{display:grid;gap:14px}
+.docs-side .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.docs-side .card h3{margin:0 0 10px;font-size:14px}
+.space-bar{height:8px;border-radius:4px;background:var(--line2);overflow:hidden;margin-bottom:10px}
+.space-bar i{display:block;height:100%;background:var(--accent)}
+.space-row{display:flex;justify-content:space-between;font-size:13px}
+.who-list{display:grid;grid-template-columns:1fr auto;gap:8px 12px;margin:0;font-size:13px}
+.who-list dd{margin:0;text-align:right}
+.card-hint{color:var(--muted);font-size:12px;margin:10px 0 0}
+.card-quote{margin:0;font-size:13px}
+@media (max-width:900px){.docs-grid{grid-template-columns:1fr}}

@@ -13,6 +13,7 @@ import { SetupInProgressPage } from '../features/auth/SetupInProgressPage';
 import { HomeRoute } from '../features/home/HomeRoute';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
+import { DocumentsPage } from '../features/documents/DocumentsPage';
 import { OutcomePage } from '../features/settings/outcome/OutcomePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TrashPage } from '../features/trash/TrashPage';
@@ -74,7 +75,11 @@ export const ROUTES: readonly RouteDef[] = [
     access: 'private',
     render: (params) => <OutcomePage key={params.id} projectId={params.id ?? ''} />,
   },
-  { path: '/projects/:id/settings/documents', access: 'private', render: stub('Документы заказчика', 'FE-017') },
+  {
+    path: '/projects/:id/settings/documents',
+    access: 'private',
+    render: (params) => <DocumentsPage key={params.id} projectId={params.id ?? ''} />,
+  },
   {
     path: '/projects/:id/trash',
     access: 'private',
