@@ -11,6 +11,7 @@ import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
+import type { BranchStatus } from '../../../shared/calc';
 import type { TreeState } from '../store/treeStore';
 import type { MenuType } from './dialogs';
 import { MAX_DEPTH, depthOf, isLeaf, reorderAfter, suggestType } from './ops';
@@ -38,7 +39,9 @@ export type NodeAction =
   | 'history'
   | 'copy'
   | 'delete'
-  | 'profile';
+  | 'profile'
+  | 'notNeeded'
+  | 'needed';
 
 export interface RowMenuApi {
   config: MenuConfig;
@@ -52,6 +55,9 @@ export interface RowMenuApi {
   setContext: (nodeId: string | null) => void;
   /** История листа подключена (FE-028). */
   history: boolean;
+  /** Модератор: «Ветка не нужна» / «Ветка снова нужна» (FE-029). */
+  canNotNeeded: boolean;
+  statusOf: (nodeId: string) => BranchStatus | undefined;
 }
 
 function Reason({ children }: { children: ReactNode }) {
@@ -182,6 +188,18 @@ export function NodeMenu({ nodeId, api }: { nodeId: string; api: RowMenuApi }) {
         {item('profile', t('menu.profile'), api.config.can.profile ? null : t('menu.noRight'))}
         <Menu.Divider />
         {item('copy', t('menu.copy'), copy)}
+        {api.canNotNeeded ? (
+          <>
+            <Menu.Divider />
+            {api.statusOf(nodeId) === 'not_needed'
+              ? item('needed', t('menu.needed'))
+              : item(
+                  'notNeeded',
+                  t('menu.notNeeded'),
+                  !leaf ? t('menu.notEmpty') : api.statusOf(nodeId) === 'done' ? t('menu.branchDone') : null,
+                )}
+          </>
+        ) : null}
       </>
     );
   } else {

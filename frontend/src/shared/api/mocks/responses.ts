@@ -176,7 +176,8 @@ function projectBody(ctx: Ctx, p: DemoProject, schema: Schema) {
     name: p.name,
     customer: p.customer,
     description: p.description,
-    status: "estimation",
+    // статус проекта демо можно подменить в тестах (FE-029: «Сведение»)
+    status: (p as { status?: string }).status ?? "estimation",
     outcome: "unknown",
     detail_level: "medium",
     pm_percent: p.key === "portal" ? "18" : "15",
@@ -289,13 +290,71 @@ const DEMO: Record<string, Demo> = {
         rounded.push(field);
       changes.set(field, normal);
     }
+    const saved = demoTree.saveNode(
+      ctx.project,
+      node,
+      Object.fromEntries(changes),
+    );
+    const version = demoTree.nextProjectVersion();
+    // история листа (FE-028): было → стало по каждому изменённому полю
+    demoTree.recordHistory(
+      saved.id,
+      userRef(ctx.persona),
+      Object.fromEntries(
+        [...changes].map(([k, v]) => [
+          k,
+          [new Map(Object.entries(node)).get(k) ?? null, v],
+        ]),
+      ),
+      saved.version,
+      version,
+    );
     return {
-      node: demoTree.saveNode(ctx.project, node, Object.fromEntries(changes)),
-      project_version: demoTree.nextProjectVersion(),
+      node: saved,
+      project_version: version,
       ancestors: [],
       totals: hoursTotals(ctx.project.totals.total),
       branch_status: null,
       rounded,
+    };
+  },
+
+  getNodeHistory: (ctx) =>
+    ctx.project
+      ? demoTree.nodeHistory(ctx.project, ctx.params.id ?? "")
+      : undefined,
+
+  // FE-029: «Проверено»; у ревьюера-эксперта — самопроверка (в демо — всегда)
+  reviewNode: (ctx) =>
+    ctx.project
+      ? demoTree.reviewNode(
+          ctx.project,
+          ctx.params.id ?? "",
+          body(ctx).reviewed === true,
+          userRef(ctx.persona),
+          ctx.persona.projects[ctx.project.key]?.role !== "moderator",
+        )
+      : undefined,
+  putBranchStatus: (ctx) => {
+    const p = ctx.project;
+    if (!p) return undefined;
+    const was =
+      (
+        p.branchStatuses as {
+          phase_id: string;
+          discipline_id: string;
+          status: string;
+        }[]
+      ).find(
+        (b) =>
+          b.phase_id === ctx.params.phase &&
+          b.discipline_id === ctx.params.discipline,
+      )?.status ?? "not_started";
+    return {
+      phase_id: ctx.params.phase,
+      discipline_id: ctx.params.discipline,
+      status: typeof body(ctx).status === "string" ? body(ctx).status : "done",
+      was,
     };
   },
 
@@ -330,15 +389,19 @@ const DEMO: Record<string, Demo> = {
     ctx.project
       ? demoTree.copyBranchFrom(ctx.project, ctx.params.id ?? "", body(ctx))
       : undefined,
-  createLocalNodeType: (ctx) => ({
-    id: uuidFrom("node-type", "local", String(body(ctx).name)),
-    name: String(body(ctx).name),
-    icon: String(body(ctx).icon),
-    norms: [],
-    is_system: false,
-    is_active: true,
-    project_id: ctx.project?.id ?? String(ctx.params.id),
-  }),
+  // тип сразу работает в проекте: попадает в listProjectNodeTypes до перезагрузки
+  createLocalNodeType: (ctx) =>
+    ctx.project
+      ? demoTree.addLocalType({
+          id: uuidFrom("node-type", "local", String(body(ctx).name)),
+          name: String(body(ctx).name),
+          icon: String(body(ctx).icon),
+          norms: [],
+          is_system: false,
+          is_active: true,
+          project_id: ctx.project.id,
+        })
+      : undefined,
   patchDisciplineProfile: (ctx) => {
     const d = DISCIPLINES.find(
       (x) => disciplineId(x.key) === ctx.params.discipline_id,
@@ -694,6 +757,7 @@ const DEMO: Record<string, Demo> = {
                 },
               ]
             : []),
+          ...demoTree.localTypesOf(ctx.project),
         ])
       : undefined,
 };

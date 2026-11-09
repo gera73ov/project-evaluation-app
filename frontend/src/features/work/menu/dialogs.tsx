@@ -2,21 +2,18 @@
  * FE-027 · диалоги меню строки (11.5; DESIGN.md 9.9, 16.3): смена типа, свой тип в проекте,
  * профиль ветки, «Свернуть в лист», «Переместить в…», «Скопировать ветку из проекта…».
  */
-import { Button, Group, Modal, Select, Text, TextInput } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Button, Group, Modal, Select, Text, TextInput } from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { api } from "../../../shared/api/client";
-import { call } from "../../../shared/api/problem";
-import { formatHours } from "../../../shared/format/number";
-import { HoursInput } from "../../../shared/ui/HoursInput";
-import {
-  NODE_TYPE_ICON_KEYS,
-  type NodeTypeIcon,
-  nodeTypeSymbol,
-} from "../../../shared/ui/icons/nodeTypes";
-import type { MoveTarget } from "./ops";
+import { api } from '../../../shared/api/client';
+import { call } from '../../../shared/api/problem';
+import { formatHours } from '../../../shared/format/number';
+import { HoursInput } from '../../../shared/ui/HoursInput';
+import { NODE_TYPE_ICON_KEYS, nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
+import type { MoveTarget } from './ops';
+import type { NodeTypeIcon } from './useTreeOps';
 
 export interface MenuType {
   id: string;
@@ -46,14 +43,9 @@ function Actions({
   return (
     <Group justify="flex-end" mt="md">
       <Button variant="default" onClick={onClose}>
-        {t("common.cancel")}
+        {t('common.cancel')}
       </Button>
-      <Button
-        color="accent"
-        loading={busy}
-        disabled={disabled}
-        onClick={onConfirm}
-      >
+      <Button color="accent" loading={busy} disabled={disabled} onClick={onConfirm}>
         {label}
       </Button>
     </Group>
@@ -78,19 +70,13 @@ export function TypeDialog({
 }) {
   const { t } = useTranslation();
   return (
-    <Modal
-      opened
-      onClose={onClose}
-      title={t("menu.changeTypeTitle", { name: title })}
-      size={360}
-      centered
-    >
-      <div className="type-grid" role="group" aria-label={t("menu.types")}>
+    <Modal opened onClose={onClose} title={t('menu.changeTypeTitle', { name: title })} size={360} centered>
+      <div className="type-grid" role="group" aria-label={t('menu.types')}>
         {types.map((type) => (
           <button
             key={type.id}
             type="button"
-            className={type.id === current ? "type-opt sel" : "type-opt"}
+            className={type.id === current ? 'type-opt sel' : 'type-opt'}
             aria-pressed={type.id === current}
             disabled={busy}
             onClick={() => onPick(type.id)}
@@ -99,9 +85,7 @@ export function TypeDialog({
               {nodeTypeSymbol(type.icon)}
             </span>
             {type.name}
-            {type.local ? (
-              <span className="type-note">{t("menu.local")}</span>
-            ) : null}
+            {type.local ? <span className="type-note">{t('menu.local')}</span> : null}
           </button>
         ))}
       </div>
@@ -120,32 +104,22 @@ export function LocalTypeDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [name, setName] = useState("");
+  const [name, setName] = useState('');
   const [icon, setIcon] = useState<NodeTypeIcon | null>(null);
   const trimmed = name.trim();
   return (
-    <Modal
-      opened
-      onClose={onClose}
-      title={t("menu.localTitle")}
-      size={560}
-      centered
-    >
+    <Modal opened onClose={onClose} title={t('menu.localTitle')} size={560} centered>
       <TextInput
-        label={t("menu.localName")}
+        label={t('menu.localName')}
         value={name}
         maxLength={LOCAL_TYPE_MAX}
         onChange={(e) => setName(e.currentTarget.value)}
         data-autofocus
       />
       <Text size="sm" fw={600} mt="md" mb={6} id="icon-grid-label">
-        {t("menu.localIcon")}
+        {t('menu.localIcon')}
       </Text>
-      <div
-        className="icon-grid"
-        role="radiogroup"
-        aria-labelledby="icon-grid-label"
-      >
+      <div className="icon-grid" role="radiogroup" aria-labelledby="icon-grid-label">
         {NODE_TYPE_ICON_KEYS.map((key) => (
           <button
             key={key}
@@ -154,7 +128,7 @@ export function LocalTypeDialog({
             aria-checked={icon === key}
             aria-label={t(`menu.icon.${key}`)}
             title={t(`menu.icon.${key}`)}
-            className={icon === key ? "icon-opt sel" : "icon-opt"}
+            className={icon === key ? 'icon-opt sel' : 'icon-opt'}
             onClick={() => setIcon(key)}
           >
             {nodeTypeSymbol(key)}
@@ -162,12 +136,12 @@ export function LocalTypeDialog({
         ))}
       </div>
       <Text size="xs" c="dimmed" mt="sm">
-        {t("menu.localNote")}
+        {t('menu.localNote')}
       </Text>
       <Actions
         busy={busy}
         disabled={!trimmed || !icon}
-        label={t("menu.localCreate")}
+        label={t('menu.localCreate')}
         onConfirm={() => icon && onCreate(trimmed, icon)}
         onClose={onClose}
       />
@@ -193,23 +167,17 @@ export function ProfileDialog({
 }) {
   const { t } = useTranslation();
   return (
-    <Modal
-      opened
-      onClose={onClose}
-      title={t("menu.profileTitle", { name: branch })}
-      size={420}
-      centered
-    >
+    <Modal opened onClose={onClose} title={t('menu.profileTitle', { name: branch })} size={420} centered>
       <Text size="sm" c="dimmed" mb="sm">
-        {t("menu.profileNote")}
+        {t('menu.profileNote')}
       </Text>
       {profiles.length ? (
-        <div className="pick-list" role="group" aria-label={t("menu.profile")}>
+        <div className="pick-list" role="group" aria-label={t('menu.profile')}>
           {profiles.map((p) => (
             <button
               key={p.id}
               type="button"
-              className={p.id === current ? "pick sel" : "pick"}
+              className={p.id === current ? 'pick sel' : 'pick'}
               aria-pressed={p.id === current}
               disabled={busy}
               onClick={() => onPick(p.id)}
@@ -220,7 +188,7 @@ export function ProfileDialog({
           ))}
         </div>
       ) : (
-        <Text size="sm">{t("menu.noProfiles")}</Text>
+        <Text size="sm">{t('menu.noProfiles')}</Text>
       )}
     </Modal>
   );
@@ -244,36 +212,30 @@ export function CollapseDialog({
 }) {
   const { t } = useTranslation();
   const [values, setValues] = useState(initial);
-  const field = (key: "o" | "r" | "p") => (
+  const field = (key: 'o' | 'r' | 'p') => (
     <HoursInput
       label={key.toUpperCase()}
-      value={key === "o" ? values.o : key === "r" ? values.r : values.p}
-      onCommit={(value) => setValues((v) => ({ ...v, [key]: value ?? "0" }))}
+      value={key === 'o' ? values.o : key === 'r' ? values.r : values.p}
+      onCommit={(value) => setValues((v) => ({ ...v, [key]: value ?? '0' }))}
     />
   );
   return (
-    <Modal
-      opened
-      onClose={onClose}
-      title={t("menu.collapseTitle", { name: title })}
-      size={420}
-      centered
-    >
+    <Modal opened onClose={onClose} title={t('menu.collapseTitle', { name: title })} size={420} centered>
       <Text size="sm" mb="sm">
-        {t("menu.collapseNote", {
+        {t('menu.collapseNote', {
           count: childrenCount,
           fork: `${formatHours(initial.o)}–${formatHours(initial.r)}–${formatHours(initial.p)}`,
         })}
       </Text>
       <div className="fork-row">
-        {field("o")}
-        {field("r")}
-        {field("p")}
+        {field('o')}
+        {field('r')}
+        {field('p')}
       </div>
       <Actions
         busy={busy}
         disabled={false}
-        label={t("menu.collapseConfirm")}
+        label={t('menu.collapseConfirm')}
         onConfirm={() => onConfirm(values)}
         onClose={onClose}
       />
@@ -296,59 +258,43 @@ export function MoveDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<string | null>(null);
-  const q = query.trim().toLocaleLowerCase("ru");
-  const shown = q
-    ? targets.filter((x) => x.title.toLocaleLowerCase("ru").includes(q))
-    : targets;
+  const q = query.trim().toLocaleLowerCase('ru');
+  const shown = q ? targets.filter((x) => x.title.toLocaleLowerCase('ru').includes(q)) : targets;
   return (
-    <Modal
-      opened
-      onClose={onClose}
-      title={t("menu.moveTitle", { name: title })}
-      size={480}
-      centered
-    >
+    <Modal opened onClose={onClose} title={t('menu.moveTitle', { name: title })} size={480} centered>
       <TextInput
-        placeholder={t("menu.moveSearch")}
-        aria-label={t("menu.moveSearch")}
+        placeholder={t('menu.moveSearch')}
+        aria-label={t('menu.moveSearch')}
         value={query}
         onChange={(e) => setQuery(e.currentTarget.value)}
         mb="sm"
         data-autofocus
       />
       {shown.length ? (
-        <div
-          className="pick-list tall"
-          role="radiogroup"
-          aria-label={t("menu.moveWhere")}
-        >
+        <div className="pick-list tall" role="radiogroup" aria-label={t('menu.moveWhere')}>
           {shown.map((target) => (
             <button
               key={target.id}
               type="button"
               role="radio"
               aria-checked={picked === target.id}
-              className={picked === target.id ? "pick sel" : "pick"}
+              className={picked === target.id ? 'pick sel' : 'pick'}
               style={{ paddingLeft: 10 + (q ? 0 : target.level * 16) }}
               onClick={() => setPicked(target.id)}
             >
-              {target.kind === "discipline" ? (
-                <b>{target.title}</b>
-              ) : (
-                target.title
-              )}
+              {target.kind === 'discipline' ? <b>{target.title}</b> : target.title}
             </button>
           ))}
         </div>
       ) : (
-        <Text size="sm">{t("menu.moveNothing")}</Text>
+        <Text size="sm">{t('menu.moveNothing')}</Text>
       )}
       <Actions
         busy={busy}
         disabled={!picked}
-        label={t("menu.moveConfirm")}
+        label={t('menu.moveConfirm')}
         onConfirm={() => picked && onPick(picked)}
         onClose={onClose}
       />
@@ -379,38 +325,21 @@ export function CopyBranchDialog({
   const [source, setSource] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const projects = useQuery({
-    queryKey: ["projects", "copy-source"],
-    queryFn: () =>
-      call(() => api.GET("/projects", { params: { query: { limit: 200 } } })),
-    select: (data) =>
-      data.items
-        .filter((p) => p.id !== projectId)
-        .map((p) => ({ value: p.id, label: p.name })),
+    queryKey: ['projects', 'copy-source'],
+    queryFn: () => call(() => api.GET('/projects', { params: { query: { limit: 200 } } })),
+    select: (data) => data.items.filter((p) => p.id !== projectId).map((p) => ({ value: p.id, label: p.name })),
   });
   const tree = useQuery({
-    queryKey: ["tree", source],
-    queryFn: () =>
-      call(() =>
-        api.GET("/projects/{id}/tree", {
-          params: { path: { id: source ?? "" } },
-        }),
-      ),
+    queryKey: ['tree', source],
+    queryFn: () => call(() => api.GET('/projects/{id}/tree', { params: { path: { id: source ?? '' } } })),
     enabled: source !== null,
     select: (data) => sourceRows(data.nodes as SourceNode[], disciplineId),
   });
   return (
-    <Modal
-      opened
-      onClose={onClose}
-      title={t("menu.copyTitle", { name: title })}
-      size={520}
-      centered
-    >
+    <Modal opened onClose={onClose} title={t('menu.copyTitle', { name: title })} size={520} centered>
       <Select
-        label={t("menu.copyProject")}
-        placeholder={
-          projects.isPending ? t("common.loading") : t("menu.copyProjectPick")
-        }
+        label={t('menu.copyProject')}
+        placeholder={projects.isPending ? t('common.loading') : t('menu.copyProjectPick')}
         data={projects.data ?? []}
         value={source}
         onChange={(value) => {
@@ -418,23 +347,19 @@ export function CopyBranchDialog({
           setPicked(null);
         }}
         searchable
-        nothingFoundMessage={t("menu.copyNoProjects")}
+        nothingFoundMessage={t('menu.copyNoProjects')}
         comboboxProps={{ withinPortal: true }}
       />
       {source && tree.data ? (
         tree.data.length ? (
-          <div
-            className="pick-list tall"
-            role="radiogroup"
-            aria-label={t("menu.copyNode")}
-          >
+          <div className="pick-list tall" role="radiogroup" aria-label={t('menu.copyNode')}>
             {tree.data.map((row) => (
               <button
                 key={row.id}
                 type="button"
                 role="radio"
                 aria-checked={picked === row.id}
-                className={picked === row.id ? "pick sel" : "pick"}
+                className={picked === row.id ? 'pick sel' : 'pick'}
                 style={{ paddingLeft: 10 + row.level * 16 }}
                 onClick={() => setPicked(row.id)}
               >
@@ -444,17 +369,17 @@ export function CopyBranchDialog({
           </div>
         ) : (
           <Text size="sm" mt="sm">
-            {t("menu.copyEmpty")}
+            {t('menu.copyEmpty')}
           </Text>
         )
       ) : null}
       <Text size="xs" c="dimmed" mt="sm">
-        {t("menu.copyNote")}
+        {t('menu.copyNote')}
       </Text>
       <Actions
         busy={busy}
         disabled={!picked}
-        label={t("menu.copyConfirm")}
+        label={t('menu.copyConfirm')}
         onConfirm={() => picked && onPick(picked)}
         onClose={onClose}
       />
@@ -478,13 +403,9 @@ export function sourceRows(
   disciplineId: string | null,
 ): { id: string; title: string; level: number }[] {
   const byParent = new Map<string | null, SourceNode[]>();
-  for (const n of nodes)
-    byParent.set(n.parent_id, [...(byParent.get(n.parent_id) ?? []), n]);
-  for (const list of byParent.values())
-    list.sort((a, b) => (a.position < b.position ? -1 : 1));
-  const phases = new Map(
-    nodes.filter((n) => n.kind === "phase").map((n) => [n.id, n.title]),
-  );
+  for (const n of nodes) byParent.set(n.parent_id, [...(byParent.get(n.parent_id) ?? []), n]);
+  for (const list of byParent.values()) list.sort((a, b) => (a.position < b.position ? -1 : 1));
+  const phases = new Map(nodes.filter((n) => n.kind === 'phase').map((n) => [n.id, n.title]));
   const out: { id: string; title: string; level: number }[] = [];
   const walk = (parent: string, level: number) => {
     for (const n of byParent.get(parent) ?? []) {
@@ -493,17 +414,8 @@ export function sourceRows(
     }
   };
   for (const n of nodes) {
-    if (
-      n.kind !== "discipline" ||
-      n.discipline_id !== disciplineId ||
-      !(byParent.get(n.id) ?? []).length
-    )
-      continue;
-    out.push({
-      id: n.id,
-      title: `${phases.get(n.phase_id) ?? ""} · ${n.title}`,
-      level: 0,
-    });
+    if (n.kind !== 'discipline' || n.discipline_id !== disciplineId || !(byParent.get(n.id) ?? []).length) continue;
+    out.push({ id: n.id, title: `${phases.get(n.phase_id) ?? ''} · ${n.title}`, level: 0 });
     walk(n.id, 1);
   }
   return out;
