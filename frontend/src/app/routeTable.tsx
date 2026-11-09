@@ -15,6 +15,7 @@ import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
+import { WorkRoute } from '../features/work/WorkRoute';
 import type { Params } from './router';
 import type { SystemRole } from './session';
 import { Placeholder } from './Placeholder';
@@ -64,7 +65,7 @@ export const ROUTES: readonly RouteDef[] = [
 
   { path: '/', access: 'private', nav: 'home', render: () => <HomeRoute /> },
   { path: '/projects/new', access: 'private', nav: 'home', roles: ['moderator'], render: () => <ProjectCreatePage /> },
-  { path: '/projects/:id', access: 'private', render: stub('Рабочий экран проекта', 'FE-022') },
+  { path: '/projects/:id', access: 'private', render: (params) => <WorkRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/settings', access: 'private', render: (params) => <SettingsRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/settings/documents', access: 'private', render: stub('Документы заказчика', 'FE-017') },
   { path: '/projects/:id/trash', access: 'private', render: stub('Корзина', 'FE-018') },

@@ -202,6 +202,20 @@ function moneyFigure(p: DemoProject, figure: 'e' | 'p80' | 'p90') {
   };
 }
 
+/** Ключи иконок типов по умолчанию (DESIGN.md 16.3). */
+const NODE_TYPE_ICONS = new Map([
+  ['Модуль', 'module'],
+  ['Функция', 'function'],
+  ['Экран', 'screen'],
+  ['Интеграция', 'integration'],
+  ['Отчёт', 'report'],
+  ['Сущность', 'entity'],
+  ['Сервис', 'service'],
+  ['Тест-набор', 'test_suite'],
+  ['Документ', 'document'],
+  ['Работа', 'work'],
+]);
+
 const DEMO: Record<string, Demo> = {
   getMe: (ctx) => ({
     id: personaId(ctx.persona),
@@ -439,7 +453,7 @@ const DEMO: Record<string, Demo> = {
       NODE_TYPES.map((name) => ({
         id: typeId(name),
         name,
-        icon: 'task',
+        icon: NODE_TYPE_ICONS.get(name) ?? 'work',
         norms: [],
         is_system: name === 'Работа',
         is_active: true,
