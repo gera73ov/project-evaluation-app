@@ -34,6 +34,7 @@ export interface CellMark {
 export const MARK_MS = 10_000;
 
 const CELL_FIELDS = new Map<string, CellField>([
+  ['title', 'title'],
   ['o', 'o'],
   ['r', 'r'],
   ['p', 'p'],

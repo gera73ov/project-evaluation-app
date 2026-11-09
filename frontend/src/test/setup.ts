@@ -7,6 +7,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import '../shared/i18n';
+import { resetDemoTree } from '../shared/api/mocks/demoTree';
 import { buildHandlers } from '../shared/api/mocks/handlers';
 import { PERSONAS, type Persona } from '../shared/api/mocks/personas';
 
@@ -43,6 +44,7 @@ if (browser) {
     cleanup();
     server.resetHandlers();
     persona.current = PERSONAS.expert;
+    resetDemoTree();
     window.history.replaceState(null, '', '/');
   });
   afterAll(() => server.close());

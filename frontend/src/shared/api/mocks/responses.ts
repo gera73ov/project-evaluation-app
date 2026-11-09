@@ -30,6 +30,7 @@ import {
   userRef,
   type DemoProject,
 } from "./data";
+import * as demoTree from "./demoTree";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
 import { sample, stripMoney } from "./sample";
@@ -197,7 +198,7 @@ function projectBody(ctx: Ctx, p: DemoProject, schema: Schema) {
     disciplines: p.disciplines.map((key) => ({
       discipline_id: disciplineId(key),
       name: DISCIPLINES.find((d) => d.key === key)?.name ?? key,
-      profile_id: profileId(key),
+      profile_id: demoProfiles.get(disciplineId(key)) ?? profileId(key),
       has_expert: p.members.some(
         (m) =>
           (m as { discipline_id: string | null }).discipline_id ===
@@ -248,20 +249,30 @@ const NODE_TYPE_ICONS = new Map([
   ["Работа", "work"],
 ]);
 
-/** Версия проекта демо-правок: растёт с каждой правкой узла. */
-let demoProjectVersion = 1000;
-/** Правки узлов за сессию демо: следующий ответ PATCH того же узла их помнит. */
-const demoEdits = new Map<string, Record<string, unknown>>();
-
 /** Шаг 0,5 ч по ROUND_HALF_UP (BR-CALC-03); в демо достаточно чисел JS. */
 function demoHours(value: string): string {
   return String(Math.floor(Number(value.replace(",", ".")) * 2 + 0.5) / 2);
 }
 
+/** Профиль ветки, выбранный за сессию демо: дисциплина → профиль. */
+const demoProfiles = new Map<string, string>();
+
+/** Цепочка типов профиля по умолчанию из названия («Модуль → Функция»). */
+function profileChain(name: string): string[] {
+  return name
+    .split(" → ")
+    .map((n) => (NODE_TYPES.includes(n) ? n : "Работа"))
+    .map(typeId);
+}
+
+const body = (ctx: Ctx) => (ctx.body ?? {}) as Record<string, unknown>;
+
 const DEMO: Record<string, Demo> = {
   // правка узла: тот же узел с изменениями и новой версией; данные демо не меняются
   patchNode: (ctx) => {
-    const node = ctx.project?.nodes.find((n) => n.id === ctx.params.id);
+    const node = ctx.project
+      ? demoTree.demoNode(ctx.project, ctx.params.id ?? "")
+      : undefined;
     if (!ctx.project || !node) return undefined;
     const changes = new Map(
       Object.entries(
@@ -278,23 +289,91 @@ const DEMO: Record<string, Demo> = {
         rounded.push(field);
       changes.set(field, normal);
     }
-    demoProjectVersion += 1;
-    const key = String(node.id);
-    const edits = { ...demoEdits.get(key), ...Object.fromEntries(changes) };
-    demoEdits.set(key, edits);
     return {
-      node: {
-        ...node,
-        ...edits,
-        version: Number(node.version ?? 1) + 1,
-      },
-      project_version: demoProjectVersion,
+      node: demoTree.saveNode(ctx.project, node, Object.fromEntries(changes)),
+      project_version: demoTree.nextProjectVersion(),
       ancestors: [],
       totals: hoursTotals(ctx.project.totals.total),
       branch_status: null,
       rounded,
     };
   },
+
+  // FE-027: операции со структурой дерева
+  createNode: (ctx) =>
+    ctx.project ? demoTree.createNode(ctx.project, body(ctx)) : undefined,
+  splitNode: (ctx) =>
+    ctx.project
+      ? demoTree.splitNode(ctx.project, ctx.params.id ?? "")
+      : undefined,
+  collapseSuggestion: (ctx) =>
+    ctx.project
+      ? demoTree.collapseSuggestion(ctx.project, ctx.params.id ?? "")
+      : undefined,
+  collapseNode: (ctx) =>
+    ctx.project
+      ? demoTree.collapseNode(ctx.project, ctx.params.id ?? "", body(ctx))
+      : undefined,
+  moveNode: (ctx) =>
+    ctx.project
+      ? demoTree.moveNode(ctx.project, ctx.params.id ?? "", body(ctx))
+      : undefined,
+  duplicateNode: (ctx) =>
+    ctx.project
+      ? demoTree.duplicateNode(ctx.project, ctx.params.id ?? "")
+      : undefined,
+  deleteNode: (ctx) =>
+    ctx.project
+      ? demoTree.deleteNode(ctx.project, ctx.params.id ?? "")
+      : undefined,
+  copyBranchFrom: (ctx) =>
+    ctx.project
+      ? demoTree.copyBranchFrom(ctx.project, ctx.params.id ?? "", body(ctx))
+      : undefined,
+  createLocalNodeType: (ctx) => ({
+    id: uuidFrom("node-type", "local", String(body(ctx).name)),
+    name: String(body(ctx).name),
+    icon: String(body(ctx).icon),
+    norms: [],
+    is_system: false,
+    is_active: true,
+  }),
+  patchDisciplineProfile: (ctx) => {
+    const d = DISCIPLINES.find(
+      (x) => disciplineId(x.key) === ctx.params.discipline_id,
+    );
+    if (!d) return undefined;
+    const profile = String(body(ctx).profile_id);
+    // профиль только из профилей этой дисциплины
+    if ([profileId(d.key), profileId(`${d.key}-alt`)].includes(profile))
+      demoProfiles.set(disciplineId(d.key), profile);
+    return {
+      discipline_id: disciplineId(d.key),
+      name: d.name,
+      profile_id: demoProfiles.get(disciplineId(d.key)) ?? profileId(d.key),
+      has_expert: true,
+    };
+  },
+  listProfiles: (_ctx, schema) =>
+    list(
+      schema,
+      DISCIPLINES.flatMap((d) => [
+        {
+          id: profileId(d.key),
+          discipline_id: disciplineId(d.key),
+          name: d.profile,
+          type_chain: profileChain(d.profile),
+          is_active: true,
+        },
+        {
+          id: profileId(`${d.key}-alt`),
+          discipline_id: disciplineId(d.key),
+          name: "Модуль → Работа",
+          type_chain: profileChain("Модуль → Работа"),
+          is_active: true,
+        },
+      ]),
+    ),
 
   getMe: (ctx) => ({
     id: personaId(ctx.persona),

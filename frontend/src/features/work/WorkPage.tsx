@@ -24,6 +24,8 @@ import { membersKey } from '../settings/team/TeamSection';
 import { useProject, type Project } from '../settings/useProject';
 import { useCollab, useCollabState, type Collab } from './collab/useCollab';
 import { FilterBar } from './filters/FilterBar';
+import type { MenuSetup } from './menu/useRowMenus';
+import { localTypesKey, useTreeOps } from './menu/useTreeOps';
 import {
   chipCounts,
   collapseTo,
@@ -40,6 +42,7 @@ import { TreeTable, type TreeContext, type TreeTableApi } from './tree/TreeTable
 
 type Member = components['schemas']['Member'];
 type Money = components['schemas']['ProjectMoney'];
+type NodeType = components['schemas']['NodeType'];
 
 interface CommentLine {
   tag_id: string | null;
@@ -134,6 +137,7 @@ export function WorkPage({ projectId }: { projectId: string }) {
       project={data}
       store={tree.store}
       confirm={tree.confirm}
+      confirmMutation={tree.confirmMutation}
       collab={collab}
       members={list}
       userId={userId}
@@ -147,6 +151,7 @@ function WorkScreen({
   project: data,
   store,
   confirm,
+  confirmMutation,
   collab,
   members,
   userId,
@@ -156,6 +161,7 @@ function WorkScreen({
   project: Project;
   store: TreeStore;
   confirm: ReturnType<typeof useProjectTree>['confirm'];
+  confirmMutation: ReturnType<typeof useProjectTree>['confirmMutation'];
   collab: Collab;
   members: Member[];
   userId: string | null;
@@ -183,11 +189,25 @@ function WorkScreen({
           {
             name: n.name,
             icon: n.icon,
+            active: n.is_active,
             norms: n.norms.map((m) => ({ ...m, o: String(m.o), r: String(m.r), p: String(m.p) })),
           },
         ]),
       ),
   });
+  // локальные типы проекта, созданные в этой сессии (список с сервера — после CR-006)
+  const localTypes = useQuery({
+    queryKey: localTypesKey(projectId),
+    queryFn: () => [] as NodeType[],
+    staleTime: Infinity,
+  });
+  const profiles = useQuery({
+    queryKey: ['dict', 'profiles'],
+    queryFn: () => call(() => api.GET('/admin/profiles')),
+    staleTime: 10 * 60_000,
+    select: (data) => data.items.filter((p) => p.is_active),
+  });
+  const ops = useTreeOps({ projectId, store, confirmMutation });
   const tags = useQuery({
     queryKey: ['dict', 'tags'],
     queryFn: () => call(() => api.GET('/admin/tags')),
@@ -259,13 +279,43 @@ function WorkScreen({
     if (focusNode) tableRef.current?.show(focusNode);
   }, [focusNode]);
 
+  const allTypes = new Map(nodeTypes.data ?? []);
+  for (const local of localTypes.data ?? [])
+    allTypes.set(local.id, { name: local.name, icon: local.icon, active: true, norms: [] });
+  const localIds = new Set((localTypes.data ?? []).map((l) => l.id));
+  const typeName = (id: string) => allTypes.get(id)?.name ?? '?';
+  const perms = new Set(data.my_permissions);
+  const menus: MenuSetup = {
+    projectId,
+    ops,
+    crossBranch: perms.has('tree.move.cross_branch'),
+    config: {
+      types: [...allTypes]
+        .filter(([, type]) => type.active)
+        .map(([id, type]) => ({ id, name: type.name, icon: type.icon, local: localIds.has(id) })),
+      chainOf: (disciplineId) => {
+        const profileId = data.disciplines.find((d) => d.discipline_id === disciplineId)?.profile_id;
+        return profiles.data?.find((p) => p.id === profileId)?.type_chain ?? [];
+      },
+      can: {
+        localType: perms.has('node_type.create_local'),
+        profile: perms.has('branch.profile.write'),
+        copyFrom: perms.has('branch.copy_from'),
+      },
+    },
+    profilesOf: (disciplineId) =>
+      (profiles.data ?? [])
+        .filter((p) => p.discipline_id === disciplineId)
+        .map((p) => ({ id: p.id, name: p.name, chain: p.type_chain.map(typeName).join(' → ') })),
+    profileOf: (disciplineId) => data.disciplines.find((d) => d.discipline_id === disciplineId)?.profile_id ?? null,
+  };
   const ctx: TreeContext = {
     highlight: deferredQuery,
     collab: { locks, marks, canForce: data.my_permissions.includes('tree.lock.force') },
     canEdit: editRule(data, members, userId, offline),
     withoutExpert: new Set(data.disciplines.filter((d) => !d.has_expert).map((d) => d.discipline_id)),
     disciplineNames: new Map(data.disciplines.map((d) => [d.discipline_id, d.name])),
-    nodeTypes: nodeTypes.data ?? new Map(),
+    nodeTypes: allTypes,
     tags: new Map((tags.data ?? []).map((tag) => [tag.id, tag.short_name])),
     pmPercent: String(data.pm_percent),
     pmReason: data.pm_percent_reason ?? '',
@@ -323,6 +373,7 @@ function WorkScreen({
           visible={visible}
           onConfirm={confirm}
           locking={collab}
+          menus={menus}
         />
       </div>
     </div>

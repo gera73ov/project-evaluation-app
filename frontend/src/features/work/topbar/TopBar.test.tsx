@@ -96,7 +96,7 @@ describe('верхняя полоса рабочего экрана', () => {
     renderApp(`/projects/${id}`);
     const bar = await screen.findByRole('banner', { name: 'Проект' });
     fireEvent.click(await within(bar).findByRole('button', { name: /Открыто/ }));
-    const item = await screen.findByRole('button', { name: /Обмен с 1С/ });
+    const item = await screen.findByRole('button', { name: /^Обмен с 1С/ });
     fireEvent.click(item);
     await waitFor(() => expect(document.querySelector('.tr.target')?.textContent).toContain('Обмен с 1С'));
   });
