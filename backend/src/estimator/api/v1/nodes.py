@@ -1,5 +1,6 @@
-"""Создание и правка узлов (CORE-015; contracts/openapi.yaml ``POST /projects/{id}/nodes``,
-``PATCH /nodes/{id}``; пример ответа — SPEC 15.3).
+"""Создание, правка и структурные операции узлов (CORE-015, CORE-016, CORE-019;
+contracts/openapi.yaml ``POST /projects/{id}/nodes``, ``PATCH /nodes/{id}``,
+``POST /nodes/{id}/move|split|collapse|duplicate|review``; пример ответа — SPEC 15.3).
 
 Объект ``/nodes/{id}`` для gate — проект и дисциплина узла (:func:`node_target`): эксперт правит
 только свои ветки (scope ``own_discipline``). ``PATCH`` с комментарием требует
@@ -26,7 +27,7 @@ from estimator.db.session import DbSession
 from estimator.security.authz import AuthorizerDep, Target
 from estimator.security.authz.deps import register_resolver
 from estimator.services.review import marks
-from estimator.services.tree import edit
+from estimator.services.tree import edit, structure
 from estimator.services.tree.load import load_tree, mutation_view
 
 router = ApiRouter(tags=["Дерево"])
@@ -171,13 +172,132 @@ async def review_node(
     if node is None:  # pragma: no cover — gate уже ответил 404
         raise HTTPException(404, detail={"code": "NOT_FOUND"})
     changed = await marks.mark(db, principal, node, body.reviewed)
+    return await _nodes_response(db, node.project_id, structure.Outcome(node_ids=changed))
+
+
+async def _nodes_response(
+    db: AsyncSession, project_id: uuid.UUID, out: structure.Outcome
+) -> dict[str, Any]:
+    """``NodesMutation``: изменённые и созданные узлы (с новыми E и σ), удалённые, итог проекта."""
     await db.flush()
-    project = await _project(db, node.project_id)
+    project = await _project(db, project_id)
     tree = await load_tree(db, project)
-    ids = {str(i) for i in changed}
-    return {
+    ids = {str(i) for i in out.node_ids}
+    body: dict[str, Any] = {
         "nodes": [n for n in tree["nodes"] if n["id"] in ids],
         "project_version": project.version,
         "totals": tree["totals"]["total"],
-        "branch_statuses": [],
+        "branch_statuses": out.branch_statuses,
     }
+    if out.batch_id is not None:
+        body["deleted_ids"] = out.deleted_ids
+        body["batch_id"] = out.batch_id
+    return body
+
+
+async def _live(db: AsyncSession, node_id: uuid.UUID) -> tuple[Node, Project]:
+    node = await edit.live_node(db, node_id)
+    if node is None:  # pragma: no cover — gate уже ответил 404
+        raise HTTPException(404, detail={"code": "NOT_FOUND"})
+    return node, await _project(db, node.project_id)
+
+
+@router.post(
+    "/nodes/{id}/move",
+    permission=["tree.write", "tree.move.cross_branch"],
+    response_model=s.NodesMutation,
+    response_model_exclude_unset=True,
+)
+async def move_node(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    body: s.NodeMove,
+    principal: ActivePrincipal,
+    db: DbSession,
+    authz: AuthorizerDep,
+) -> dict[str, Any]:
+    """Перенос и порядок (FR-TREE-23): эксперт — в своей ветке, модератор — по проекту (5.1)."""
+    node, project = await _live(db, id)
+    new_parent = await edit.live_node(db, body.new_parent_id)
+    if new_parent is None or new_parent.project_id != project.id:
+        raise ApiError(
+            "VALIDATION_FAILED",
+            detail="Новый родитель не найден в проекте",
+            errors=[{"field": "/new_parent_id", "code": "invalid", "message": "Узел не найден"}],
+        )
+    await authz.check("tree.write", _target(node, project))
+    if structure.is_cross_branch(node, new_parent):
+        await authz.check("tree.move.cross_branch", _target(node, project))
+        await authz.check("tree.move.cross_branch", _target(new_parent, project))
+    out = await structure.move_node(
+        db, principal, project, node, new_parent, body.after_id, body.base_version
+    )
+    return await _nodes_response(db, project.id, out)
+
+
+@router.post(
+    "/nodes/{id}/split",
+    permission="tree.write",
+    response_model=s.NodesMutation,
+    response_model_exclude_unset=True,
+)
+async def split_node(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    body: s.VersionOnly,
+    principal: ActivePrincipal,
+    db: DbSession,
+) -> dict[str, Any]:
+    """«Разбить лист» (BR-TREE-02)."""
+    node, project = await _live(db, id)
+    out = await structure.split_node(db, principal, project, node, body.base_version)
+    return await _nodes_response(db, project.id, out)
+
+
+@router.get(
+    "/nodes/{id}/collapse",
+    permission="tree.read",
+    response_model=s.CollapseSuggestion,
+)
+async def collapse_suggestion(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    db: DbSession,
+) -> dict[str, Any]:
+    """Предложение O/R/P для «Свернуть в лист» (BR-TREE-03)."""
+    node, project = await _live(db, id)
+    return await structure.collapse_suggestion(db, project, node)
+
+
+@router.post(
+    "/nodes/{id}/collapse",
+    permission="tree.write",
+    response_model=s.NodesMutation,
+    response_model_exclude_unset=True,
+)
+async def collapse_node(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    body: s.NodeCollapse,
+    principal: ActivePrincipal,
+    db: DbSession,
+) -> dict[str, Any]:
+    """«Свернуть в лист»: дети — в корзину одним пакетом (BR-TREE-03)."""
+    node, project = await _live(db, id)
+    values = body.model_dump(exclude={"base_version"})
+    out = await structure.collapse_node(db, principal, project, node, body.base_version, values)
+    return await _nodes_response(db, project.id, out)
+
+
+@router.post(
+    "/nodes/{id}/duplicate",
+    permission="tree.write",
+    status_code=201,
+    response_model=s.NodesMutation,
+    response_model_exclude_unset=True,
+)
+async def duplicate_node(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    principal: ActivePrincipal,
+    db: DbSession,
+) -> dict[str, Any]:
+    """«Дублировать» (FR-TREE-23): копия поддерева сразу под узлом."""
+    node, project = await _live(db, id)
+    out = await structure.duplicate_node(db, principal, project, node)
+    return await _nodes_response(db, project.id, out)

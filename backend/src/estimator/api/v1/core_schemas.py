@@ -428,3 +428,29 @@ class BranchStatusPut(_Strict):
 
 class NodeReview(_Strict):
     reviewed: bool
+
+
+class NodeMove(_Strict):
+    base_version: int = Field(ge=1)
+    new_parent_id: uuid.UUID
+    after_id: uuid.UUID | None = None
+
+
+class VersionOnly(_Strict):
+    base_version: int = Field(ge=1)
+
+
+class NodeCollapse(_Strict):
+    """Без O/R/P — сервер подставит суммы детей (BR-TREE-03)."""
+
+    base_version: int = Field(ge=1)
+    o: HoursInput = Field(default=None, pattern=_HOURS_PATTERN, max_length=12)
+    r: HoursInput = Field(default=None, pattern=_HOURS_PATTERN, max_length=12)
+    p: HoursInput = Field(default=None, pattern=_HOURS_PATTERN, max_length=12)
+
+
+class CollapseSuggestion(_Strict):
+    o: str
+    r: str
+    p: str
+    multiplier: Literal[1]
