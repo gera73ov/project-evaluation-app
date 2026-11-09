@@ -69,4 +69,53 @@ describe('настройки: «Команда»', () => {
     expect(within(section).queryByRole('button', { name: /Убрать/ })).toBeNull();
     expect(within(section).queryByRole('button', { name: '+ Добавить дисциплину' })).toBeNull();
   });
+  it('«+» у дисциплины: поиск кандидатов (CR-005) и PUT с новым экспертом', async () => {
+    persona.current = PERSONAS.moderator;
+    const bodies = capturePut();
+    const asked = { params: new URLSearchParams() };
+    server.use(
+      http.get(api('/projects/:id/member-candidates'), ({ request }) => {
+        asked.params = new URL(request.url).searchParams;
+        return HttpResponse.json({
+          items: [{ user: { id: 'u-new', full_name: 'Е. Новая', initials: 'ЕН' }, system_roles: [] }],
+        });
+      }),
+    );
+    const section = await openTeam();
+    fireEvent.click(within(section).getByRole('button', { name: 'Добавить эксперта: QA' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Добавить эксперта' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'ФИО' }), { target: { value: 'Но' } });
+    fireEvent.click(await within(dialog).findByRole('button', { name: /Е\. Новая/ }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(asked.params.get('role')).toBe('expert');
+    expect(asked.params.get('q')).toBe('Но');
+    expect(bodies[0]?.members).toContainEqual(
+      expect.objectContaining({ user_id: 'u-new', role: 'expert', is_reviewer: false }),
+    );
+  });
+
+  it('«Заменить…» у заблокированного: POST replace с выбранным человеком', async () => {
+    persona.current = PERSONAS.moderator;
+    let body: unknown = null;
+    let path = '';
+    server.use(
+      http.get(api('/projects/:id/member-candidates'), () =>
+        HttpResponse.json({
+          items: [{ user: { id: 'u-new', full_name: 'Е. Новая', initials: 'ЕН' }, system_roles: [] }],
+        }),
+      ),
+      http.post(api('/projects/:id/members/:userId/replace'), async ({ request, params }) => {
+        body = await request.json();
+        path = String(params.userId);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const section = await openTeam();
+    fireEvent.click(within(section).getByRole('button', { name: 'Заменить…' }));
+    const dialog = await screen.findByRole('dialog', { name: /Заменить Н\. Новиков/ });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'ФИО' }), { target: { value: 'Но' } });
+    fireEvent.click(await within(dialog).findByRole('button', { name: /Е\. Новая/ }));
+    await waitFor(() => expect(body).toEqual({ replacement_user_id: 'u-new' }));
+    expect(path).not.toBe('');
+  });
 });

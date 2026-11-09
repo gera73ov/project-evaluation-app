@@ -5,7 +5,7 @@
  * Итоги часов — из локального расчёта по всему дереву, независимо от фильтров. Деньги — только
  * из `GET /projects/{id}/money` (сервер считает суммы, 6.4) и только с правом `money.read`: без
  * него денежного блока нет в разметке и запрос не делается. «Открыто» и «Риски» считаются по узлам
- * дерева; фильтр по клику на «Риски» — FE-024. «Снимок» и «Экспорт» — FE-045, аватары присутствия — FE-026.
+ * дерева; фильтры по клику на «Риски» и на предупреждение «N листов без оценки не учтены» — FE-024. «Снимок» и «Экспорт» — FE-045, аватары присутствия — FE-026.
  */
 import { Popover } from '@mantine/core';
 import { useState } from 'react';
@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Link } from '../../../app/router';
 import type { components } from '../../../shared/api/client';
+import { unaccountedText } from '../../../shared/calc';
 import { formatDate } from '../../../shared/format/date';
 import { formatHours, formatMoney, formatPercent } from '../../../shared/format/number';
 import { isTotpRequired } from '../../../shared/ui/MoneyGuard';
@@ -112,6 +113,7 @@ export function TopBar({
   const { t } = useTranslation();
   const [openList, setOpenList] = useState(false);
   const total = useTree(store, (s) => s.result?.total ?? null);
+  const unaccounted = useTree(store, (s) => s.result?.unaccountedLeaves ?? 0);
   const quote = project.quote_figure;
   const canMoney = project.my_permissions.includes('money.read');
   const names = new Map(project.disciplines.map((d) => [d.discipline_id, d.name]));
@@ -166,6 +168,8 @@ export function TopBar({
         {figure('p80', 'P80')}
         {figure('p90', 'P90')}
       </div>
+      {/* клик включит фильтр «Без оценки» (FE-024) */}
+      {unaccounted > 0 ? <span className="pill warn unaccounted">⚠ {unaccountedText(unaccounted)}</span> : null}
       {canMoney && money ? <MoneyBlock money={money} quote={quote} names={nameOf} /> : null}
       {canMoney && isTotpRequired(moneyError) ? (
         <Link to={`/projects/${project.id}/settings`} className="tot money locked">

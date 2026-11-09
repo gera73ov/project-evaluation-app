@@ -65,6 +65,7 @@ describe('верхняя полоса рабочего экрана', () => {
     await within(bar).findByText('406,5');
     expect(within(bar).getByText('425,5')).toBeTruthy();
     expect(within(bar).getByText('в КП')).toBeTruthy();
+    expect(bar.textContent).not.toMatch(/без оценки/);
     expect(within(bar).queryByLabelText('Сумма для КП')).toBeNull();
     expect(bar.textContent).not.toMatch(/USD|₽|НДС/);
     expect(moneyAsked).toBe(false);
@@ -88,6 +89,21 @@ describe('верхняя полоса рабочего экрана', () => {
     const bar = await screen.findByRole('banner', { name: 'Проект' });
     await within(bar).findByText(/подтвердите вход кодом/);
     expect(bar.textContent).not.toMatch(/USD/);
+  });
+
+  it('лист без оценки — предупреждение «не учтён»', async () => {
+    persona.current = PERSONAS.expert;
+    const leaf = PROJECTS.portal.nodes.find((x) => x.kind === 'item' && x.o !== null);
+    if (!leaf) throw new Error('нет листа');
+    const saved = leaf.o;
+    leaf.o = null;
+    try {
+      renderApp(`/projects/${id}`);
+      const bar = await screen.findByRole('banner', { name: 'Проект' });
+      expect(await within(bar).findByText(/1 лист без оценки не учтён/)).toBeTruthy();
+    } finally {
+      leaf.o = saved;
+    }
   });
 
   it('«Открыто» — список вопросов, клик показывает строку', async () => {

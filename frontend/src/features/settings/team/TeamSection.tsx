@@ -3,10 +3,10 @@
  * FR-AUTH-AD-10, BR-ROLE-07; DESIGN.md 10.5).
  *
  * Состав меняется целиком `PUT /projects/{id}/members` (контракт: «полный состав команды»):
- * убрать участника, отметить ревьюера. Последнего модератора убрать нельзя (кнопка неактивна,
+ * добавить («+»), убрать участника, отметить ревьюера. Последнего модератора убрать нельзя (кнопка неактивна,
  * сервер ответит LAST_MODERATOR). «+ Добавить дисциплину» — `POST /projects/{id}/disciplines`.
- * «Найти в AD» — только с правом `project.ad_search` (режим AD). Выбор человека из пользователей
- * приложения для «+ добавить» и «Заменить» ждёт решения по поиску людей (CR), до него кнопок нет.
+ * «Найти в AD» — только с правом `project.ad_search` (режим AD). Человека для «+» и «Заменить…»
+ * (заблокированный участник, `team.replace_member`) выбирают поиском кандидатов CR-005.
  */
 import { Button, Checkbox, Group, Menu, Modal, Select, TextInput } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -43,6 +43,7 @@ function MemberChip({
   removeHint,
   onRemove,
   onToggleReviewer,
+  onReplace,
 }: {
   member: Member;
   canEdit: boolean;
@@ -50,6 +51,8 @@ function MemberChip({
   removeHint?: string | undefined;
   onRemove: () => void;
   onToggleReviewer?: (() => void) | undefined;
+  /** Заблокированного участника можно заменить другим (FR-ADM-05, `team.replace_member`). */
+  onReplace?: (() => void) | undefined;
 }) {
   const { t } = useTranslation();
   const blocked = member.status === 'blocked';
@@ -87,6 +90,11 @@ function MemberChip({
       ) : (
         <span className="person-name">{label}</span>
       )}
+      {blocked && onReplace ? (
+        <button type="button" className="link person-replace" onClick={onReplace}>
+          {t('settings.team.replace')}…
+        </button>
+      ) : null}
       {canEdit ? (
         <button
           type="button"
@@ -111,6 +119,11 @@ export function TeamSection({ project, readOnly }: { project: Project; readOnly:
   const canAd = !readOnly && project.my_permissions.includes('project.ad_search');
   const [addOpen, setAddOpen] = useState(false);
   const [adOpen, setAdOpen] = useState(false);
+  const canReplace = !readOnly && project.my_permissions.includes('team.replace_member');
+  /** Открытый выбор человека: добавить на роль или заменить заблокированного. */
+  const [picker, setPicker] = useState<
+    { mode: 'add'; role: Member['role']; disciplineId: string | null } | { mode: 'replace'; member: Member } | null
+  >(null);
 
   const members = useQuery({
     queryKey: membersKey(project.id),
@@ -140,6 +153,43 @@ export function TeamSection({ project, readOnly }: { project: Project; readOnly:
   function remove(member: Member) {
     put.mutate(list.filter((m) => !sameSlot(m, member)));
   }
+  function add(role: Member['role'], disciplineId: string | null, user: Member['user']) {
+    const member = {
+      user,
+      role,
+      discipline_id: disciplineId,
+      is_reviewer: false,
+      status: 'active',
+      added_by_admin_self: false,
+    } as Member;
+    put.mutate([...list, member]);
+  }
+  const replace = useMutation({
+    mutationFn: ({ member, user }: { member: Member; user: Member['user'] }) =>
+      call(() =>
+        api.POST('/projects/{id}/members/{user_id}/replace', {
+          params: { path: { id: project.id, user_id: member.user.id } },
+          body: { replacement_user_id: user.id },
+        }),
+      ),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: membersKey(project.id) });
+      void client.invalidateQueries({ queryKey: projectKey(project.id) });
+    },
+  });
+  const addButton = (role: Member['role'], disciplineId: string | null, label: string) =>
+    canEdit ? (
+      <button
+        type="button"
+        className="person-add"
+        aria-label={label}
+        title={label}
+        onClick={() => setPicker({ mode: 'add', role, disciplineId })}
+      >
+        +
+      </button>
+    ) : null;
+  const replaceOf = (m: Member) => (canReplace ? () => setPicker({ mode: 'replace', member: m }) : undefined);
   function toggleReviewer(member: Member) {
     put.mutate(list.map((m) => (sameSlot(m, member) ? { ...m, is_reviewer: !m.is_reviewer } : m)));
   }
@@ -161,7 +211,7 @@ export function TeamSection({ project, readOnly }: { project: Project; readOnly:
           </button>
         ) : null}
       </div>
-      <ErrorText error={members.error ?? put.error} />
+      <ErrorText error={members.error ?? put.error ?? replace.error} />
 
       <div className="set-row">
         <div className="set-label">{t('settings.team.moderators')}</div>
@@ -174,8 +224,10 @@ export function TeamSection({ project, readOnly }: { project: Project; readOnly:
               removable={!lastModerator}
               removeHint={t('settings.team.lastModerator')}
               onRemove={() => remove(m)}
+              onReplace={replaceOf(m)}
             />
           ))}
+          {addButton('moderator', null, t('settings.team.addModerator'))}
         </div>
       </div>
       <div className="set-row">
@@ -183,8 +235,16 @@ export function TeamSection({ project, readOnly }: { project: Project; readOnly:
         <div className="chips">
           {presale.length === 0 ? <span className="faint">{t('common.empty')}</span> : null}
           {presale.map((m) => (
-            <MemberChip key={m.user.id} member={m} canEdit={canEdit} removable onRemove={() => remove(m)} />
+            <MemberChip
+              key={m.user.id}
+              member={m}
+              canEdit={canEdit}
+              removable
+              onRemove={() => remove(m)}
+              onReplace={replaceOf(m)}
+            />
           ))}
+          {addButton('presale', null, t('settings.team.addPresale'))}
         </div>
       </div>
 
@@ -218,8 +278,14 @@ export function TeamSection({ project, readOnly }: { project: Project; readOnly:
                         removable
                         onRemove={() => remove(m)}
                         onToggleReviewer={() => toggleReviewer(m)}
+                        onReplace={replaceOf(m)}
                       />
                     ))}
+                    {addButton(
+                      'expert',
+                      discipline.discipline_id,
+                      t('settings.team.addExpert', { discipline: discipline.name }),
+                    )}
                   </div>
                 </td>
               </tr>
@@ -230,6 +296,32 @@ export function TeamSection({ project, readOnly }: { project: Project; readOnly:
 
       {addOpen ? <AddDisciplineDialog project={project} onClose={() => setAddOpen(false)} /> : null}
       {adOpen ? <AdSearchDialog project={project} onClose={() => setAdOpen(false)} /> : null}
+      {picker ? (
+        <PersonPicker
+          project={project}
+          role={picker.mode === 'add' ? picker.role : picker.member.role}
+          title={
+            picker.mode === 'add'
+              ? t(`settings.team.pickTitle.${picker.role}`)
+              : t('settings.team.replaceTitle', { name: picker.member.user.full_name })
+          }
+          exclude={
+            new Set(
+              list
+                .filter((m) =>
+                  picker.mode === 'add' ? m.role === picker.role && m.discipline_id === picker.disciplineId : true,
+                )
+                .map((m) => m.user.id),
+            )
+          }
+          onPick={(user) => {
+            if (picker.mode === 'add') add(picker.role, picker.disciplineId, user);
+            else replace.mutate({ member: picker.member, user });
+            setPicker(null);
+          }}
+          onClose={() => setPicker(null)}
+        />
+      ) : null}
     </section>
   );
 }
@@ -298,7 +390,9 @@ function AdSearchDialog({ project, onClose }: { project: Project; onClose: () =>
   const search = useQuery({
     queryKey: ['ad-search', project.id, submitted],
     queryFn: () =>
-      call(() => api.GET('/projects/{id}/ad-search', { params: { path: { id: project.id }, query: { q: submitted } } })),
+      call(() =>
+        api.GET('/projects/{id}/ad-search', { params: { path: { id: project.id }, query: { q: submitted } } }),
+      ),
     enabled: submitted.length >= 2,
   });
   const create = useMutation({
@@ -379,6 +473,74 @@ function AdSearchDialog({ project, onClose }: { project: Project; onClose: () =>
           {t('settings.team.adAdd')}
         </Button>
       </Group>
+    </Modal>
+  );
+}
+
+/**
+ * Выбор человека для команды (CR-005, `GET /projects/{id}/member-candidates`): поиск по ФИО от
+ * 2 символов, кандидаты на роль — модератор только с системной ролью «Модератор», пресейл — с ролью
+ * «Пресейл» (фильтрует сервер). В ответе только имя, инициалы и системные роли.
+ */
+function PersonPicker({
+  project,
+  role,
+  title,
+  exclude,
+  onPick,
+  onClose,
+}: {
+  project: Project;
+  role: Member['role'];
+  title: string;
+  exclude: ReadonlySet<string>;
+  onPick: (user: Member['user']) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [q, setQ] = useState('');
+  const query = q.trim();
+  const search = useQuery({
+    queryKey: ['member-candidates', project.id, role, query],
+    queryFn: () =>
+      call(() =>
+        api.GET('/projects/{id}/member-candidates', {
+          params: { path: { id: project.id }, query: { q: query, role, limit: 20 } },
+        }),
+      ),
+    enabled: query.length >= 2,
+    staleTime: 30_000,
+  });
+  const items = (search.data?.items ?? []).filter((c) => !exclude.has(c.user.id));
+  return (
+    <Modal opened onClose={onClose} title={title} centered>
+      <TextInput
+        aria-label={t('settings.team.pickQuery')}
+        placeholder={t('settings.team.pickQuery')}
+        value={q}
+        maxLength={100}
+        data-autofocus
+        onChange={(e) => setQ(e.currentTarget.value)}
+        mb="sm"
+      />
+      <ErrorText error={search.error} />
+      {query.length < 2 ? <p className="set-hint">{t('settings.team.pickHint')}</p> : null}
+      {search.isSuccess && items.length === 0 ? <p className="set-hint">{t('settings.team.adEmpty')}</p> : null}
+      <ul className="pick-list">
+        {items.map((c) => (
+          <li key={c.user.id}>
+            <button type="button" onClick={() => onPick(c.user as Member['user'])}>
+              <span className="av sm" aria-hidden="true">
+                {c.user.initials}
+              </span>
+              <span className="grow">{c.user.full_name}</span>
+              <span className="faint">
+                {c.system_roles.map((r) => t(`roles.${r}`, { defaultValue: r })).join(', ')}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </Modal>
   );
 }

@@ -514,7 +514,18 @@
       "adReviewer": "Ревьюер",
       "adAdd": "Назначить",
       "adNotInGroup": "нет в группе доступа",
-      "adEmpty": "Никого не нашли"
+      "adEmpty": "Никого не нашли",
+      "addModerator": "Добавить модератора",
+      "addPresale": "Добавить пресейла",
+      "addExpert": "Добавить эксперта: {{discipline}}",
+      "pickTitle": {
+        "moderator": "Добавить модератора",
+        "presale": "Добавить пресейла",
+        "expert": "Добавить эксперта"
+      },
+      "replaceTitle": "Заменить {{name}}",
+      "pickQuery": "ФИО",
+      "pickHint": "Введите хотя бы 2 буквы фамилии или имени"
     },
     "money": {
       "title": "Деньги",
