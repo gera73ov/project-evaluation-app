@@ -201,7 +201,7 @@ def _ordered(nodes: list[Node], phase_order: Mapping[uuid.UUID, int]) -> list[No
 
 
 @dataclass
-class _Computed:
+class Computed:
     phases: list[PhaseRow]
     disciplines: list[DisciplineRow]
     nodes: list[Any]
@@ -211,7 +211,7 @@ class _Computed:
     repeating: set[str]
 
 
-async def _compute(db: AsyncSession, project: Project) -> _Computed:
+async def compute(db: AsyncSession, project: Project) -> Computed:
     """Строки дерева и расчёт: общий шаг :func:`load_tree` и :func:`mutation_view`."""
     phases = await project_phases(db, project.id)
     disciplines = await project_disciplines(db, project.id)
@@ -229,7 +229,7 @@ async def _compute(db: AsyncSession, project: Project) -> _Computed:
     result = calc.calculate(calc_input(project, phases, disciplines, nodes, statuses))
     settings = await read_settings(db, "method.large_leaf_hours")
     flags = decomposition(result, _thresholds(settings.get("method.large_leaf_hours")))
-    return _Computed(
+    return Computed(
         phases, disciplines, nodes, status_rows, result, set(flags.large), set(flags.repeating)
     )
 
@@ -251,7 +251,7 @@ async def mutation_view(
 
     Считает проект целиком, но собирает выходные строки только для узла и предков.
     """
-    c = await _compute(db, project)
+    c = await compute(db, project)
     by_id = {n.id: n for n in c.nodes}
     node = by_id[node_id]
     reviewers = await _reviewers(db, [node])
@@ -269,7 +269,7 @@ async def mutation_view(
 
 async def load_tree(db: AsyncSession, project: Project) -> dict[str, Any]:
     """Тело ответа ``Tree`` (contracts/openapi.yaml): узлы, статусы веток, итоги, версия."""
-    c = await _compute(db, project)
+    c = await compute(db, project)
     phases, disciplines, nodes, status_rows = c.phases, c.disciplines, c.nodes, c.status_rows
     result, large, repeating = c.result, c.large, c.repeating
     reviewers = await _reviewers(db, nodes)
