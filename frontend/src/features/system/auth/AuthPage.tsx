@@ -119,7 +119,20 @@ export function AuthPage({ me }: { me: Me }) {
   );
 }
 
-function AdForm({ values }: { values: object }) {
+/**
+ * Параметры AD. В разделе «Аутентификация» сохраняются PUT со step-up; мастер первичной
+ * настройки (FE-064) передаёт `persist` — шаг мастера, и сохранить можно без правок, но тоже
+ * только после обеих проверок с текущими параметрами.
+ */
+export function AdForm({
+  values,
+  persist,
+  saveLabel,
+}: {
+  values: object;
+  persist?: (values: Record<string, unknown>) => Promise<unknown>;
+  saveLabel?: string;
+}) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const { run, modal } = useStepUp();
@@ -165,17 +178,22 @@ function AdForm({ values }: { values: object }) {
     },
   });
   const save = useMutation({
-    mutationFn: () =>
-      run(() =>
+    mutationFn: async () => {
+      if (persist) {
+        await persist(valuesOf(form));
+        return null;
+      }
+      return run(() =>
         call(() =>
           api.PUT('/system/settings/{section}', {
             params: { path: { section: 'auth' } },
             body: { values: valuesOf(form) as never },
           }),
         ),
-      ),
+      );
+    },
     onSuccess: (data) => {
-      qc.setQueryData(settingsKey('auth'), data);
+      if (data) qc.setQueryData(settingsKey('auth'), data);
       setSaved(true);
     },
   });
@@ -191,7 +209,7 @@ function AdForm({ values }: { values: object }) {
   }
 
   const saveError = save.error instanceof StepUpCancelled ? null : save.error;
-  const canSave = dirty && errors.length === 0 && connOk && loginOk;
+  const canSave = (dirty || Boolean(persist)) && errors.length === 0 && connOk && loginOk;
 
   return (
     <>
@@ -497,7 +515,11 @@ function AdForm({ values }: { values: object }) {
 
       <div className="auth-foot">
         <span className="auth-hint">
-          {dirty && !(connOk && loginOk) ? t('system.auth.save.needChecks') : t('system.auth.save.hint')}
+          {(dirty || persist) && !(connOk && loginOk)
+            ? t('system.auth.save.needChecks')
+            : persist
+              ? null
+              : t('system.auth.save.hint')}
         </span>
         <ErrorText error={saveError} />
         {saved ? (
@@ -518,7 +540,7 @@ function AdForm({ values }: { values: object }) {
           {t('common.cancel')}
         </Button>
         <Button disabled={!canSave} loading={save.isPending} onClick={() => save.mutate()}>
-          {t('system.auth.save.button')}
+          {saveLabel ?? t('system.auth.save.button')}
         </Button>
       </div>
 

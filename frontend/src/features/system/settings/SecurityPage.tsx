@@ -31,7 +31,7 @@ type Session = { idle_minutes_user: number | null; idle_minutes_admin: number | 
 type Lockout = { max_failures: number | null; lock_minutes: number | null };
 type Mfa = Record<MfaRole | 'user', 'optional' | 'required'>;
 
-type SecurityForm = {
+export type SecurityForm = {
   password: Password;
   expiryOn: boolean;
   sessionsOn: boolean;
@@ -44,7 +44,7 @@ type SecurityForm = {
 
 export const MFA_ROLES = [...MFA_DEFAULT_REQUIRED, 'user'] as const;
 
-function securityForm(values: object): SecurityForm {
+export function securityForm(values: object): SecurityForm {
   const password = valueOf<Password>(values, 'security.password_policy');
   return {
     password: { ...password, expiry_days: password.expiry_days ?? 90, max_sessions: password.max_sessions ?? 5 },
@@ -58,7 +58,7 @@ function securityForm(values: object): SecurityForm {
   };
 }
 
-function securityValues(f: SecurityForm): Record<string, unknown> {
+export function securityValues(f: SecurityForm): Record<string, unknown> {
   return {
     'security.password_policy': {
       ...f.password,
@@ -110,209 +110,230 @@ export function SecurityPage() {
           errors={securityErrors}
           hint={t('system.settings.stepUpHint')}
         >
-          {(f, set, shown) => {
-            const pw = (patch: Partial<Password>) => set({ password: { ...f.password, ...patch } });
-            const P = 'security.password_policy';
-            const off = mfaWarningRoles({ 'security.mfa_policy': f.mfa });
-            return (
-              <div className="set-groups">
-                <fieldset className="set-group">
-                  <legend>{t('system.security.passwords')}</legend>
-                  <div className="set-grid">
-                    <IntField
-                      label={t('system.security.minLength')}
-                      value={f.password.min_length}
-                      onChange={(v) => pw({ min_length: v })}
-                      settingKey={P}
-                      field="min_length"
-                      invalid={shown('password.min_length')}
-                    />
-                    <IntField
-                      label={t('system.security.maxLength')}
-                      value={f.password.max_length}
-                      onChange={(v) => pw({ max_length: v })}
-                      settingKey={P}
-                      field="max_length"
-                      invalid={shown('password.max_length')}
-                    />
-                    <IntField
-                      label={t('system.security.history')}
-                      value={f.password.history}
-                      onChange={(v) => pw({ history: v })}
-                      settingKey={P}
-                      field="history"
-                      invalid={shown('password.history')}
-                    />
-                  </div>
-                  <div className="set-checks">
-                    <Checkbox
-                      label={t('system.security.common')}
-                      checked={f.password.check_common_passwords}
-                      onChange={(e) => pw({ check_common_passwords: e.currentTarget.checked })}
-                    />
-                    <Checkbox
-                      label={t('system.security.personal')}
-                      checked={f.password.forbid_personal_data}
-                      onChange={(e) => pw({ forbid_personal_data: e.currentTarget.checked })}
-                    />
-                    <Checkbox
-                      label={t('system.security.upper')}
-                      checked={f.password.require_uppercase}
-                      onChange={(e) => pw({ require_uppercase: e.currentTarget.checked })}
-                    />
-                    <Checkbox
-                      label={t('system.security.digit')}
-                      checked={f.password.require_digit}
-                      onChange={(e) => pw({ require_digit: e.currentTarget.checked })}
-                    />
-                    <Checkbox
-                      label={t('system.security.special')}
-                      checked={f.password.require_special}
-                      onChange={(e) => pw({ require_special: e.currentTarget.checked })}
-                    />
-                  </div>
-                  <div className="set-grid">
-                    <div>
-                      <Checkbox
-                        mb={6}
-                        label={t('system.security.expiryOn')}
-                        checked={f.expiryOn}
-                        onChange={(e) => set({ expiryOn: e.currentTarget.checked })}
-                      />
-                      {f.expiryOn ? (
-                        <IntField
-                          label={t('system.security.expiry')}
-                          value={f.password.expiry_days}
-                          onChange={(v) => pw({ expiry_days: v })}
-                          settingKey={P}
-                          field="expiry_days"
-                          invalid={shown('password.expiry_days')}
-                        />
-                      ) : null}
-                    </div>
-                    <div>
-                      <Checkbox
-                        mb={6}
-                        label={t('system.security.sessionsOn')}
-                        checked={f.sessionsOn}
-                        onChange={(e) => set({ sessionsOn: e.currentTarget.checked })}
-                      />
-                      {f.sessionsOn ? (
-                        <IntField
-                          label={t('system.security.maxSessions')}
-                          value={f.password.max_sessions}
-                          onChange={(v) => pw({ max_sessions: v })}
-                          settingKey={P}
-                          field="max_sessions"
-                          invalid={shown('password.max_sessions')}
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                </fieldset>
-
-                <fieldset className="set-group">
-                  <legend>{t('system.security.sessions')}</legend>
-                  <div className="set-grid">
-                    <IntField
-                      label={t('system.security.idleUser')}
-                      value={f.session.idle_minutes_user}
-                      onChange={(v) => set({ session: { ...f.session, idle_minutes_user: v } })}
-                      settingKey="security.session"
-                      field="idle_minutes_user"
-                      invalid={shown('session.idle_minutes_user')}
-                    />
-                    <IntField
-                      label={t('system.security.idleAdmin')}
-                      value={f.session.idle_minutes_admin}
-                      onChange={(v) => set({ session: { ...f.session, idle_minutes_admin: v } })}
-                      settingKey="security.session"
-                      field="idle_minutes_admin"
-                      invalid={shown('session.idle_minutes_admin')}
-                    />
-                    <IntField
-                      label={t('system.security.absolute')}
-                      value={f.session.absolute_hours}
-                      onChange={(v) => set({ session: { ...f.session, absolute_hours: v } })}
-                      settingKey="security.session"
-                      field="absolute_hours"
-                      invalid={shown('session.absolute_hours')}
-                    />
-                  </div>
-                </fieldset>
-
-                <fieldset className="set-group">
-                  <legend>{t('system.security.lockout')}</legend>
-                  <div className="set-grid">
-                    <IntField
-                      label={t('system.security.maxFailures')}
-                      value={f.lockout.max_failures}
-                      onChange={(v) => set({ lockout: { ...f.lockout, max_failures: v } })}
-                      settingKey="security.lockout"
-                      field="max_failures"
-                      invalid={shown('lockout.max_failures')}
-                    />
-                    <IntField
-                      label={t('system.security.lockMinutes')}
-                      value={f.lockout.lock_minutes}
-                      onChange={(v) => set({ lockout: { ...f.lockout, lock_minutes: v } })}
-                      settingKey="security.lockout"
-                      field="lock_minutes"
-                      invalid={shown('lockout.lock_minutes')}
-                    />
-                  </div>
-                </fieldset>
-
-                <fieldset className="set-group">
-                  <legend>{t('system.security.mfa')}</legend>
-                  <div className="set-checks">
-                    {MFA_ROLES.map((role) => (
-                      <Switch
-                        key={role}
-                        label={t(`system.roles.${role}`)}
-                        checked={new Map(Object.entries(f.mfa)).get(role) === 'required'}
-                        onChange={(e) =>
-                          set({ mfa: { ...f.mfa, [role]: e.currentTarget.checked ? 'required' : 'optional' } })
-                        }
-                      />
-                    ))}
-                  </div>
-                  {off.length > 0 ? (
-                    <p className="set-danger" role="alert">
-                      {t('system.security.mfaOff', { roles: off.map((r) => t(`system.roles.${r}`)).join(', ') })}
-                    </p>
-                  ) : null}
-                </fieldset>
-
-                <fieldset className="set-group">
-                  <legend>{t('system.security.networks')}</legend>
-                  <Textarea
-                    classNames={{ input: 'mono' }}
-                    aria-label={t('system.security.networks')}
-                    description={t('system.security.networksHint')}
-                    autosize
-                    minRows={3}
-                    value={f.networks}
-                    error={shown('networks') ? t('system.security.networksError') : null}
-                    onChange={(e) => set({ networks: e.currentTarget.value })}
-                  />
-                  <TextInput
-                    mt="sm"
-                    label={t('system.security.alertEmail')}
-                    description={t('system.security.alertEmailHint')}
-                    value={f.alertEmail}
-                    maxLength={254}
-                    error={shown('alertEmail') ? t('system.settings.emailError') : null}
-                    onChange={(e) => set({ alertEmail: e.currentTarget.value })}
-                  />
-                </fieldset>
-              </div>
-            );
-          }}
+          {(f, set, shown) => <SecurityFields f={f} set={set} shown={shown} parts={['password', 'policies']} />}
         </SectionForm>
       ) : null}
       {siem.data ? <SiemCard data={siem.data} /> : null}
     </SystemLayout>
+  );
+}
+
+export type SecurityPart = 'password' | 'policies';
+
+/** Поля «Безопасности»: пароли (шаг 3 мастера, режим «Приложение») и остальные политики (шаг 4). */
+export function SecurityFields({
+  f,
+  set,
+  shown,
+  parts,
+}: {
+  f: SecurityForm;
+  set: (patch: Partial<SecurityForm>) => void;
+  shown: (field: string) => boolean;
+  parts: readonly SecurityPart[];
+}) {
+  const { t } = useTranslation();
+  const pw = (patch: Partial<Password>) => set({ password: { ...f.password, ...patch } });
+  const P = 'security.password_policy';
+  const off = mfaWarningRoles({ 'security.mfa_policy': f.mfa });
+  return (
+    <div className="set-groups">
+      {parts.includes('password') ? (
+        <fieldset className="set-group">
+          <legend>{t('system.security.passwords')}</legend>
+          <div className="set-grid">
+            <IntField
+              label={t('system.security.minLength')}
+              value={f.password.min_length}
+              onChange={(v) => pw({ min_length: v })}
+              settingKey={P}
+              field="min_length"
+              invalid={shown('password.min_length')}
+            />
+            <IntField
+              label={t('system.security.maxLength')}
+              value={f.password.max_length}
+              onChange={(v) => pw({ max_length: v })}
+              settingKey={P}
+              field="max_length"
+              invalid={shown('password.max_length')}
+            />
+            <IntField
+              label={t('system.security.history')}
+              value={f.password.history}
+              onChange={(v) => pw({ history: v })}
+              settingKey={P}
+              field="history"
+              invalid={shown('password.history')}
+            />
+          </div>
+          <div className="set-checks">
+            <Checkbox
+              label={t('system.security.common')}
+              checked={f.password.check_common_passwords}
+              onChange={(e) => pw({ check_common_passwords: e.currentTarget.checked })}
+            />
+            <Checkbox
+              label={t('system.security.personal')}
+              checked={f.password.forbid_personal_data}
+              onChange={(e) => pw({ forbid_personal_data: e.currentTarget.checked })}
+            />
+            <Checkbox
+              label={t('system.security.upper')}
+              checked={f.password.require_uppercase}
+              onChange={(e) => pw({ require_uppercase: e.currentTarget.checked })}
+            />
+            <Checkbox
+              label={t('system.security.digit')}
+              checked={f.password.require_digit}
+              onChange={(e) => pw({ require_digit: e.currentTarget.checked })}
+            />
+            <Checkbox
+              label={t('system.security.special')}
+              checked={f.password.require_special}
+              onChange={(e) => pw({ require_special: e.currentTarget.checked })}
+            />
+          </div>
+          <div className="set-grid">
+            <div>
+              <Checkbox
+                mb={6}
+                label={t('system.security.expiryOn')}
+                checked={f.expiryOn}
+                onChange={(e) => set({ expiryOn: e.currentTarget.checked })}
+              />
+              {f.expiryOn ? (
+                <IntField
+                  label={t('system.security.expiry')}
+                  value={f.password.expiry_days}
+                  onChange={(v) => pw({ expiry_days: v })}
+                  settingKey={P}
+                  field="expiry_days"
+                  invalid={shown('password.expiry_days')}
+                />
+              ) : null}
+            </div>
+            <div>
+              <Checkbox
+                mb={6}
+                label={t('system.security.sessionsOn')}
+                checked={f.sessionsOn}
+                onChange={(e) => set({ sessionsOn: e.currentTarget.checked })}
+              />
+              {f.sessionsOn ? (
+                <IntField
+                  label={t('system.security.maxSessions')}
+                  value={f.password.max_sessions}
+                  onChange={(v) => pw({ max_sessions: v })}
+                  settingKey={P}
+                  field="max_sessions"
+                  invalid={shown('password.max_sessions')}
+                />
+              ) : null}
+            </div>
+          </div>
+        </fieldset>
+      ) : null}
+      {parts.includes('policies') ? (
+        <>
+          <fieldset className="set-group">
+            <legend>{t('system.security.sessions')}</legend>
+            <div className="set-grid">
+              <IntField
+                label={t('system.security.idleUser')}
+                value={f.session.idle_minutes_user}
+                onChange={(v) => set({ session: { ...f.session, idle_minutes_user: v } })}
+                settingKey="security.session"
+                field="idle_minutes_user"
+                invalid={shown('session.idle_minutes_user')}
+              />
+              <IntField
+                label={t('system.security.idleAdmin')}
+                value={f.session.idle_minutes_admin}
+                onChange={(v) => set({ session: { ...f.session, idle_minutes_admin: v } })}
+                settingKey="security.session"
+                field="idle_minutes_admin"
+                invalid={shown('session.idle_minutes_admin')}
+              />
+              <IntField
+                label={t('system.security.absolute')}
+                value={f.session.absolute_hours}
+                onChange={(v) => set({ session: { ...f.session, absolute_hours: v } })}
+                settingKey="security.session"
+                field="absolute_hours"
+                invalid={shown('session.absolute_hours')}
+              />
+            </div>
+          </fieldset>
+
+          <fieldset className="set-group">
+            <legend>{t('system.security.lockout')}</legend>
+            <div className="set-grid">
+              <IntField
+                label={t('system.security.maxFailures')}
+                value={f.lockout.max_failures}
+                onChange={(v) => set({ lockout: { ...f.lockout, max_failures: v } })}
+                settingKey="security.lockout"
+                field="max_failures"
+                invalid={shown('lockout.max_failures')}
+              />
+              <IntField
+                label={t('system.security.lockMinutes')}
+                value={f.lockout.lock_minutes}
+                onChange={(v) => set({ lockout: { ...f.lockout, lock_minutes: v } })}
+                settingKey="security.lockout"
+                field="lock_minutes"
+                invalid={shown('lockout.lock_minutes')}
+              />
+            </div>
+          </fieldset>
+
+          <fieldset className="set-group">
+            <legend>{t('system.security.mfa')}</legend>
+            <div className="set-checks">
+              {MFA_ROLES.map((role) => (
+                <Switch
+                  key={role}
+                  label={t(`system.roles.${role}`)}
+                  checked={new Map(Object.entries(f.mfa)).get(role) === 'required'}
+                  onChange={(e) =>
+                    set({ mfa: { ...f.mfa, [role]: e.currentTarget.checked ? 'required' : 'optional' } })
+                  }
+                />
+              ))}
+            </div>
+            {off.length > 0 ? (
+              <p className="set-danger" role="alert">
+                {t('system.security.mfaOff', { roles: off.map((r) => t(`system.roles.${r}`)).join(', ') })}
+              </p>
+            ) : null}
+          </fieldset>
+
+          <fieldset className="set-group">
+            <legend>{t('system.security.networks')}</legend>
+            <Textarea
+              classNames={{ input: 'mono' }}
+              aria-label={t('system.security.networks')}
+              description={t('system.security.networksHint')}
+              autosize
+              minRows={3}
+              value={f.networks}
+              error={shown('networks') ? t('system.security.networksError') : null}
+              onChange={(e) => set({ networks: e.currentTarget.value })}
+            />
+            <TextInput
+              mt="sm"
+              label={t('system.security.alertEmail')}
+              description={t('system.security.alertEmailHint')}
+              value={f.alertEmail}
+              maxLength={254}
+              error={shown('alertEmail') ? t('system.settings.emailError') : null}
+              onChange={(e) => set({ alertEmail: e.currentTarget.value })}
+            />
+          </fieldset>
+        </>
+      ) : null}
+    </div>
   );
 }
 

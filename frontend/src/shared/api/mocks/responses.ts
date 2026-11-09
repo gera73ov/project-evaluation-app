@@ -36,6 +36,7 @@ import * as demoDocuments from "./demoDocuments";
 import * as demoExports from "./demoExports";
 import * as demoOutcome from "./demoOutcome";
 import * as demoPortfolio from "./demoPortfolio";
+import * as demoSetup from "./demoSetup";
 import * as demoSnapshots from "./demoSnapshots";
 import * as demoStatsDetails from "./demoStatsDetails";
 import * as demoSystem from "./demoSystem";
@@ -653,6 +654,30 @@ const DEMO: Record<string, Demo> = {
   },
   systemRegistry: (_ctx, schema) => list(schema, demoPortfolio.registry()),
   getSettings: (ctx) => demoSystem.settings(ctx.params.section ?? ""),
+  // FE-064 · мастер первичной настройки (7.1, FR-SA-02)
+  getSetupStep: (ctx) =>
+    demoSetup.getStep(ctx.params.step ?? "") ??
+    new MockProblem(problem(404, "NOT_FOUND", "Шаг не найден")),
+  postSetupStep: (ctx) => {
+    const out = demoSetup.postStep(ctx.params.step ?? "", ctx.body);
+    if (!out)
+      return new MockProblem(problem(404, "NOT_FOUND", "Шаг не найден"));
+    if (!("error" in out)) return out;
+    const [status, title] =
+      out.error === "SETUP_ALREADY_COMPLETED"
+        ? [409, "Первичная настройка уже завершена"]
+        : out.error === "AD_CHECKS_REQUIRED"
+          ? [409, "Сначала проверьте подключение и вход"]
+          : [422, "Шаг нельзя завершить"];
+    const err = problem(status, out.error, title);
+    return new MockProblem({
+      status,
+      body: {
+        ...(err.body as object),
+        ...(out.missing ? { missing: out.missing } : {}),
+      },
+    });
+  },
   // FE-061 · способ входа и AD (11.2 №2–6); критичные записи — со step-up (SEC-AUTH-05)
   stepUp: () => demoSystem.stepUp(),
   putSettings: (ctx) => {

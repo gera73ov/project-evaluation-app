@@ -813,3 +813,24 @@ table.cq-table td{vertical-align:top}
 .sys-link{word-break:break-all;font-size:12px}
 .link-btn{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--accent-ink);cursor:pointer;text-align:left}
 .sys-form h3{margin:0;font-size:15px}
+
+/* FE-064 · мастер первичной настройки */
+.setup{max-width:1100px;margin:0 auto;padding:24px 16px}
+.setup-head h1{margin:0 0 4px;font-size:22px}
+.setup-head .sub{margin:0 0 16px}
+.setup-body{display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:start}
+.setup-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.setup-steps button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:6px;background:none;font:inherit;text-align:left;cursor:pointer;color:inherit}
+.setup-steps button:disabled{cursor:default;color:var(--muted)}
+.setup-steps li.on button{background:var(--accent-soft);font-weight:600}
+.setup-n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);font-size:12px;flex:none}
+.setup-steps li.done .setup-n{background:var(--ok);border-color:var(--ok);color:var(--panel)}
+.setup-steps li.on .setup-n{border-color:var(--accent-ink);color:var(--accent-ink)}
+.setup-card{display:flex;flex-direction:column;gap:12px}
+.setup-card > .sec{margin:0}
+.setup-admin h2{margin:0;font-size:16px}
+.setup-admin .mantine-Stack-root{max-width:520px}
+.setup-admin .auth-foot{max-width:none}
+.setup-admins{margin:0;padding-left:18px}
+.setup-done h2{margin:0}
+@media (max-width:720px){.setup-body{grid-template-columns:1fr}}

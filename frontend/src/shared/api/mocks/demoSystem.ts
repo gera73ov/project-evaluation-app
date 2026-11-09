@@ -108,6 +108,11 @@ function seedAccounts(): Account[] {
 let accounts = seedAccounts();
 let anonymized = 0;
 
+/** Первичная установка (FR-SA-01): есть только первый суперадминистратор. */
+export function firstInstall() {
+  accounts = seedAccounts().slice(0, 1);
+}
+
 export function admins() {
   return accounts.map((a) => ({ ...a, roles: [...a.roles] }));
 }
@@ -348,6 +353,21 @@ export function settings(section: string) {
     values[key] = prop["x-secret"] ? { set: true } : settingValue(key);
   }
   return { section, values };
+}
+
+/** Значения ключей (для шагов мастера первичной настройки), секреты скрыты. */
+export function settingValues(keys: readonly string[]) {
+  const values: Record<string, unknown> = {};
+  for (const key of keys) {
+    const prop = SCHEMA_PROPS.get(key);
+    if (!prop) continue;
+    values[key] = prop["x-secret"]
+      ? saved.has(key)
+        ? { set: true }
+        : null
+      : settingValue(key);
+  }
+  return values;
 }
 
 /**

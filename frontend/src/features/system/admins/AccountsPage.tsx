@@ -93,7 +93,25 @@ export function AccountsPage({ kind }: { kind: AccountKind }) {
   );
 }
 
-function CreateForm({ kind, all, onDone }: { kind: AccountKind; all: readonly Account[]; onDone: () => void }) {
+/**
+ * Новая учётка. Мастер первичной настройки (FE-064, шаг 5) создаёт только администратора
+ * (`adminOnly`); в режиме AD логин — учётка каталога (`adHint`).
+ */
+export function CreateForm({
+  kind,
+  all,
+  onDone,
+  adminOnly,
+  adHint,
+  doneLabel,
+}: {
+  kind: AccountKind;
+  all: readonly Account[];
+  onDone: () => void;
+  adminOnly?: boolean;
+  adHint?: boolean;
+  doneLabel?: string;
+}) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const { run, modal } = useStepUp();
@@ -128,19 +146,20 @@ function CreateForm({ kind, all, onDone }: { kind: AccountKind; all: readonly Ac
       <Stack gap="sm">
         <h3>{t('system.accounts.created')}</h3>
         <ActivationNote link={link} />
-        <Button variant="default" onClick={onDone}>
-          {t('common.close')}
+        <Button variant={doneLabel ? 'filled' : 'default'} onClick={onDone}>
+          {doneLabel ?? t('common.close')}
         </Button>
       </Stack>
     );
   return (
     <Stack gap="sm">
-      <h3>{t(`system.accounts.new.${kind}`)}</h3>
+      {adminOnly ? null : <h3>{t(`system.accounts.new.${kind}`)}</h3>}
       <TextInput
         label={t('system.accounts.login')}
         required
         value={login}
         maxLength={64}
+        description={adHint ? t('system.accounts.adLoginHint') : undefined}
         error={login && errors.login ? t('system.accounts.loginError') : null}
         onChange={(e) => setLogin(e.currentTarget.value)}
       />
@@ -159,7 +178,7 @@ function CreateForm({ kind, all, onDone }: { kind: AccountKind; all: readonly Ac
         error={email && errors.email ? t('system.settings.emailError') : null}
         onChange={(e) => setEmail(e.currentTarget.value)}
       />
-      {kind === 'admins' ? (
+      {kind === 'admins' && !adminOnly ? (
         <Radio.Group
           label={t('system.accounts.role')}
           value={role}
@@ -171,7 +190,7 @@ function CreateForm({ kind, all, onDone }: { kind: AccountKind; all: readonly Ac
           </Stack>
         </Radio.Group>
       ) : null}
-      {kind === 'admins' && saFull ? <p className="auth-hint">{t('system.accounts.saLimit')}</p> : null}
+      {kind === 'admins' && !adminOnly && saFull ? <p className="auth-hint">{t('system.accounts.saLimit')}</p> : null}
       {role === 'superadmin' ? <p className="auth-hint">{t('system.accounts.saNotice')}</p> : null}
       <ErrorText error={create.error instanceof StepUpCancelled ? null : create.error} />
       <Button disabled={!valid} loading={create.isPending} onClick={() => create.mutate()}>

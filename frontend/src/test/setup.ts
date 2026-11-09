@@ -13,6 +13,7 @@ import { resetDemoDocuments } from '../shared/api/mocks/demoDocuments';
 import { resetDemoOutcome } from '../shared/api/mocks/demoOutcome';
 import { resetDemoPortfolio } from '../shared/api/mocks/demoPortfolio';
 import { resetDemoSnapshots } from '../shared/api/mocks/demoSnapshots';
+import { resetDemoSetup } from '../shared/api/mocks/demoSetup';
 import { resetDemoSystem } from '../shared/api/mocks/demoSystem';
 import { resetDemoTree } from '../shared/api/mocks/demoTree';
 import { buildHandlers } from '../shared/api/mocks/handlers';
@@ -59,6 +60,7 @@ if (browser) {
     resetDemoSnapshots();
     resetDemoSystem();
     resetDemoAuth();
+    resetDemoSetup();
     window.history.replaceState(null, '', '/');
   });
   afterAll(() => server.close());

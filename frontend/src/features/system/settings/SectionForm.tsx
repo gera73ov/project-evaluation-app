@@ -27,6 +27,8 @@ export function useSection(section: string) {
 /**
  * Карточка с формой раздела: `toForm` строит черновик из значений, `toValues` — тело PUT,
  * `errors` — ключи полей с ошибкой (кнопка неактивна, поля подсвечены после первой попытки).
+ * Мастер первичной настройки (FE-064) передаёт свой `persist` (шаг мастера, без step-up) и
+ * `allowClean`: значения по умолчанию можно принять без правок.
  */
 export function SectionForm<F>({
   section,
@@ -36,6 +38,10 @@ export function SectionForm<F>({
   toValues,
   errors,
   hint,
+  persist,
+  saveLabel,
+  allowClean,
+  onSaved,
   children,
 }: {
   section: string;
@@ -45,6 +51,10 @@ export function SectionForm<F>({
   toValues: (form: F) => Record<string, unknown>;
   errors: (form: F) => string[];
   hint?: string;
+  persist?: (values: Record<string, unknown>) => Promise<Section>;
+  saveLabel?: string;
+  allowClean?: boolean;
+  onSaved?: () => void;
   children: (form: F, set: (patch: Partial<F>) => void, shown: (field: string) => boolean) => ReactNode;
 }) {
   const { t } = useTranslation();
@@ -58,19 +68,22 @@ export function SectionForm<F>({
   const errs = errors(form);
   const save = useMutation({
     mutationFn: () =>
-      run(() =>
-        call(() =>
-          api.PUT('/system/settings/{section}', {
-            params: { path: { section } },
-            body: { values: toValues(form) as never },
-          }),
-        ),
-      ),
+      persist
+        ? persist(toValues(form))
+        : run(() =>
+            call(() =>
+              api.PUT('/system/settings/{section}', {
+                params: { path: { section } },
+                body: { values: toValues(form) as never },
+              }),
+            ),
+          ),
     onSuccess: (next) => {
-      qc.setQueryData(settingsKey(section), next);
+      if (!persist) qc.setQueryData(settingsKey(section), next);
       setForm(toForm(next.values));
       setSaved(true);
       setTried(false);
+      onSaved?.();
     },
   });
   useEffect(() => {
@@ -107,14 +120,14 @@ export function SectionForm<F>({
           {t('common.cancel')}
         </Button>
         <Button
-          disabled={!dirty}
+          disabled={!dirty && !allowClean}
           loading={save.isPending}
           onClick={() => {
             setTried(true);
             if (errs.length === 0) save.mutate();
           }}
         >
-          {t('system.settings.save')}
+          {saveLabel ?? t('system.settings.save')}
         </Button>
       </div>
       {modal}

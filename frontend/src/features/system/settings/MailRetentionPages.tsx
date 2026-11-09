@@ -12,7 +12,7 @@ import { IntField, SectionForm, useSection } from './SectionForm';
 import { intError, isEmail, isTime, secretSet, valueOf } from './settings';
 
 type SmtpSecurity = 'starttls' | 'tls' | 'none';
-type SmtpForm = {
+export type SmtpForm = {
   host: string;
   port: number | null;
   security: SmtpSecurity;
@@ -24,7 +24,7 @@ type SmtpForm = {
   passwordSet: boolean;
 };
 
-function smtpForm(values: object): SmtpForm {
+export function smtpForm(values: object): SmtpForm {
   const s = valueOf<{
     host: string | null;
     port: number;
@@ -47,7 +47,7 @@ function smtpForm(values: object): SmtpForm {
   };
 }
 
-function smtpValues(f: SmtpForm): Record<string, unknown> {
+export function smtpValues(f: SmtpForm): Record<string, unknown> {
   return {
     'smtp.server': {
       host: f.host.trim() || null,
@@ -71,6 +71,106 @@ export function smtpErrors(f: SmtpForm): string[] {
   return out;
 }
 
+/** Поля почтового сервера: раздел «Почта» и шаг 2 мастера первичной настройки. */
+export function SmtpFields({
+  f,
+  set,
+  shown,
+}: {
+  f: SmtpForm;
+  set: (patch: Partial<SmtpForm>) => void;
+  shown: (field: string) => boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="set-groups">
+      <div className="set-grid">
+        <TextInput
+          label={t('system.smtp.host')}
+          value={f.host}
+          maxLength={255}
+          error={shown('host') ? t('system.settings.required') : null}
+          onChange={(e) => set({ host: e.currentTarget.value })}
+        />
+        <IntField
+          label={t('system.smtp.port')}
+          value={f.port}
+          onChange={(v) => set({ port: v })}
+          settingKey="smtp.server"
+          field="port"
+          invalid={shown('port')}
+        />
+        <Select
+          label={t('system.smtp.security')}
+          allowDeselect={false}
+          value={f.security}
+          data={(['starttls', 'tls', 'none'] as const).map((v) => ({
+            value: v,
+            label: t(`system.smtp.sec.${v}`),
+          }))}
+          onChange={(v) => set({ security: v === 'tls' ? 'tls' : v === 'none' ? 'none' : 'starttls' })}
+        />
+      </div>
+      {f.security === 'none' ? (
+        <p className="set-danger" role="alert">
+          {t('system.smtp.noTls')}
+        </p>
+      ) : null}
+      <div className="set-grid">
+        <TextInput
+          label={t('system.smtp.username')}
+          value={f.username}
+          maxLength={254}
+          autoComplete="off"
+          onChange={(e) => set({ username: e.currentTarget.value })}
+        />
+        {f.password === null && f.passwordSet ? (
+          <div>
+            <span className="auth-label">{t('system.smtp.password')}</span>
+            <div className="auth-secret">
+              <span aria-label={t('system.auth.conn.passwordSet')}>••••••</span>
+              <button type="button" className="btn-link" onClick={() => set({ password: '' })}>
+                {t('system.auth.conn.change')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <PasswordInput
+            label={t('system.smtp.password')}
+            value={f.password ?? ''}
+            maxLength={512}
+            autoComplete="new-password"
+            onChange={(e) => set({ password: e.currentTarget.value })}
+          />
+        )}
+        <IntField
+          label={t('system.smtp.timeout')}
+          value={f.timeout}
+          onChange={(v) => set({ timeout: v })}
+          settingKey="smtp.server"
+          field="timeout_seconds"
+          invalid={shown('timeout')}
+        />
+      </div>
+      <div className="set-grid">
+        <TextInput
+          label={t('system.smtp.fromAddress')}
+          value={f.fromAddress}
+          maxLength={254}
+          error={shown('fromAddress') ? t('system.settings.emailError') : null}
+          onChange={(e) => set({ fromAddress: e.currentTarget.value })}
+        />
+        <TextInput
+          label={t('system.smtp.fromName')}
+          value={f.fromName}
+          maxLength={100}
+          onChange={(e) => set({ fromName: e.currentTarget.value })}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function SmtpPage() {
   const { t } = useTranslation();
   const smtp = useSection('smtp');
@@ -88,93 +188,7 @@ export function SmtpPage() {
           errors={smtpErrors}
           hint={t('system.smtp.hint')}
         >
-          {(f, set, shown) => (
-            <div className="set-groups">
-              <div className="set-grid">
-                <TextInput
-                  label={t('system.smtp.host')}
-                  value={f.host}
-                  maxLength={255}
-                  error={shown('host') ? t('system.settings.required') : null}
-                  onChange={(e) => set({ host: e.currentTarget.value })}
-                />
-                <IntField
-                  label={t('system.smtp.port')}
-                  value={f.port}
-                  onChange={(v) => set({ port: v })}
-                  settingKey="smtp.server"
-                  field="port"
-                  invalid={shown('port')}
-                />
-                <Select
-                  label={t('system.smtp.security')}
-                  allowDeselect={false}
-                  value={f.security}
-                  data={(['starttls', 'tls', 'none'] as const).map((v) => ({
-                    value: v,
-                    label: t(`system.smtp.sec.${v}`),
-                  }))}
-                  onChange={(v) => set({ security: v === 'tls' ? 'tls' : v === 'none' ? 'none' : 'starttls' })}
-                />
-              </div>
-              {f.security === 'none' ? (
-                <p className="set-danger" role="alert">
-                  {t('system.smtp.noTls')}
-                </p>
-              ) : null}
-              <div className="set-grid">
-                <TextInput
-                  label={t('system.smtp.username')}
-                  value={f.username}
-                  maxLength={254}
-                  autoComplete="off"
-                  onChange={(e) => set({ username: e.currentTarget.value })}
-                />
-                {f.password === null && f.passwordSet ? (
-                  <div>
-                    <span className="auth-label">{t('system.smtp.password')}</span>
-                    <div className="auth-secret">
-                      <span aria-label={t('system.auth.conn.passwordSet')}>••••••</span>
-                      <button type="button" className="btn-link" onClick={() => set({ password: '' })}>
-                        {t('system.auth.conn.change')}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <PasswordInput
-                    label={t('system.smtp.password')}
-                    value={f.password ?? ''}
-                    maxLength={512}
-                    autoComplete="new-password"
-                    onChange={(e) => set({ password: e.currentTarget.value })}
-                  />
-                )}
-                <IntField
-                  label={t('system.smtp.timeout')}
-                  value={f.timeout}
-                  onChange={(v) => set({ timeout: v })}
-                  settingKey="smtp.server"
-                  field="timeout_seconds"
-                  invalid={shown('timeout')}
-                />
-              </div>
-              <div className="set-grid">
-                <TextInput
-                  label={t('system.smtp.fromAddress')}
-                  value={f.fromAddress}
-                  maxLength={254}
-                  error={shown('fromAddress') ? t('system.settings.emailError') : null}
-                  onChange={(e) => set({ fromAddress: e.currentTarget.value })}
-                />
-                <TextInput
-                  label={t('system.smtp.fromName')}
-                  value={f.fromName}
-                  maxLength={100}
-                  onChange={(e) => set({ fromName: e.currentTarget.value })}
-                />
-              </div>
-            </div>
-          )}
+          {(f, set, shown) => <SmtpFields f={f} set={set} shown={shown} />}
         </SectionForm>
       ) : null}
       {digest.data ? (

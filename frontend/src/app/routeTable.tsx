@@ -29,6 +29,7 @@ import { HealthPage } from '../features/system/health/HealthPage';
 import { RetentionPage, SmtpPage } from '../features/system/settings/MailRetentionPages';
 import { SecurityPage } from '../features/system/settings/SecurityPage';
 import { SystemRoute } from '../features/system/SystemRoute';
+import { SetupWizardPage } from '../features/setup-wizard/SetupWizardPage';
 import { OutcomePage } from '../features/settings/outcome/OutcomePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TrashPage } from '../features/trash/TrashPage';
@@ -165,6 +166,13 @@ export const ROUTES: readonly RouteDef[] = [
     render: () => <PortfolioRoute />,
   },
   {
+    path: '/setup',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SetupWizardPage />,
+  },
+  {
     path: '/system',
     access: 'private',
     nav: 'system',
@@ -183,49 +191,49 @@ export const ROUTES: readonly RouteDef[] = [
     access: 'private',
     nav: 'system',
     roles: ['superadmin'],
-    render: () => <SecurityPage />,
+    render: () => <SystemRoute render={() => <SecurityPage />} />,
   },
   {
     path: '/system/smtp',
     access: 'private',
     nav: 'system',
     roles: ['superadmin'],
-    render: () => <SmtpPage />,
+    render: () => <SystemRoute render={() => <SmtpPage />} />,
   },
   {
     path: '/system/retention',
     access: 'private',
     nav: 'system',
     roles: ['superadmin'],
-    render: () => <RetentionPage />,
+    render: () => <SystemRoute render={() => <RetentionPage />} />,
   },
   {
     path: '/system/admins',
     access: 'private',
     nav: 'system',
     roles: ['superadmin'],
-    render: () => <AccountsPage kind="admins" />,
+    render: () => <SystemRoute render={() => <AccountsPage kind="admins" />} />,
   },
   {
     path: '/system/auditors',
     access: 'private',
     nav: 'system',
     roles: ['superadmin'],
-    render: () => <AccountsPage kind="auditors" />,
+    render: () => <SystemRoute render={() => <AccountsPage kind="auditors" />} />,
   },
   {
     path: '/system/anonymize',
     access: 'private',
     nav: 'system',
     roles: ['superadmin'],
-    render: () => <AnonymizePage />,
+    render: () => <SystemRoute render={() => <AnonymizePage />} />,
   },
   {
     path: '/system/projects',
     access: 'private',
     nav: 'system',
     roles: ['superadmin'],
-    render: () => <RegistryPage />,
+    render: () => <SystemRoute render={() => <RegistryPage />} />,
   },
   {
     path: '/audit',

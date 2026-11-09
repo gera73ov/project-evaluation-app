@@ -178,6 +178,14 @@ export function missingChecks(values: unknown): string[] {
   ];
 }
 
+/** Обе проверки пройдены после последнего изменения (шаг 3 мастера, режим AD). */
+export function checksMissing(): string[] {
+  return [
+    ...(checks.connection ? [] : ["connection"]),
+    ...(checks.login ? [] : ["login"]),
+  ];
+}
+
 export function afterSave() {
   checks.connection = false;
   checks.login = false;
