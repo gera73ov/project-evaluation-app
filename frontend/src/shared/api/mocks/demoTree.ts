@@ -525,3 +525,24 @@ export function addLocalType(
 export function localTypesOf(p: DemoProject): Record<string, unknown>[] {
   return localTypes.filter((t) => t.project_id === p.id);
 }
+
+// --- FE-029: «Проверено» ----------------------------------------------------------------
+
+/** Отметка на узле и всех узлах поддерева (FR-REV-01); `self` — самопроверка (FR-REV-04). */
+export function reviewNode(
+  p: DemoProject,
+  id: string,
+  reviewed: boolean,
+  user: ReturnType<typeof userRef>,
+  self: boolean,
+) {
+  const nodes = demoNodes(p);
+  const node = nodes.find((n) => n.id === id);
+  if (!node) return undefined;
+  const fields = reviewed
+    ? { reviewed_by: user, reviewed_at: NOW, self_review: self }
+    : { reviewed_by: null, reviewed_at: null, self_review: false };
+  return mutation(
+    [node, ...subtree(nodes, id)].map((n) => saveNode(p, n, fields)),
+  );
+}

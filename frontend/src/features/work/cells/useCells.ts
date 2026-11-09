@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 
 import { api, type components } from '../../../shared/api/client';
 import { ApiError, call, errorMessage } from '../../../shared/api/problem';
+import { RESETS_DONE } from '../branch/branch';
 import { dec } from '../../../shared/calc';
 import { formatHoursInput } from '../../../shared/format/number';
 import type { EditableField, NodeEdit, TreeStore } from '../store/treeStore';
@@ -115,6 +116,7 @@ export function useCells({
   onMove,
   lock,
   unlock,
+  guard,
 }: {
   store: TreeStore;
   confirm: (node: ApiNode, projectVersion: number) => void;
@@ -125,6 +127,11 @@ export function useCells({
   /** Захват ячейки (FE-026); без него ввод не захватывает ячейки. */
   lock?: (cell: CellRef, force?: boolean) => Promise<LockResult>;
   unlock?: (cell: CellRef) => void;
+  /**
+   * Правка, которая вернёт «готовую» ветку в черновик (FE-029, GAP-10): `true` — можно править,
+   * обещание — сначала спросить пользователя.
+   */
+  guard?: (nodeId: string) => boolean | Promise<boolean>;
 }): CellsApi {
   const { t } = useTranslation();
   const [editing, setEditing] = useState<CellRef | null>(null);
@@ -161,6 +168,12 @@ export function useCells({
 
   /** Начать ввод в ячейку и захватить её; занятая другим ячейка ввод не начинает. */
   const begin = (cell: CellRef, force = false) => {
+    const allowed = guard && RESETS_DONE.has(cell.field) ? guard(cell.nodeId) : true;
+    if (allowed === true) open(cell, force);
+    else if (allowed !== false) void allowed.then((ok) => ok && open(cell, force));
+  };
+
+  const open = (cell: CellRef, force: boolean) => {
     setEditing(cell);
     if (!lock) return;
     void lock(cell, force).then((result) => {
@@ -357,15 +370,19 @@ export function useCells({
       go({ nodeId, field: 'comment' }, dir);
     },
     applyNorm: (nodeId, norm) => {
-      void send(
-        nodeId,
-        { o: norm.o, r: norm.r, p: norm.p } as Changes,
-        new Map<CellField, string>([
-          ['o', formatHoursInput(norm.o)],
-          ['r', formatHoursInput(norm.r)],
-          ['p', formatHoursInput(norm.p)],
-        ]),
-      );
+      const apply = () =>
+        void send(
+          nodeId,
+          { o: norm.o, r: norm.r, p: norm.p } as Changes,
+          new Map<CellField, string>([
+            ['o', formatHoursInput(norm.o)],
+            ['r', formatHoursInput(norm.r)],
+            ['p', formatHoursInput(norm.p)],
+          ]),
+        );
+      const allowed = guard ? guard(nodeId) : true;
+      if (allowed === true) apply();
+      else if (allowed !== false) void allowed.then((ok) => ok && apply());
     },
   };
 }

@@ -46,6 +46,9 @@ import { nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
 import { CommentCell, HoursCell, MultiplierCell, TitleCell, type Norm } from '../cells/Cells';
 import { cellKey, useCells, type CellRef, type CellsApi, type CommentLine, type LockResult } from '../cells/useCells';
 import type { CellLock, CellMark } from '../collab/collabStore';
+import { BranchControls, ReviewCell } from '../branch/BranchControls';
+import { branchReadiness, type BranchReadiness } from '../branch/branch';
+import { useBranch, type BranchApi, type BranchSetup } from '../branch/useBranch';
 import { HistoryPanel } from '../history/HistoryPanel';
 import { AddMenu, NodeMenu, type RowMenuApi } from '../menu/RowMenus';
 import { useRowMenus, type MenuSetup } from '../menu/useRowMenus';
@@ -168,6 +171,10 @@ interface RowProps {
   pendingFields?: ReadonlySet<string> | undefined;
   /** Кнопки «+» и «⋯» (FE-027); нет — строка без операций. */
   menu?: RowMenuApi | undefined;
+  /** Статус ветки и «Проверено» (FE-029). */
+  branch?: BranchApi | undefined;
+  /** Готовность ветки (только у строки дисциплины). */
+  readiness?: BranchReadiness | undefined;
 }
 
 const Row = memo(function Row({
@@ -183,6 +190,8 @@ const Row = memo(function Row({
   cells: cellsApi,
   pendingFields,
   menu: menuApi,
+  branch: branchApi,
+  readiness,
 }: RowProps) {
   const { t } = useTranslation();
   if (row.kind === 'pm') {
@@ -326,6 +335,15 @@ const Row = memo(function Row({
           </span>
         ) : null}
         {row.kind === 'discipline' && status ? <StatusBadge kind="branch" status={status} /> : null}
+        {row.kind === 'discipline' && readiness && branchApi ? (
+          <BranchControls
+            status={status}
+            readiness={readiness}
+            canDone={branchApi.setup.canDone(row.disciplineId)}
+            busy={branchApi.busy === `status:${id}`}
+            onDone={() => void branchApi.setStatus(id, 'done')}
+          />
+        ) : null}
         {foreign ? <span className="foreign">· {t('tree.foreign')}</span> : null}
         {row.kind === 'discipline' && row.disciplineId && ctx.withoutExpert.has(row.disciplineId) ? (
           <span className="pill warn">⚠ {t('tree.noExpert')}</span>
@@ -395,17 +413,14 @@ const Row = memo(function Row({
       <div className={state === 'zero' ? 'td e zero' : 'td e'} role="cell">
         {state === 'empty' || state === 'invalid' ? sum : <SumTooltip result={result}>{sum}</SumTooltip>}
       </div>
-      <div className="td rv" role="cell">
-        {reviewed ? (
-          self ? (
-            <span className="half" title={t('tree.selfReview')} aria-label={t('tree.selfReview')} />
-          ) : (
-            <span className="ok-mark" aria-label={t('tree.reviewed')}>
-              ✓
-            </span>
-          )
-        ) : null}
-      </div>
+      <ReviewCell
+        title={result.node.title}
+        reviewed={Boolean(reviewed)}
+        self={Boolean(self)}
+        canReview={Boolean(branchApi?.setup.canReview(row.disciplineId)) && !notNeeded}
+        busy={branchApi?.busy === `review:${id}`}
+        onToggle={(next) => void branchApi?.review(id, next)}
+      />
     </div>
   );
 });
@@ -426,6 +441,7 @@ export function TreeTable({
   onConfirm,
   locking,
   menus: menuSetup,
+  branchSetup,
 }: {
   store: TreeStore;
   ctx: TreeContext;
@@ -445,6 +461,8 @@ export function TreeTable({
   };
   /** Меню строки и «+» (FE-027). */
   menus?: MenuSetup | undefined;
+  /** Статус ветки, «Проверено» и предупреждение о правке готовой ветки (FE-029). */
+  branchSetup?: BranchSetup | undefined;
 }) {
   const { t } = useTranslation();
   const revision = useTree(store, (s) => s.revision);
@@ -479,8 +497,10 @@ export function TreeTable({
     () => rows.filter((r) => r.kind === 'leaf' && r.id && ctx.canEdit(r.disciplineId)).map((r) => r.id as string),
     [rows, ctx],
   );
+  const branch = useBranch(onConfirm ? branchSetup : undefined, store);
   const cells = useCells({
     store,
+    ...(branch ? { guard: branch.guard } : {}),
     confirm: onConfirm ?? (() => undefined),
     leaves: editableLeaves,
     ...(locking ? { lock: locking.lock, unlock: locking.unlock } : {}),
@@ -509,7 +529,20 @@ export function TreeTable({
     [historyFor],
   );
   const menus = useRowMenus({
-    setup: onConfirm && menuSetup ? { ...menuSetup, onHistory: setHistoryFor } : undefined,
+    setup:
+      onConfirm && menuSetup
+        ? {
+            ...menuSetup,
+            onHistory: setHistoryFor,
+            ...(branch
+              ? {
+                  guard: branch.guard,
+                  setBranchStatus: (nodeId: string, status: BranchStatus) => void branch.setStatus(nodeId, status),
+                  canNotNeeded: branch.setup.canNotNeeded,
+                }
+              : {}),
+          }
+        : undefined,
     store,
     canEdit: ctx.canEdit,
     onShow: show,
@@ -552,6 +585,8 @@ export function TreeTable({
       cells: onConfirm ? cells : undefined,
       pendingFields: edit ? new Set(Object.keys(edit)) : undefined,
       menu: menus.api,
+      branch,
+      readiness: row.kind === 'discipline' && row.id && branch ? branchReadiness(state, row.id) : undefined,
     };
   };
 
@@ -579,6 +614,7 @@ export function TreeTable({
   return (
     <div className="tree" role="treegrid" aria-label={t('tree.label')} aria-rowcount={rows.length}>
       {menus.dialogs}
+      {branch?.dialogs}
       {historyFor && onConfirm ? (
         <HistoryPanel
           key={historyFor}
