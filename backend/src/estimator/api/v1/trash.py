@@ -26,6 +26,7 @@ from estimator.security.authz import Target
 from estimator.security.authz.deps import register_resolver
 from estimator.services.trash import listing
 from estimator.services.trash import nodes as trash_nodes
+from estimator.services.tree.moderator_edits import notify_experts
 
 router = ApiRouter(tags=["Дерево"])
 
@@ -110,4 +111,6 @@ async def restore_trash(
         raise HTTPException(404, detail={"code": "NOT_FOUND"})
     project = await _project(db, batch[0].project_id)
     out = await trash_nodes.restore_batch(db, principal, project, batch, body.target_parent_id)
+    root = batch[0]
+    await notify_experts(db, principal, project.id, root.id, root.discipline_id, ["structure"])
     return await _nodes_response(db, project.id, out)
