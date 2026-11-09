@@ -30,6 +30,7 @@ import {
   userRef,
   type DemoProject,
 } from "./data";
+import * as demoAudit from "./demoAudit";
 import * as demoAuth from "./demoAuth";
 import * as demoDiscussions from "./demoDiscussions";
 import * as demoDocuments from "./demoDocuments";
@@ -651,6 +652,18 @@ const DEMO: Record<string, Demo> = {
     if (!demoSystem.stepUpFresh()) return stepUpRequired();
     const err = demoSystem.anonymize(ctx.params.id ?? "");
     return err ? accountProblem(err) : undefined;
+  },
+  // FE-065 · журнал аудита (SEC-AUD-06); выгрузка CSV — со step-up (FR-EXP-06)
+  listAudit: (ctx) => demoAudit.list(ctx.persona, ctx.params),
+  exportAudit: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const b = body(ctx);
+    const day = (v: unknown) =>
+      typeof v === "string" ? v.slice(0, 10) : TODAY;
+    return demoExports.createExport(
+      "audit_csv",
+      `Журнал_аудита_${day(b.from)}_${day(b.to)}.csv`,
+    );
   },
   systemRegistry: (_ctx, schema) => list(schema, demoPortfolio.registry()),
   getSettings: (ctx) => demoSystem.settings(ctx.params.section ?? ""),

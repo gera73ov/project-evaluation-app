@@ -834,3 +834,17 @@ table.cq-table td{vertical-align:top}
 .setup-admins{margin:0;padding-left:18px}
 .setup-done h2{margin:0}
 @media (max-width:720px){.setup-body{grid-template-columns:1fr}}
+
+/* FE-065 · журнал аудита */
+.audit-page{max-width:1280px;margin:0 auto;padding:20px 16px}
+.audit-filters{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end}
+.audit-filters > .mantine-InputWrapper-root{width:160px}
+.audit-filters .audit-type{width:320px}
+.audit-filter-actions{display:flex;gap:8px;flex-wrap:wrap}
+.audit-hint{flex-basis:100%;margin:0}
+.audit-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:start}
+.audit-details{width:360px;display:flex;flex-direction:column;gap:8px}
+.audit-details h3{margin:0;font-size:15px}
+.audit-json{margin:0;padding:8px;background:var(--line2);border-radius:6px;font-size:12px;white-space:pre-wrap;word-break:break-word}
+.audit-table .nowrap{white-space:nowrap}
+@media (max-width:900px){.audit-body{grid-template-columns:1fr}.audit-details{width:auto}}

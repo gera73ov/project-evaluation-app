@@ -22,6 +22,7 @@ import { DiscussionsPage } from '../features/stats/questions/DiscussionsPage';
 import { QuestionsPage } from '../features/stats/questions/QuestionsPage';
 import { TotalsPage } from '../features/stats/totals/TotalsPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
+import { AuditPage } from '../features/audit/AuditPage';
 import { AccountsPage } from '../features/system/admins/AccountsPage';
 import { AnonymizePage, RegistryPage } from '../features/system/admins/AnonymizeRegistryPages';
 import { AuthPage } from '../features/system/auth/AuthPage';
@@ -239,8 +240,8 @@ export const ROUTES: readonly RouteDef[] = [
     path: '/audit',
     access: 'private',
     nav: 'audit',
-    roles: ['security_auditor', 'superadmin'],
-    render: stub('Журнал аудита', 'FE-065'),
+    roles: ['security_auditor', 'superadmin', 'admin'],
+    render: () => <AuditPage />,
   },
 ];
 
