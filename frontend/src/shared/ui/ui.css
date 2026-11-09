@@ -615,3 +615,42 @@ tr:target td{background:var(--accent-soft)}
 .sys-state.bad{color:var(--bad)} .sys-state.bad i{background:var(--bad)}
 .sys-health-detail{font-size:12.5px}
 .sys-health-at{font-size:11.5px;color:var(--muted)}
+
+/* FE-041 · статистика: итоги и динамика (DESIGN.md 10.8, 7.5) */
+.tot-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px 22px 22px;align-items:start}
+.tot-err{margin:12px 22px 0}
+.tot-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.tot-card.m{border-color:var(--money-border,#d9cff2);background:var(--money-surface,#fcfbff)}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.card-head h3{margin:0;font-size:14px}
+.card-head h3.money{color:var(--money)}
+.card-head .sub{color:var(--muted);font-size:12px}
+.tot-table td,.tot-quote td{font-variant-numeric:tabular-nums}
+.tot-table td.m,.tot-table th.m{color:var(--money)}
+.tot-table td.m{background:var(--money-surface,#fcfbff)}
+.tot-table tr.sum td{font-weight:700}
+.tot-table tr.total td{font-weight:700;background:var(--accent-soft)}
+.tot-table tr.total td.m{background:var(--accent-soft)}
+.tot-table tr.empty td{color:var(--faint)}
+.tot-table td.rate-missing{color:var(--warn);background:var(--warn-soft)}
+.tot-table .sub{color:var(--muted);font-size:11.5px}
+.share{display:inline-flex;align-items:center;gap:6px}
+.share i{display:inline-block;height:8px;border-radius:4px;background:var(--accent)}
+.share i.pm{background:#9b8ad0}
+.tot-quote th[scope=row]{font-weight:400;text-align:left;color:var(--ink);background:none}
+.tot-quote tr.strong th,.tot-quote tr.strong td{font-weight:700}
+.tot-quote .on{background:var(--accent-soft);font-weight:700}
+.dyn{margin:0}
+.dyn svg{width:100%;height:auto;display:block}
+.dyn-grid{stroke:var(--line2);stroke-width:1}
+.dyn-axis{font-size:11px;fill:var(--faint)}
+.dyn-line.e path{stroke:var(--accent);stroke-width:2.5}
+.dyn-line.p80 path{stroke:var(--warn);stroke-width:2}
+.dyn-line circle.hit{fill:transparent}
+.dyn-line.e circle.last{fill:var(--accent)} .dyn-line.p80 circle.last{fill:var(--warn)}
+.dyn-snap line{stroke:var(--snapshot,#5b4fc8);stroke-dasharray:4 3;stroke-width:1.2}
+.dyn-snap text{font-size:11px;fill:var(--money);font-weight:600}
+.dyn-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.dyn-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle}
+.dyn-legend i.e{background:var(--accent)} .dyn-legend i.p80{background:var(--warn)}
+@media (max-width:1200px){.tot-grid{grid-template-columns:1fr}}

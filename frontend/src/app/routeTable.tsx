@@ -15,6 +15,7 @@ import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
 import { DocumentsPage } from '../features/documents/DocumentsPage';
 import { ReadinessPage } from '../features/stats/grid/ReadinessPage';
+import { TotalsPage } from '../features/stats/totals/TotalsPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
 import { HealthPage } from '../features/system/health/HealthPage';
 import { SystemStub } from '../features/system/layout/SystemLayout';
@@ -108,7 +109,11 @@ export const ROUTES: readonly RouteDef[] = [
     access: 'private',
     render: (params) => <ReadinessPage key={params.id} projectId={params.id ?? ''} />,
   },
-  { path: '/projects/:id/stats/totals', access: 'private', render: stub('Итоги', 'FE-041') },
+  {
+    path: '/projects/:id/stats/totals',
+    access: 'private',
+    render: (params) => <TotalsPage projectId={params.id ?? ''} />,
+  },
   { path: '/projects/:id/stats/shares', access: 'private', render: stub('Доли и соотношения', 'FE-042') },
   { path: '/projects/:id/stats/volumes', access: 'private', render: stub('Объёмы по типам', 'FE-042') },
   { path: '/projects/:id/stats/candidates', access: 'private', render: stub('Кандидаты на декомпозицию', 'FE-042') },

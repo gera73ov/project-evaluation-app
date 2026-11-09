@@ -3,6 +3,7 @@
  * «← К оценке» и вкладки-маршруты. На «Вопросах заказчику» — счётчик новых вопросов.
  */
 import { useQuery } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Link } from '../../app/router';
@@ -44,11 +45,14 @@ export function StatsHeader({
   projectName,
   active,
   canReadQuestions,
+  actions,
 }: {
   projectId: string;
   projectName: string;
   active: StatsTab;
   canReadQuestions: boolean;
+  /** Кнопки вкладки в шапке перед «← К оценке» («⇩ Excel»). */
+  actions?: ReactNode;
 }) {
   const { t } = useTranslation();
   const fresh = useNewQuestions(projectId, canReadQuestions);
@@ -59,6 +63,7 @@ export function StatsHeader({
         <span aria-hidden="true"> › </span>
         <h1>{t('stats.title')}</h1>
         <span className="sp" />
+        {actions}
         <Link to={`/projects/${projectId}`} className="btn-link">
           ← {t('stats.back')}
         </Link>
