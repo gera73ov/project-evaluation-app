@@ -96,15 +96,17 @@ async def project_disciplines(db: AsyncSession, project_id: uuid.UUID) -> list[D
     return [DisciplineRow(*r) for r in rows.all()]
 
 
-async def live_nodes(db: AsyncSession, project_id: uuid.UUID) -> list[Node]:
-    """Все живые узлы проекта одним запросом (14.3)."""
-    return list(
-        (
-            await db.scalars(
-                select(Node).where(Node.project_id == project_id, Node.deleted_at.is_(None))
-            )
-        ).all()
+async def live_nodes(db: AsyncSession, project_id: uuid.UUID) -> list[Any]:
+    """Все живые узлы проекта одним запросом (14.3).
+
+    Строки таблицы, а не объекты ORM: на 5 000 узлах сборка объектов и identity map занимали
+    большую часть бюджета NFR-LIM-01. Поля читаются теми же именами, что у :class:`Node`.
+    """
+    table = Node.__table__
+    rows = await db.execute(
+        select(table).where(table.c.project_id == project_id, table.c.deleted_at.is_(None))
     )
+    return list(rows.all())
 
 
 async def count_live_nodes(db: AsyncSession, project_id: uuid.UUID) -> int:
