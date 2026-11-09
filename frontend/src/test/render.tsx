@@ -6,12 +6,13 @@ import { HttpResponse, http } from 'msw';
 import type { ReactElement } from 'react';
 
 import { App, createQueryClient } from '../app/App';
+import type { WsClientOptions } from '../shared/ws/client';
 import { RouterProvider } from '../app/router';
 import { theme } from '../shared/ui/theme';
 
-export function renderApp(path = '/') {
+export function renderApp(path = '/', wsOptions?: Partial<WsClientOptions>) {
   window.history.replaceState(null, '', path);
-  return render(<App queryClient={createQueryClient()} />);
+  return render(<App queryClient={createQueryClient()} {...(wsOptions ? { wsOptions } : {})} />);
 }
 
 export function problem(status: number, code: string, extra: Record<string, unknown> = {}) {

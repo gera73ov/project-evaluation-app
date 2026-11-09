@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 
 import { api } from '../shared/api/client';
 import { call } from '../shared/api/problem';
+import { OfflineBanner } from '../shared/ws/OfflineBanner';
+import { SessionExtend } from '../features/auth/SessionExtend';
 import { Link, useNavigate } from './router';
 import { NAV, type NavKey } from './routeTable';
 import { hasRole, useSession, type Me } from './session';
@@ -79,6 +81,12 @@ export function AppShell({ me, active, children }: { me: Me; active?: NavKey | u
           </Menu.Dropdown>
         </Menu>
       </header>
+      <OfflineBanner />
+      <SessionExtend
+        idleTimeoutSeconds={me.idle_timeout_seconds}
+        sessionExpiresAt={me.session_expires_at}
+        onLogout={() => void logout()}
+      />
       <main>{children}</main>
     </div>
   );

@@ -32,3 +32,4 @@
 .user-menu{background:none;border:0;font:inherit;color:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:500}
 .app-shell{min-height:100vh;background:var(--bg)}
 .page-title{font-size:18px;font-weight:700;margin:0}
+.ybar{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 18px;background:var(--warn-soft);border-bottom:1px solid var(--warn-border);color:var(--warn-text-strong);font-size:13px;font-weight:600}

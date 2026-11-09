@@ -4,7 +4,7 @@
 :root{
   --bg:#f4f6f8; --panel:#fff; --ink:#1b2229; --muted:#66717d; --faint:#9aa4ae; --line:#dfe4e9; --line2:#eef1f4;
   --accent:#1f6f8b; --accent-soft:#e3f0f5; --accent-ink:#165468;
-  --ok:#2f8a4a; --ok-soft:#e5f4ea; --warn:#b7791f; --warn-soft:#fdf3e1; --bad:#c2413b; --bad-soft:#fbe9e8;
+  --ok:#2f8a4a; --ok-soft:#e5f4ea; --warn:#b7791f; --warn-soft:#fdf3e1; --warn-border:#ecd3a4; --warn-text-strong:#7a5414; --bad:#c2413b; --bad-soft:#fbe9e8;
   --money:#6b4fb3; --money-soft:#efebfa; --callout:#4338ca;
   --f:"Golos Text","Segoe UI",system-ui,sans-serif; --m:"JetBrains Mono",Consolas,monospace;
 }
