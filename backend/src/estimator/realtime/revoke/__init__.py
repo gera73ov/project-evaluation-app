@@ -30,7 +30,7 @@ REVOKE_TO_ENDED = {
     "expired": "idle_timeout",
     "user_revoked": "revoked",
     "blocked": "user_blocked",
-    "password_changed": "password_changed",
+    "password_changed": "password_changed",  # nosec B105 — причина, не пароль
     "ad_check": "user_blocked",
     "mode_switch": "auth_mode_switched",
     "superseded": "revoked",
