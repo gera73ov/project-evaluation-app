@@ -22,6 +22,7 @@ import { DiscussionsPage } from '../features/stats/questions/DiscussionsPage';
 import { QuestionsPage } from '../features/stats/questions/QuestionsPage';
 import { TotalsPage } from '../features/stats/totals/TotalsPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
+import { AuthPage } from '../features/system/auth/AuthPage';
 import { HealthPage } from '../features/system/health/HealthPage';
 import { SystemStub } from '../features/system/layout/SystemLayout';
 import { SystemRoute } from '../features/system/SystemRoute';
@@ -64,7 +65,6 @@ export const NAV: readonly NavItem[] = [
 
 /** Пункты меню «Системы», экраны которых делают следующие задачи плана. */
 const SYSTEM_STUBS = [
-  ['auth', 'FE-061'],
   ['security', 'FE-062'],
   ['smtp', 'FE-062'],
   ['retention', 'FE-062'],
@@ -176,6 +176,13 @@ export const ROUTES: readonly RouteDef[] = [
     nav: 'system',
     roles: ['superadmin'],
     render: () => <SystemRoute render={(me) => <HealthPage me={me} />} />,
+  },
+  {
+    path: '/system/auth',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={(me) => <AuthPage me={me} />} />,
   },
   ...SYSTEM_STUBS.map(
     ([section, task]): RouteDef => ({

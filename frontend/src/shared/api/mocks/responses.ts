@@ -30,6 +30,7 @@ import {
   userRef,
   type DemoProject,
 } from "./data";
+import * as demoAuth from "./demoAuth";
 import * as demoDiscussions from "./demoDiscussions";
 import * as demoDocuments from "./demoDocuments";
 import * as demoExports from "./demoExports";
@@ -78,6 +79,13 @@ function problem(status: number, code: string, title: string): MockResult {
       error_id: uuidFrom("error", code),
     },
   };
+}
+
+/** Критичное действие без свежего подтверждения (SEC-AUTH-05). */
+function stepUpRequired() {
+  return new MockProblem(
+    problem(403, "STEP_UP_REQUIRED", "Подтвердите действие"),
+  );
 }
 
 function projectOf(
@@ -597,6 +605,53 @@ const DEMO: Record<string, Demo> = {
   getHealth: () => demoSystem.health(),
   listAdmins: (_ctx, schema) => list(schema, demoSystem.admins()),
   getSettings: (ctx) => demoSystem.settings(ctx.params.section ?? ""),
+  // FE-061 · способ входа и AD (11.2 №2–6); критичные записи — со step-up (SEC-AUTH-05)
+  stepUp: () => demoSystem.stepUp(),
+  putSettings: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const section = ctx.params.section ?? "";
+    const values = new Map(Object.entries(body(ctx))).get("values") ?? {};
+    if (section === "auth") {
+      const missing = demoAuth.missingChecks(values);
+      if (missing.length) {
+        const err = problem(
+          409,
+          "AD_CHECKS_REQUIRED",
+          "Сначала проверьте подключение и вход",
+        );
+        return new MockProblem({
+          status: 409,
+          body: { ...(err.body as object), missing },
+        });
+      }
+    }
+    const result = demoSystem.saveSettings(section, values);
+    if (section === "auth") demoAuth.afterSave();
+    return result;
+  },
+  adTestConnection: (ctx) => demoAuth.testConnection(ctx.body),
+  adTestLogin: (ctx) => demoAuth.testLogin(ctx.body),
+  switchMode: (ctx) => {
+    const dryRun = new Map(Object.entries(body(ctx))).get("dry_run") !== false;
+    if (!dryRun && !demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoAuth.switchMode(ctx.body);
+    if ("report" in out) return out.report;
+    const err =
+      out.error === "MODE_SWITCH_NOT_ALLOWED"
+        ? problem(409, out.error, "Переход недоступен в интерфейсе")
+        : problem(409, out.error, "Есть нерешённые совпадения");
+    return new MockProblem({
+      status: 409,
+      body: {
+        ...(err.body as object),
+        ...("unresolved" in out ? { unresolved: out.unresolved } : {}),
+      },
+    });
+  },
+  switchModeResolve: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    return demoAuth.resolve(ctx.body);
+  },
   // FE-050 · портфель руководителя пресейла (FR-PORT-01…03)
   portfolioProjects: (ctx, schema) =>
     list(schema, demoPortfolio.portfolioProjects(ctx.params)),
