@@ -120,3 +120,15 @@ span.person-name{cursor:default}
 .ad-list{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px;max-height:260px;overflow:auto}
 .ad-list label{display:flex;gap:8px;align-items:center;cursor:pointer}
 .set-field>.mantine-SegmentedControl-root{justify-self:start}
+/* FE-014 · деньги */
+.money-sec{border-color:var(--money-border,#d9cff2);background:var(--money-surface,#fcfbff)}
+.money-note{margin:-6px 0 14px 184px}
+.money-rates-title{margin:8px 0 8px}
+.money-rate-label{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 0}
+.money-rate .num input,.money-rate input{text-align:right}
+.rate-missing input{background:var(--warn-soft);border-color:var(--warn-border)}
+.money-totals{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:16px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+.money-totals dt{margin:0}
+.money-totals dd{margin:0;text-align:right;color:var(--money)}
+.money-totals dd.strong{font-weight:700}
+.warnbox{background:var(--warn-soft);color:var(--warn-text-strong);border-radius:6px;padding:9px 12px;font-size:12px;margin-bottom:10px}

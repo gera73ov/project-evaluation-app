@@ -9,6 +9,7 @@ import { Link } from '../../app/router';
 import { useReadOnlyOffline } from '../../shared/ws/WsProvider';
 import { ErrorText } from '../../shared/ui/ErrorText';
 import { GeneralSection } from './general/GeneralSection';
+import { MoneySection } from './money/MoneySection';
 import { TeamSection } from './team/TeamSection';
 import { useProject, type Project } from './useProject';
 
@@ -60,6 +61,7 @@ export function ProjectSettingsPage({ projectId }: { projectId: string }) {
   if (!project.data) return null;
   const data = project.data;
   const readOnly = !canEditSettings(data) || offline;
+  const money = data.my_permissions.includes('money.read');
 
   return (
     <div className="settings">
@@ -70,11 +72,17 @@ export function ProjectSettingsPage({ projectId }: { projectId: string }) {
       </div>
       <SettingsTabs projectId={data.id} active="general" />
       {!canEditSettings(data) ? <p className="set-readonly">{t('settings.readOnly')}</p> : null}
-      <div className="set-grid">
+      <div className={money ? 'set-grid' : 'set-grid single'}>
         <div className="set-col">
           <GeneralSection project={data} readOnly={readOnly} />
           <TeamSection project={data} readOnly={offline} />
         </div>
+        {/* у ролей без денег блока нет в разметке (11.6, SEC-AUTHZ-04) */}
+        {money ? (
+          <div className="set-col">
+            <MoneySection project={data} readOnly={offline} />
+          </div>
+        ) : null}
       </div>
     </div>
   );
