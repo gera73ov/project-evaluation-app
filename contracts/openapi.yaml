@@ -7563,6 +7563,119 @@ paths:
           $ref: '#/components/responses/Problem429'
         '500':
           $ref: '#/components/responses/Problem500'
+  /projects/{id}/messages:
+    get:
+      operationId: listProjectMessages
+      summary: Лента обсуждения проекта
+      description: >-
+        CR-007. Сообщения, серые события и вопросы уровня проекта (`node_id = null`) — как
+        `listNodeMessages` у узла (FR-DISC-01: обсуждение «у проекта целиком (в шапке)», 11.4 №14).
+      tags:
+      - Обсуждения
+      x-permission: discussion.read
+      x-spec:
+      - FR-DISC-01
+      - FR-DISC-04
+      - FR-DISC-07
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 512
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - CURSOR_INVALID
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeFeed'
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '500':
+          $ref: '#/components/responses/Problem500'
+    post:
+      operationId: postProjectMessage
+      summary: Сообщение в ленту проекта
+      description: >-
+        CR-007. Сообщение в обсуждение проекта (`node_id = null`); с `needs_answer = true` —
+        вопрос проекта, как у `postNodeMessage`.
+      tags:
+      - Обсуждения
+      x-permission: discussion.write
+      x-spec:
+      - FR-DISC-02
+      - FR-DISC-03
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageCreate'
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - CSRF_FAILED
+      - RATE_LIMITED
+      - PROJECT_STATUS_CONFLICT
+      - VALIDATION_FAILED
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '409':
+          $ref: '#/components/responses/Problem409'
+        '422':
+          $ref: '#/components/responses/Problem422'
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '500':
+          $ref: '#/components/responses/Problem500'
   /threads/{id}/messages:
     post:
       operationId: replyThread

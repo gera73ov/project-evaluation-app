@@ -539,6 +539,7 @@ permissions:
     endpoints:
       - "GET /projects/{id}/threads"
       - "GET /nodes/{id}/messages"
+      - "GET /projects/{id}/messages"
       - "GET /projects/{id}/members/suggest"
   discussion.write:
     title: Писать в обсуждениях; править и отзывать своё сообщение (FR-DISC-06)
@@ -546,6 +547,7 @@ permissions:
     endpoints:
       - "POST /projects/{id}/threads"
       - "POST /nodes/{id}/messages"
+      - "POST /projects/{id}/messages"
       - "POST /threads/{id}/messages"
       - "PATCH /messages/{id}"
       - "POST /messages/{id}/revoke"

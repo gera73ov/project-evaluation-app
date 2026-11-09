@@ -411,6 +411,18 @@ const DEMO: Record<string, Demo> = {
           userRef(ctx.persona),
         )
       : undefined,
+  // CR-007: обсуждение проекта (node_id = null)
+  listProjectMessages: (ctx) =>
+    ctx.project ? demoDiscussions.nodeFeed(ctx.project, null) : undefined,
+  postProjectMessage: (ctx) =>
+    ctx.project
+      ? demoDiscussions.postMessage(
+          ctx.project,
+          null,
+          body(ctx),
+          userRef(ctx.persona),
+        )
+      : undefined,
   replyThread: (ctx) =>
     ctx.project
       ? demoDiscussions.replyThread(

@@ -1951,6 +1951,30 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Лента обсуждения проекта
+         * @description CR-007. Сообщения, серые события и вопросы уровня проекта (`node_id = null`) — как `listNodeMessages` у узла (FR-DISC-01: обсуждение «у проекта целиком (в шапке)», 11.4 №14).
+         */
+        get: operations["listProjectMessages"];
+        put?: never;
+        /**
+         * Сообщение в ленту проекта
+         * @description CR-007. Сообщение в обсуждение проекта (`node_id = null`); с `needs_answer = true` — вопрос проекта, как у `postNodeMessage`.
+         */
+        post: operations["postProjectMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/threads/{id}/messages": {
         parameters: {
             query?: never;
@@ -8484,6 +8508,69 @@ export interface operations {
         };
     };
     postNodeMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageCreate"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listProjectMessages: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeFeed"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    postProjectMessage: {
         parameters: {
             query?: never;
             header?: never;
