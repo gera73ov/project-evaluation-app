@@ -2392,6 +2392,10 @@ export type components = {
         DecimalString: DecimalString;
         /** @description Расчётные часы: 2 знака, ROUND_HALF_UP (15.3) */
         HoursString: DecimalString;
+        /** @description Разница расчётных часов: 2 знака, со знаком (сравнение снимков, CR-008) */
+        SignedHoursString: DecimalString;
+        /** @description Разница денег: целое число со знаком (сравнение снимков, CR-008) */
+        SignedMoneyString: DecimalString;
         /** @description Деньги: целое число ₽ или единиц валюты КП (BR-MONEY-04) */
         MoneyString: DecimalString;
         /** @description O/R/P на вход: 0–99 999,5, округляется до 0,5 (BR-CALC-03); null — очистить */
@@ -2445,6 +2449,13 @@ export type components = {
             sigma?: components["schemas"]["HoursString"];
             p80: components["schemas"]["HoursString"];
             p90: components["schemas"]["HoursString"];
+        };
+        /** @description Разница итогов в часах со знаком (CR-008) */
+        SignedHoursTotals: {
+            e: components["schemas"]["SignedHoursString"];
+            sigma?: components["schemas"]["SignedHoursString"];
+            p80: components["schemas"]["SignedHoursString"];
+            p90: components["schemas"]["SignedHoursString"];
         };
         LoginRequest: {
             login: string;
@@ -3607,24 +3618,66 @@ export type components = {
             name: string;
             description?: string;
         };
-        /** @description Влияние ставок и курса отдельной строкой (FR-SNAP-03) */
+        /** @description Деньги одной стороны сравнения: итог без НДС в рублях и в валюте КП (6.4); null — не хватает ставок или переполнение (CR-008) */
+        DiffMoneySide: {
+            total_rub: components["schemas"]["MoneyString"] | null;
+            total_cur: components["schemas"]["MoneyString"] | null;
+            currency: string;
+            exchange_rate: components["schemas"]["DecimalString"];
+        };
+        /** @description Деньги сравнения «было → стало»; влияние ставок и курса отдельной строкой (FR-SNAP-03). Только у ролей с деньгами (BR-MONEY-01) */
         DiffMoney: {
+            base: components["schemas"]["DiffMoneySide"];
+            with: components["schemas"]["DiffMoneySide"];
             rows: {
                 node_id: components["schemas"]["Uuid"] | null;
-                delta_cost_rub: components["schemas"]["MoneyString"] | null;
+                delta_cost_rub: components["schemas"]["SignedMoneyString"] | null;
             }[];
+            /** @description Изменилась хотя бы одна ставка дисциплины */
+            rates_changed: boolean;
             rates_effect_rub: components["schemas"]["DecimalString"] | null;
             exchange_effect_cur: components["schemas"]["DecimalString"] | null;
             total_delta_rub: components["schemas"]["DecimalString"] | null;
+            total_delta_cur: components["schemas"]["DecimalString"] | null;
         };
+        /** @description Оценка узла на одной стороне сравнения: O–R–P × N и E узла (для узла с детьми O/R/P — null, E — сумма листьев) (CR-008) */
+        DiffEstimate: {
+            o: components["schemas"]["DecimalString"] | null;
+            r: components["schemas"]["DecimalString"] | null;
+            p: components["schemas"]["DecimalString"] | null;
+            multiplier: number;
+            e: components["schemas"]["HoursString"];
+        };
+        /** @description Строка изменения параметра проекта в сравнении (FR-SNAP-03, 11.12 №3–4; CR-008) */
+        DiffParam: {
+            /**
+             * @description Параметр проекта (11.12 №4): ставка дисциплины, валюта и курс КП, НДС, % УП, фазы в базе УП, «Цифра для КП», включённые фазы
+             * @enum {string}
+             */
+            key: "rate" | "currency" | "exchange_rate" | "vat" | "pm_percent" | "pm_base" | "quote_figure" | "phase_enabled";
+            /** @description Подпись строки, например «Курс USD», «Ставка · Бэкенд», «Фаза · Внедрение» */
+            label: string;
+            discipline_id: components["schemas"]["Uuid"] | null;
+            phase_id: components["schemas"]["Uuid"] | null;
+            /** @description Значение «было» строкой как в интерфейсе контракта (DecimalString, код, true/false); null — не было */
+            before: string | null;
+            after: string | null;
+            /** @description Денежный параметр (ставки, валюта, курс, НДС); такие строки получают только роли с деньгами (BR-MONEY-01) */
+            is_money: boolean;
+            last_changed_by: components["schemas"]["UserRef"] | null;
+            last_changed_at: components["schemas"]["Timestamp"] | null;
+        };
+        /** @description Сравнение: base — снимок {id}, with — снимок или текущее состояние («было → стало»); все разницы — with − base (FR-SNAP-03, 11.12; CR-008) */
         Diff: {
             base: {
                 snapshot_id: components["schemas"]["Uuid"] | null;
                 label: string;
+                totals: components["schemas"]["HoursTotals"];
             };
             with: {
                 snapshot_id: components["schemas"]["Uuid"] | null;
                 label: string;
+                totals: components["schemas"]["HoursTotals"];
             };
             rows: {
                 node_id: components["schemas"]["Uuid"];
@@ -3632,11 +3685,24 @@ export type components = {
                 change: "added" | "removed" | "changed" | "moved";
                 title: string;
                 path: string[];
-                delta_e: components["schemas"]["HoursString"];
+                /** @description Оценка в base; null — узла там нет (added) */
+                before: components["schemas"]["DiffEstimate"] | null;
+                /** @description Оценка в with; null — узла там нет (removed) */
+                after: components["schemas"]["DiffEstimate"] | null;
+                delta_e: components["schemas"]["SignedHoursString"];
                 fields: string[];
                 last_changed_by: components["schemas"]["UserRef"] | null;
+                last_changed_at: components["schemas"]["Timestamp"] | null;
             }[];
-            totals_delta: components["schemas"]["HoursTotals"];
+            /** @description Изменённые параметры проекта; денежных строк нет у ролей без денег */
+            params: components["schemas"]["DiffParam"][];
+            /** @description Строка-пояснение под таблицей: УП пересчитано (11.12), процент и ΔE УП; null — часы УП не изменились */
+            pm: {
+                percent_before: components["schemas"]["DecimalString"];
+                percent_after: components["schemas"]["DecimalString"];
+                delta_e: components["schemas"]["SignedHoursString"];
+            } | null;
+            totals_delta: components["schemas"]["SignedHoursTotals"];
             money?: components["schemas"]["DiffMoney"];
         };
         /**

@@ -8903,6 +8903,16 @@ components:
       pattern: ^\d+\.\d{2}$
       description: 'Расчётные часы: 2 знака, ROUND_HALF_UP (15.3)'
       x-ts-type: DecimalString
+    SignedHoursString:
+      type: string
+      pattern: ^-?\d+\.\d{2}$
+      description: 'Разница расчётных часов: 2 знака, со знаком (сравнение снимков, CR-008)'
+      x-ts-type: DecimalString
+    SignedMoneyString:
+      type: string
+      pattern: ^-?\d+$
+      description: 'Разница денег: целое число со знаком (сравнение снимков, CR-008)'
+      x-ts-type: DecimalString
     MoneyString:
       type: string
       pattern: ^\d+$
@@ -9048,6 +9058,23 @@ components:
       - p90
       additionalProperties: false
       description: Часы без денег
+    SignedHoursTotals:
+      type: object
+      properties:
+        e:
+          $ref: '#/components/schemas/SignedHoursString'
+        sigma:
+          $ref: '#/components/schemas/SignedHoursString'
+        p80:
+          $ref: '#/components/schemas/SignedHoursString'
+        p90:
+          $ref: '#/components/schemas/SignedHoursString'
+      required:
+      - e
+      - p80
+      - p90
+      additionalProperties: false
+      description: Разница итогов в часах со знаком (CR-008)
     LoginRequest:
       type: object
       properties:
@@ -12859,9 +12886,37 @@ components:
       required:
       - name
       additionalProperties: false
+    DiffMoneySide:
+      type: object
+      properties:
+        total_rub:
+          anyOf:
+          - $ref: '#/components/schemas/MoneyString'
+          - type: 'null'
+        total_cur:
+          anyOf:
+          - $ref: '#/components/schemas/MoneyString'
+          - type: 'null'
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+        exchange_rate:
+          $ref: '#/components/schemas/DecimalString'
+      required:
+      - total_rub
+      - total_cur
+      - currency
+      - exchange_rate
+      additionalProperties: false
+      description: 'Деньги одной стороны сравнения: итог без НДС в рублях и в валюте КП (6.4); null —
+        не хватает ставок или переполнение (CR-008)'
     DiffMoney:
       type: object
       properties:
+        base:
+          $ref: '#/components/schemas/DiffMoneySide'
+        with:
+          $ref: '#/components/schemas/DiffMoneySide'
         rows:
           type: array
           items:
@@ -12873,12 +12928,15 @@ components:
                 - type: 'null'
               delta_cost_rub:
                 anyOf:
-                - $ref: '#/components/schemas/MoneyString'
+                - $ref: '#/components/schemas/SignedMoneyString'
                 - type: 'null'
             required:
             - node_id
             - delta_cost_rub
             additionalProperties: false
+        rates_changed:
+          type: boolean
+          description: Изменилась хотя бы одна ставка дисциплины
         rates_effect_rub:
           anyOf:
           - $ref: '#/components/schemas/DecimalString'
@@ -12891,13 +12949,113 @@ components:
           anyOf:
           - $ref: '#/components/schemas/DecimalString'
           - type: 'null'
+        total_delta_cur:
+          anyOf:
+          - $ref: '#/components/schemas/DecimalString'
+          - type: 'null'
       required:
+      - base
+      - with
       - rows
+      - rates_changed
       - rates_effect_rub
       - exchange_effect_cur
       - total_delta_rub
+      - total_delta_cur
       additionalProperties: false
-      description: Влияние ставок и курса отдельной строкой (FR-SNAP-03)
+      description: 'Деньги сравнения «было → стало»; влияние ставок и курса отдельной строкой (FR-SNAP-03).
+        Только у ролей с деньгами (BR-MONEY-01)'
+    DiffEstimate:
+      type: object
+      properties:
+        o:
+          anyOf:
+          - $ref: '#/components/schemas/DecimalString'
+          - type: 'null'
+        r:
+          anyOf:
+          - $ref: '#/components/schemas/DecimalString'
+          - type: 'null'
+        p:
+          anyOf:
+          - $ref: '#/components/schemas/DecimalString'
+          - type: 'null'
+        multiplier:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        e:
+          $ref: '#/components/schemas/HoursString'
+      required:
+      - o
+      - r
+      - p
+      - multiplier
+      - e
+      additionalProperties: false
+      description: 'Оценка узла на одной стороне сравнения: O–R–P × N и E узла (для узла с детьми O/R/P
+        — null, E — сумма листьев) (CR-008)'
+    DiffParam:
+      type: object
+      properties:
+        key:
+          type: string
+          enum:
+          - rate
+          - currency
+          - exchange_rate
+          - vat
+          - pm_percent
+          - pm_base
+          - quote_figure
+          - phase_enabled
+          description: 'Параметр проекта (11.12 №4): ставка дисциплины, валюта и курс КП, НДС, % УП, фазы в
+            базе УП, «Цифра для КП», включённые фазы'
+        label:
+          type: string
+          description: Подпись строки, например «Курс USD», «Ставка · Бэкенд», «Фаза · Внедрение»
+        discipline_id:
+          anyOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: 'null'
+        phase_id:
+          anyOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: 'null'
+        before:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Значение «было» строкой как в интерфейсе контракта (DecimalString, код, true/false);
+            null — не было
+        after:
+          anyOf:
+          - type: string
+          - type: 'null'
+        is_money:
+          type: boolean
+          description: Денежный параметр (ставки, валюта, курс, НДС); такие строки получают только роли с
+            деньгами (BR-MONEY-01)
+        last_changed_by:
+          anyOf:
+          - $ref: '#/components/schemas/UserRef'
+          - type: 'null'
+        last_changed_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+      required:
+      - key
+      - label
+      - discipline_id
+      - phase_id
+      - before
+      - after
+      - is_money
+      - last_changed_by
+      - last_changed_at
+      additionalProperties: false
+      description: Строка изменения параметра проекта в сравнении (FR-SNAP-03, 11.12 №3–4; CR-008)
     Diff:
       type: object
       properties:
@@ -12910,9 +13068,12 @@ components:
               - type: 'null'
             label:
               type: string
+            totals:
+              $ref: '#/components/schemas/HoursTotals'
           required:
           - snapshot_id
           - label
+          - totals
           additionalProperties: false
         with:
           type: object
@@ -12923,9 +13084,12 @@ components:
               - type: 'null'
             label:
               type: string
+            totals:
+              $ref: '#/components/schemas/HoursTotals'
           required:
           - snapshot_id
           - label
+          - totals
           additionalProperties: false
         rows:
           type: array
@@ -12947,8 +13111,18 @@ components:
                 type: array
                 items:
                   type: string
+              before:
+                anyOf:
+                - $ref: '#/components/schemas/DiffEstimate'
+                - type: 'null'
+                description: Оценка в base; null — узла там нет (added)
+              after:
+                anyOf:
+                - $ref: '#/components/schemas/DiffEstimate'
+                - type: 'null'
+                description: Оценка в with; null — узла там нет (removed)
               delta_e:
-                $ref: '#/components/schemas/HoursString'
+                $ref: '#/components/schemas/SignedHoursString'
               fields:
                 type: array
                 items:
@@ -12957,25 +13131,58 @@ components:
                 anyOf:
                 - $ref: '#/components/schemas/UserRef'
                 - type: 'null'
+              last_changed_at:
+                anyOf:
+                - $ref: '#/components/schemas/Timestamp'
+                - type: 'null'
             required:
             - node_id
             - change
             - title
             - path
+            - before
+            - after
             - delta_e
             - fields
             - last_changed_by
+            - last_changed_at
             additionalProperties: false
+        params:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiffParam'
+          description: Изменённые параметры проекта; денежных строк нет у ролей без денег
+        pm:
+          anyOf:
+          - type: object
+            properties:
+              percent_before:
+                $ref: '#/components/schemas/DecimalString'
+              percent_after:
+                $ref: '#/components/schemas/DecimalString'
+              delta_e:
+                $ref: '#/components/schemas/SignedHoursString'
+            required:
+            - percent_before
+            - percent_after
+            - delta_e
+            additionalProperties: false
+          - type: 'null'
+          description: 'Строка-пояснение под таблицей: УП пересчитано (11.12), процент и ΔE УП; null — часы УП не изменились'
         totals_delta:
-          $ref: '#/components/schemas/HoursTotals'
+          $ref: '#/components/schemas/SignedHoursTotals'
         money:
           $ref: '#/components/schemas/DiffMoney'
       required:
       - base
       - with
       - rows
+      - params
+      - pm
       - totals_delta
       additionalProperties: false
+      description: 'Сравнение: base — снимок {id}, with — снимок или текущее состояние («было → стало»);
+        все разницы — with − base (FR-SNAP-03, 11.12; CR-008)'
     ExportKind:
       type: string
       enum:
