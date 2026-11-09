@@ -289,15 +289,39 @@ const DEMO: Record<string, Demo> = {
         rounded.push(field);
       changes.set(field, normal);
     }
+    const saved = demoTree.saveNode(
+      ctx.project,
+      node,
+      Object.fromEntries(changes),
+    );
+    const version = demoTree.nextProjectVersion();
+    // история листа (FE-028): было → стало по каждому изменённому полю
+    demoTree.recordHistory(
+      saved.id,
+      userRef(ctx.persona),
+      Object.fromEntries(
+        [...changes].map(([k, v]) => [
+          k,
+          [new Map(Object.entries(node)).get(k) ?? null, v],
+        ]),
+      ),
+      saved.version,
+      version,
+    );
     return {
-      node: demoTree.saveNode(ctx.project, node, Object.fromEntries(changes)),
-      project_version: demoTree.nextProjectVersion(),
+      node: saved,
+      project_version: version,
       ancestors: [],
       totals: hoursTotals(ctx.project.totals.total),
       branch_status: null,
       rounded,
     };
   },
+
+  getNodeHistory: (ctx) =>
+    ctx.project
+      ? demoTree.nodeHistory(ctx.project, ctx.params.id ?? "")
+      : undefined,
 
   // FE-027: операции со структурой дерева
   createNode: (ctx) =>

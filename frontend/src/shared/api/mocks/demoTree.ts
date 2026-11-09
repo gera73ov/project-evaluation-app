@@ -3,8 +3,16 @@
  * перезагрузки страницы. `GET /projects/{id}/tree` их не видит (данные демо не меняются);
  * ответы операций и PATCH — видят, поэтому дерево на экране остаётся согласованным.
  */
-import { PROJECTS, hours, typeId, type DemoProject } from "./data";
-import { uuidFrom } from "./ids";
+import {
+  PEOPLE,
+  PROJECTS,
+  hours,
+  typeId,
+  userRef,
+  type DemoProject,
+} from "./data";
+import { NOW, uuidFrom } from "./ids";
+import { PERSONAS } from "./personas";
 
 export type DemoNode = Record<string, unknown> & {
   id: string;
@@ -24,6 +32,7 @@ let counter = 0;
 /** Сбросить правки сессии (между тестами). */
 export function resetDemoTree(): void {
   edits.clear();
+  historyLog.clear();
   created.clear();
   deleted.clear();
 }
@@ -358,4 +367,145 @@ export function copyBranchFrom(p: DemoProject, id: string, body: Body) {
     after = position;
   }
   return mutation(out);
+}
+
+// --- FE-028: история листа ---------------------------------------------------------------
+
+type HistoryEntry = {
+  id: string;
+  created_at: string;
+  user: ReturnType<typeof userRef> | null;
+  action: string;
+  changes: Record<string, [unknown, unknown]>;
+  node_version: number;
+  project_version: number;
+};
+
+/** Правки сессии по узлу, от старых к новым. */
+const historyLog = new Map<string, HistoryEntry[]>();
+
+/** Записать правку узла в историю демо. */
+export function recordHistory(
+  nodeId: string,
+  user: ReturnType<typeof userRef>,
+  changes: Record<string, [unknown, unknown]>,
+  nodeVersion: number,
+  version: number,
+): void {
+  const list = historyLog.get(nodeId) ?? [];
+  list.push({
+    id: uuidFrom("history", nodeId, String(list.length)),
+    created_at: new Date(Date.parse(NOW) + (list.length + 1) * 60_000)
+      .toISOString()
+      .replace(".000Z", "Z"),
+    user,
+    action: "update",
+    changes,
+    node_version: nodeVersion,
+    project_version: version,
+  });
+  historyLog.set(nodeId, list);
+}
+
+const at = (iso: string) => iso;
+
+/**
+ * История узла: начальные записи демо (у «Обмен с 1С» — как на макете tree-menu.png) и правки
+ * сессии; от новых к старым.
+ */
+export function nodeHistory(p: DemoProject, id: string) {
+  const node = demoNode(p, id);
+  if (!node) return undefined;
+  const original =
+    (p.nodes as DemoNode[]).find((n) => n.id === id) ?? created.get(id);
+  const ivanov = userRef(PERSONAS.expert);
+  const smirnova = userRef(PERSONAS.moderator);
+  const novikov = userRef(PEOPLE.novikov);
+  const entry = (
+    key: string,
+    created_at: string,
+    user: HistoryEntry["user"],
+    action: string,
+    changes: HistoryEntry["changes"],
+    version: number,
+  ): HistoryEntry => ({
+    id: uuidFrom("history", id, key),
+    created_at,
+    user,
+    action,
+    changes,
+    node_version: version,
+    project_version: 10 + version,
+  });
+  const fork = (o: unknown, r: unknown, p2: unknown) => ({ o, r, p: p2 });
+  const pairs = (
+    a: ReturnType<typeof fork>,
+    b: ReturnType<typeof fork>,
+  ): HistoryEntry["changes"] => ({
+    o: [a.o, b.o],
+    r: [a.r, b.r],
+    p: [a.p, b.p],
+  });
+  let initial: HistoryEntry[];
+  if (original?.title === "Обмен с 1С") {
+    const f1 = fork("24", "32", "48");
+    const f2 = fork("30", "40", "60");
+    const f3 = fork(original.o, original.r, original.p);
+    initial = [
+      entry(
+        "create",
+        at("2026-10-30T12:44:00Z"),
+        novikov,
+        "create",
+        pairs(fork(null, null, null), f1),
+        1,
+      ),
+      entry(
+        "comment",
+        at("2026-10-31T07:02:00Z"),
+        novikov,
+        "update",
+        {
+          comment_lines: [
+            [],
+            [{ tag_id: null, text: "Обмен по расписанию, раз в час" }],
+          ],
+        },
+        2,
+      ),
+      entry(
+        "smirnova",
+        at("2026-10-31T15:20:00Z"),
+        smirnova,
+        "update",
+        pairs(f1, f2),
+        3,
+      ),
+      entry(
+        "ivanov",
+        at("2026-11-01T08:07:00Z"),
+        ivanov,
+        "update",
+        pairs(f2, f3),
+        4,
+      ),
+    ];
+  } else if (original) {
+    const f = fork(original.o ?? null, original.r ?? null, original.p ?? null);
+    const author = created.has(id) ? ivanov : novikov;
+    initial = [
+      entry(
+        "create",
+        created.has(id) ? NOW : at("2026-10-30T12:44:00Z"),
+        author,
+        "create",
+        pairs(fork(null, null, null), f),
+        1,
+      ),
+    ];
+  } else initial = [];
+  return {
+    items: [...initial, ...(historyLog.get(id) ?? [])].reverse(),
+    next_cursor: null,
+  };
 }

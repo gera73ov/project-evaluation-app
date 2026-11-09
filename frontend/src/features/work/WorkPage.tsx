@@ -310,6 +310,7 @@ function WorkScreen({
     profileOf: (disciplineId) => data.disciplines.find((d) => d.discipline_id === disciplineId)?.profile_id ?? null,
   };
   const ctx: TreeContext = {
+    roleOf: (id) => (members.some((m) => m.user.id === id && m.role === 'moderator') ? t('history.moderator') : null),
     highlight: deferredQuery,
     collab: { locks, marks, canForce: data.my_permissions.includes('tree.lock.force') },
     canEdit: editRule(data, members, userId, offline),
