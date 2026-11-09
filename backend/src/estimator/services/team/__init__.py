@@ -455,3 +455,37 @@ async def replace_member(
         removed=[user_id],
         updated=[],
     )
+
+
+async def candidates(
+    db: AsyncSession, q: str, role: ProjectRole | None = None, limit: int = 20
+) -> list[dict[str, Any]]:
+    """Кандидаты в команду (CR-005): активные, без суперадминистраторов и аудиторов ИБ.
+
+    ``role=moderator`` — только с системной ролью «Модератор», ``presale`` — «Пресейл». Поиск
+    по ФИО без учёта регистра; логин, почта и статус не отдаются.
+    """
+    excluded = select(UserRole.user_id).where(UserRole.role.in_(_INCOMPATIBLE))
+    pattern = "%" + q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    stmt = select(User.id, User.full_name).where(
+        User.status == UserStatus.ACTIVE,
+        User.id.not_in(excluded),
+        User.full_name.ilike(pattern, escape="\\"),
+    )
+    required = {
+        ProjectRole.MODERATOR: SystemRole.MODERATOR,
+        ProjectRole.PRESALE: SystemRole.PRESALE,
+    }
+    if role in required:
+        stmt = stmt.where(
+            User.id.in_(select(UserRole.user_id).where(UserRole.role == required[role]))
+        )
+    rows = (await db.execute(stmt.order_by(User.full_name, User.id).limit(limit))).all()
+    roles = await _system_roles(db, [uid for uid, _ in rows])
+    return [
+        {
+            "user": user_ref(uid, name, is_active=True),
+            "system_roles": sorted(r.value for r in roles[uid]),
+        }
+        for uid, name in rows
+    ]

@@ -21,6 +21,7 @@ from estimator.db.enums import (
     ProjectRole,
     ProjectStatus,
     QuoteFigure,
+    SystemRole,
 )
 
 
@@ -330,3 +331,12 @@ class NodesMutation(_Strict):
     totals: HoursTotals
     branch_statuses: list[BranchStatusChange]
     batch_id: uuid.UUID | None = None
+
+
+class MemberCandidate(_Strict):
+    user: UserRef
+    system_roles: list[SystemRole]
+
+
+class MemberCandidates(_Strict):
+    items: list[MemberCandidate]
