@@ -34,6 +34,7 @@ import * as demoDiscussions from "./demoDiscussions";
 import * as demoDocuments from "./demoDocuments";
 import * as demoOutcome from "./demoOutcome";
 import * as demoPortfolio from "./demoPortfolio";
+import * as demoSystem from "./demoSystem";
 import * as demoTree from "./demoTree";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
@@ -589,6 +590,10 @@ const DEMO: Record<string, Demo> = {
       schema,
       demoOutcome.lossReasons(ctx.params.include_inactive === "true"),
     ),
+  // FE-060 · раздел «Система» (FR-SA-07, BR-ROLE-03, FR-SA-04)
+  getHealth: () => demoSystem.health(),
+  listAdmins: (_ctx, schema) => list(schema, demoSystem.admins()),
+  getSettings: (ctx) => demoSystem.settings(ctx.params.section ?? ""),
   // FE-050 · портфель руководителя пресейла (FR-PORT-01…03)
   portfolioProjects: (ctx, schema) =>
     list(schema, demoPortfolio.portfolioProjects(ctx.params)),

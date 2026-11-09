@@ -16,6 +16,9 @@ import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage'
 import { DocumentsPage } from '../features/documents/DocumentsPage';
 import { ReadinessPage } from '../features/stats/grid/ReadinessPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
+import { HealthPage } from '../features/system/health/HealthPage';
+import { SystemStub } from '../features/system/layout/SystemLayout';
+import { SystemRoute } from '../features/system/SystemRoute';
 import { OutcomePage } from '../features/settings/outcome/OutcomePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TrashPage } from '../features/trash/TrashPage';
@@ -52,6 +55,18 @@ export const NAV: readonly NavItem[] = [
   { key: 'audit', to: '/audit', roles: ['security_auditor'] },
   { key: 'system', to: '/system', roles: ['superadmin'] },
 ];
+
+/** Пункты меню «Системы», экраны которых делают следующие задачи плана. */
+const SYSTEM_STUBS = [
+  ['auth', 'FE-061'],
+  ['security', 'FE-062'],
+  ['smtp', 'FE-062'],
+  ['retention', 'FE-062'],
+  ['admins', 'FE-063'],
+  ['auditors', 'FE-063'],
+  ['anonymize', 'FE-063'],
+  ['projects', 'FE-063'],
+] as const;
 
 function stub(title: string, task: string) {
   return function StubPage() {
@@ -125,7 +140,22 @@ export const ROUTES: readonly RouteDef[] = [
     roles: ['presale_head'],
     render: () => <PortfolioRoute />,
   },
-  { path: '/system', access: 'private', nav: 'system', roles: ['superadmin'], render: stub('Система', 'FE-060') },
+  {
+    path: '/system',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={(me) => <HealthPage me={me} />} />,
+  },
+  ...SYSTEM_STUBS.map(
+    ([section, task]): RouteDef => ({
+      path: `/system/${section}`,
+      access: 'private',
+      nav: 'system',
+      roles: ['superadmin'],
+      render: () => <SystemStub active={section} task={task} />,
+    }),
+  ),
   {
     path: '/audit',
     access: 'private',

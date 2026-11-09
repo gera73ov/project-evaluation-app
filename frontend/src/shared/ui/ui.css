@@ -587,3 +587,31 @@ tr:target td{background:var(--accent-soft)}
 .pf-actions a.btn-sm{display:inline-flex;align-items:center;text-decoration:none}
 .pf-join-off{display:inline-block}
 @media (max-width:1300px){.pf-kpis{grid-template-columns:repeat(3,1fr)}.pf-charts{grid-template-columns:1fr}}
+
+/* FE-060 · раздел «Система» (DESIGN.md 5.3 «Админка», 10.2) */
+.sys{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 60px)}
+.sys-menu{background:var(--surface-subtle,#fafbfc);border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+.sys-menu a{padding:8px 12px;border-radius:6px;color:var(--muted);font-weight:500;text-decoration:none}
+.sys-menu a:hover{background:var(--line2)}
+.sys-menu a.on{background:var(--accent-soft);color:var(--accent-ink)}
+.sys-main{padding:18px 26px 26px;min-width:0}
+.sys-title{font-size:18px;font-weight:700;margin:0}
+.sys-sub{color:var(--muted);margin:4px 0 16px}
+.sys-banners{display:grid;gap:8px;margin-bottom:14px}
+.sys-banner{background:var(--bad);color:#fff;border-radius:6px;padding:9px 12px;font-weight:600}
+.sys-banner a{color:#fff;text-decoration:underline;white-space:nowrap}
+.sys-list-form{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
+.sys-empty{color:var(--muted);margin:0}
+.sys-health-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.sys-health-head .ok{color:var(--ok);font-weight:600}
+.sys-health-head .bad{color:var(--bad);font-weight:600}
+.sys-health{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.sys-health .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;gap:4px}
+.sys-health .card.bad{border-color:var(--bad)}
+.sys-health-name{font-weight:600}
+.sys-state{display:flex;align-items:center;gap:6px;font-weight:600}
+.sys-state i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.sys-state.ok{color:var(--ok)} .sys-state.ok i{background:var(--ok)}
+.sys-state.bad{color:var(--bad)} .sys-state.bad i{background:var(--bad)}
+.sys-health-detail{font-size:12.5px}
+.sys-health-at{font-size:11.5px;color:var(--muted)}
