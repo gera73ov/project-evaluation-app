@@ -13,7 +13,7 @@ import { SetupInProgressPage } from '../features/auth/SetupInProgressPage';
 import { HomeRoute } from '../features/home/HomeRoute';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
-import { SettingsRoute } from '../features/settings/SettingsRoute';
+import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
 import type { Params } from './router';
 import type { SystemRole } from './session';
@@ -68,7 +68,7 @@ export const ROUTES: readonly RouteDef[] = [
   { path: '/projects/:id/settings', access: 'private', render: (params) => <SettingsRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/settings/documents', access: 'private', render: stub('Документы заказчика', 'FE-017') },
   { path: '/projects/:id/trash', access: 'private', render: stub('Корзина', 'FE-018') },
-  { path: '/projects/:id/log', access: 'private', render: stub('Журнал проекта', 'FE-015') },
+  { path: '/projects/:id/log', access: 'private', render: (params) => <JournalRoute id={params.id ?? ''} /> },
   { path: '/projects/:id/stats', access: 'private', render: stub('Статистика', 'FE-040') },
   { path: '/projects/:id/stats/compare', access: 'private', render: stub('Сравнение со снимком', 'FE-044') },
   { path: '/projects/:id/stats/questions', access: 'private', render: stub('Вопросы заказчику', 'FE-043') },

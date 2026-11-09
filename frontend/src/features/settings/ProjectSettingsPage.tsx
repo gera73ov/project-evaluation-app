@@ -1,5 +1,5 @@
 /**
- * FE-012 · экран «Настройки проекта» (SPEC 11.6, DESIGN.md 10.5): вкладки, слева «Основное»
+ * FE-012 · экран «Настройки проекта» (SPEC 11.6, DESIGN.md 10.5): в шапке статус и «⋯» (FE-015), вкладки, слева «Основное»
  * и «Команда», справа «Деньги» (только роли с деньгами — FE-014). Эксперт видит всё только для
  * чтения; без связи поля тоже только для чтения (FR-TREE-33).
  */
@@ -9,6 +9,7 @@ import { Link } from '../../app/router';
 import { useReadOnlyOffline } from '../../shared/ws/WsProvider';
 import { ErrorText } from '../../shared/ui/ErrorText';
 import { GeneralSection } from './general/GeneralSection';
+import { StatusControl } from './status/StatusControl';
 import { MoneySection } from './money/MoneySection';
 import { TeamSection } from './team/TeamSection';
 import { useProject, type Project } from './useProject';
@@ -69,6 +70,9 @@ export function ProjectSettingsPage({ projectId }: { projectId: string }) {
         <Link to={`/projects/${data.id}`}>{data.name}</Link>
         <span aria-hidden="true"> › </span>
         <h1>{t('settings.title')}</h1>
+        <span className="sp" />
+        <StatusControl project={data} readOnly={offline} />
+        {data.my_permissions.includes('team.write') ? <span className="pill acc">{t('settings.youModerator')}</span> : null}
       </div>
       <SettingsTabs projectId={data.id} active="general" />
       {!canEditSettings(data) ? <p className="set-readonly">{t('settings.readOnly')}</p> : null}
