@@ -383,3 +383,48 @@ button.type-opt.sel{background:var(--accent-soft);border-color:#b8d8e4}
 .trash-act{text-align:right;width:1%;white-space:nowrap}
 .trash-done{margin:0 0 10px;padding:8px 12px;border-radius:6px;background:var(--ok-soft);color:var(--ok);font-size:13px}
 .table-foot{display:flex;justify-content:space-between;gap:12px;padding:10px 0;color:var(--muted);font-size:12px}
+
+/* FE-030 · обсуждение под строкой (DESIGN.md 7.4, 11.4 №13–14) */
+.tree .disc{cursor:pointer;font:inherit;font-size:11px;line-height:16px;background:#fff}
+.tree .disc.ghost{visibility:hidden;color:var(--faint)}
+.tree .tr:hover .disc.ghost,.tree .disc.ghost:focus-visible,.tree .disc.ghost.on{visibility:visible}
+.tree .disc.on{border-color:var(--accent);color:var(--accent-ink)}
+.disc-wrap{padding:4px 14px 10px 40px;background:#fff;border-bottom:1px solid var(--line2)}
+.disc-panel{border:1px solid var(--line);border-radius:8px;padding:10px 14px;background:#fff;font-size:13px}
+.disc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;color:var(--muted);font-size:12.5px}
+.disc-qs{display:flex;flex-direction:column;gap:2px}
+.disc-q.on{color:var(--ink)}
+.q-open{color:var(--warn-ink);font-weight:700}
+.disc-title{font-weight:600;color:var(--ink)}
+.disc-empty{color:var(--muted);font-size:12.5px;padding:6px 0}
+.disc-feed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.disc-feed .msg{display:grid;grid-template-columns:28px 1fr;gap:8px}
+.msg-ava{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.msg-meta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.msg-meta b{color:var(--ink)}
+.msg-acts{display:inline-flex;gap:8px;margin-left:6px}
+.msg-acts .link,.msg-meta .link{font-size:12px}
+.msg-body{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:2px}
+.msg-body.revoked{color:var(--faint);font-style:italic}
+.msg.customer .msg-body{background:var(--ok-soft);border-radius:6px;padding:6px 8px}
+.msg-edit{display:flex;gap:6px;align-items:flex-start;margin-top:2px}
+.msg-edit .mantine-Textarea-root{flex:1}
+.disc-feed .ev{font-size:12px;color:var(--muted);border-left:2px solid var(--line);margin-left:36px;padding-left:10px}
+.resolved-line{font-size:12.5px;color:var(--muted)}
+.resolved-line .ok-mark{color:var(--ok-ink);font-weight:700}
+.resolved-line .link{margin-left:8px;font-size:12px}
+.disc-compose{border-top:1px solid var(--line2);margin-top:10px;padding-top:8px}
+.disc-target{font-size:12px;color:var(--muted);margin-bottom:4px;display:flex;gap:6px;align-items:center}
+.disc-row{display:flex;gap:8px;align-items:center}
+.disc-input{position:relative;flex:1}
+.disc-input textarea{width:100%;min-height:32px;resize:vertical;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;line-height:18px}
+.disc-input textarea:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.mention-list{position:absolute;left:0;bottom:calc(100% + 4px);z-index:20;min-width:240px;max-height:240px;overflow:auto;list-style:none;margin:0;padding:6px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(16,24,40,.12)}
+.mention-list li{padding:6px 10px;border-radius:5px;cursor:pointer;display:flex;justify-content:space-between;gap:12px}
+.mention-list li.on{background:var(--accent-soft)}
+.mention-kind{color:var(--faint);font-size:12px}
+.disc-flag{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;white-space:nowrap}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.btn-sm.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn-sm.ghost{border-color:transparent;background:none;padding:0 6px}
+.btn-sm:disabled{opacity:.55;cursor:default}

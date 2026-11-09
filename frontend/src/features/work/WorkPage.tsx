@@ -19,6 +19,7 @@ import { call } from '../../shared/api/problem';
 import { DEFAULT_LARGE_LEAF_HOURS, largeLeafThreshold } from '../../shared/calc';
 import { ErrorText } from '../../shared/ui/ErrorText';
 import { useReadOnlyOffline } from '../../shared/ws/WsProvider';
+import { feedKey, type DiscussionSetup } from '../discussions/DiscussionPanel';
 import { moneyKey } from '../settings/money/MoneySection';
 import { membersKey } from '../settings/team/TeamSection';
 import { useProject, type Project } from '../settings/useProject';
@@ -106,7 +107,12 @@ export function WorkPage({ projectId }: { projectId: string }) {
     project.data,
     (event) => {
       if (event.event === 'money.updated') void client.invalidateQueries({ queryKey: moneyKey(projectId) });
-      else collab.onEvent(event);
+      else if (event.event.startsWith('message.') || event.event.startsWith('thread.')) {
+        // новое сообщение или вопрос — перечитать ленту узла, если она раскрыта (FE-030)
+        const data = new Map(Object.entries(event.data ?? {}));
+        const item = (data.get('message') ?? data.get('thread')) as { node_id?: string | null } | undefined;
+        if (item?.node_id) void client.invalidateQueries({ queryKey: feedKey(item.node_id) });
+      } else collab.onEvent(event);
     },
     collab.onEvent,
   );
@@ -318,7 +324,28 @@ function WorkScreen({
       !READ_ONLY_STATUSES.has(data.status) &&
       (moderator || (d !== null && reviewerOf.has(d))),
   };
+  const myRoles = members.filter((m) => m.user.id === userId);
+  const discussion: DiscussionSetup = {
+    projectId,
+    me: userId,
+    canWrite: perms.has('discussion.write') && !offline && !READ_ONLY_STATUSES.has(data.status),
+    moderator,
+    presale: moderator || myRoles.some((m) => m.role === 'presale'),
+    myDisciplines: new Set(myRoles.flatMap((m) => (m.discipline_id ? [m.discipline_id] : []))),
+    disciplineNames: new Map(data.disciplines.map((d) => [d.discipline_id, d.name])),
+    userNames: new Map(members.map((m) => [m.user.id, m.user.full_name])),
+    roleOf: (id) => {
+      const roles = members.filter((m) => m.user.id === id).map((m) => m.role);
+      if (roles.includes('moderator')) return t('history.moderator');
+      if (roles.includes('presale')) return t('discussion.presale');
+      return null;
+    },
+    tags: new Map((tags.data ?? []).map((tag) => [tag.id, tag.short_name])),
+    isLeaf: (id) =>
+      !(store.getState().children.get(id)?.length ?? 0) && store.getState().nodes.get(id)?.kind === 'item',
+  };
   const ctx: TreeContext = {
+    discussion,
     roleOf: (id) => (members.some((m) => m.user.id === id && m.role === 'moderator') ? t('history.moderator') : null),
     highlight: deferredQuery,
     collab: { locks, marks, canForce: data.my_permissions.includes('tree.lock.force') },
