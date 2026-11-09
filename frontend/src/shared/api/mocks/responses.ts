@@ -282,6 +282,16 @@ function profileChain(name: string): string[] {
 
 const body = (ctx: Ctx) => (ctx.body ?? {}) as Record<string, unknown>;
 
+/** Справочник контрольных соотношений демо: QA к (Бэкенд + Фронтенд), норма 25–35% (6.6). */
+const DEMO_RATIO = {
+  id: uuidFrom("ratio", "qa-dev"),
+  discipline_a_id: disciplineId("d-qa"),
+  disciplines_b: [disciplineId("d-backend"), disciplineId("d-frontend")],
+  min_pct: "25",
+  max_pct: "35",
+  is_active: true,
+};
+
 const DEMO: Record<string, Demo> = {
   // правка узла: тот же узел с изменениями и новой версией; данные демо не меняются
   patchNode: (ctx) => {
@@ -837,6 +847,49 @@ const DEMO: Record<string, Demo> = {
         quote_figure: "p80",
         duration_weeks: p.key === "portal" ? 12 : 6,
       },
+      // контрольное соотношение QA к (Бэкенд + Фронтенд), норма 25–35% (6.6, `stats.png` №9)
+      ratios: (() => {
+        const e = (key: string) =>
+          new Decimal(
+            new Map(Object.entries(t.byDiscipline)).get(key)?.e ?? "0",
+          );
+        const base = e("d-backend").plus(e("d-frontend"));
+        const pct = base.isZero()
+          ? null
+          : e("d-qa").div(base).times(100).toFixed(1);
+        const n = pct === null ? null : Number(pct);
+        return [
+          {
+            ratio_id: DEMO_RATIO.id,
+            pct,
+            min_pct: "25",
+            max_pct: "35",
+            verdict:
+              n === null ? null : n < 25 ? "below" : n > 35 ? "above" : "ok",
+          },
+        ];
+      })(),
+      // «Проверено ревьюерами» как на `stats.png` №10
+      reviewed:
+        p.key === "portal"
+          ? [
+              {
+                discipline_id: disciplineId("d-backend"),
+                reviewed_pct: "13.7",
+                self_review_pct: "100",
+              },
+              {
+                discipline_id: disciplineId("d-frontend"),
+                reviewed_pct: "100",
+                self_review_pct: "0",
+              },
+              {
+                discipline_id: disciplineId("d-qa"),
+                reviewed_pct: "0",
+                self_review_pct: null,
+              },
+            ]
+          : [],
       dynamics: [
         {
           date: TODAY,
@@ -855,6 +908,19 @@ const DEMO: Record<string, Demo> = {
                 p80: moneyFigure(p, "p80"),
                 p90: moneyFigure(p, "p90"),
               },
+              // E дисциплины × ставка по всем фазам; ставки нет — null («—», 11.8 №6)
+              cost_by_discipline: Object.entries(t.byDiscipline).map(
+                ([key, row]) => {
+                  const rate = new Map(Object.entries(p.money.rates)).get(key);
+                  return {
+                    discipline_id: disciplineId(key),
+                    cost_rub: rate
+                      ? new Decimal(row.e).times(rate).toFixed(0)
+                      : null,
+                  };
+                },
+              ),
+              cost_by_phase: [],
             },
           }
         : {}),
@@ -927,6 +993,7 @@ const DEMO: Record<string, Demo> = {
     return { items, unread: items.length, next_cursor: null };
   },
 
+  listRatios: (_ctx, schema) => list(schema, [DEMO_RATIO]),
   listPhases: (_ctx, schema) =>
     list(
       schema,

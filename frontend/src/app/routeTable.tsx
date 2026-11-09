@@ -14,6 +14,7 @@ import { HomeRoute } from '../features/home/HomeRoute';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
 import { DocumentsPage } from '../features/documents/DocumentsPage';
+import { ReadinessPage } from '../features/stats/grid/ReadinessPage';
 import { OutcomePage } from '../features/settings/outcome/OutcomePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TrashPage } from '../features/trash/TrashPage';
@@ -86,7 +87,18 @@ export const ROUTES: readonly RouteDef[] = [
     render: (params) => <TrashPage key={params.id} projectId={params.id ?? ''} />,
   },
   { path: '/projects/:id/log', access: 'private', render: (params) => <JournalRoute id={params.id ?? ''} /> },
-  { path: '/projects/:id/stats', access: 'private', render: stub('Статистика', 'FE-040') },
+  {
+    path: '/projects/:id/stats',
+    access: 'private',
+    render: (params) => <ReadinessPage key={params.id} projectId={params.id ?? ''} />,
+  },
+  { path: '/projects/:id/stats/totals', access: 'private', render: stub('Итоги', 'FE-041') },
+  { path: '/projects/:id/stats/shares', access: 'private', render: stub('Доли и соотношения', 'FE-042') },
+  { path: '/projects/:id/stats/volumes', access: 'private', render: stub('Объёмы по типам', 'FE-042') },
+  { path: '/projects/:id/stats/candidates', access: 'private', render: stub('Кандидаты на декомпозицию', 'FE-042') },
+  { path: '/projects/:id/stats/tags', access: 'private', render: stub('Допущения и риски', 'FE-042') },
+  { path: '/projects/:id/stats/discussions', access: 'private', render: stub('Обсуждения', 'FE-042') },
+  { path: '/projects/:id/stats/snapshots', access: 'private', render: stub('Снимки', 'FE-042') },
   { path: '/projects/:id/stats/compare', access: 'private', render: stub('Сравнение со снимком', 'FE-044') },
   { path: '/projects/:id/stats/questions', access: 'private', render: stub('Вопросы заказчику', 'FE-043') },
   { path: '/profile', access: 'private', render: () => <ProfilePage /> },
