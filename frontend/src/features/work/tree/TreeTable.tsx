@@ -13,7 +13,17 @@
  */
 import { Tooltip } from '@mantine/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { memo, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import {
+  memo,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Link } from '../../../app/router';
@@ -32,9 +42,11 @@ import {
 import { formatHours, formatHoursInput, formatNumber, formatPercent } from '../../../shared/format/number';
 import { StatusBadge } from '../../../shared/ui/StatusBadge';
 import { nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
-import { CommentCell, HoursCell, MultiplierCell, type Norm } from '../cells/Cells';
+import { CommentCell, HoursCell, MultiplierCell, TitleCell, type Norm } from '../cells/Cells';
 import { cellKey, useCells, type CellRef, type CellsApi, type CommentLine, type LockResult } from '../cells/useCells';
 import type { CellLock, CellMark } from '../collab/collabStore';
+import { AddMenu, NodeMenu, type RowMenuApi } from '../menu/RowMenus';
+import { useRowMenus, type MenuSetup } from '../menu/useRowMenus';
 import { ConflictDialog } from '../collab/ConflictDialog';
 import { userColor } from '../../../shared/ui/userColor';
 import type { TreeNode, TreeStore } from '../store/treeStore';
@@ -150,6 +162,8 @@ interface RowProps {
   cells?: CellsApi | undefined;
   /** Поля, ожидающие ответа сервера. */
   pendingFields?: ReadonlySet<string> | undefined;
+  /** Кнопки «+» и «⋯» (FE-027); нет — строка без операций. */
+  menu?: RowMenuApi | undefined;
 }
 
 const Row = memo(function Row({
@@ -164,6 +178,7 @@ const Row = memo(function Row({
   target,
   cells: cellsApi,
   pendingFields,
+  menu: menuApi,
 }: RowProps) {
   const { t } = useTranslation();
   if (row.kind === 'pm') {
@@ -197,6 +212,7 @@ const Row = memo(function Row({
   const id = row.id;
   const editable = ctx.canEdit(row.disciplineId);
   const cells = editable ? cellsApi : undefined;
+  const menu = editable && row.kind !== 'phase' ? menuApi : undefined;
   const notNeeded = status === 'not_needed';
   const leaf = row.kind === 'leaf' ? result.leaf : null;
   const state = leaf?.state;
@@ -207,7 +223,8 @@ const Row = memo(function Row({
   if (target) classes.push('target');
   const mark = ctx.collab?.marks.get(id);
   if (mark) classes.push('changed');
-  const lockOf = (field: 'o' | 'r' | 'p' | 'multiplier' | 'comment') => ctx.collab?.locks.get(cellKey(id, field));
+  const lockOf = (field: 'title' | 'o' | 'r' | 'p' | 'multiplier' | 'comment') =>
+    ctx.collab?.locks.get(cellKey(id, field));
   const canForce = ctx.collab?.canForce ?? false;
   const toggle =
     row.hasChildren && !row.filtered ? (
@@ -268,7 +285,20 @@ const Row = memo(function Row({
   const highlight = (text: string) => <Highlight text={text} query={ctx.highlight} />;
 
   return (
-    <div className={classes.join(' ')} role="row" aria-level={row.depth + 1} data-node={id}>
+    <div
+      className={classes.join(' ')}
+      role="row"
+      aria-level={row.depth + 1}
+      data-node={id}
+      {...(menu
+        ? {
+            onContextMenu: (e: MouseEvent) => {
+              e.preventDefault();
+              menu.setContext(id);
+            },
+          }
+        : {})}
+    >
       <div className="td node" role="cell" style={{ paddingLeft: indentOf(row.depth) }}>
         {toggle}
         {row.kind === 'node' || row.kind === 'leaf' ? (
@@ -277,9 +307,9 @@ const Row = memo(function Row({
             {row.depth > MAX_INDENT_DEPTH ? <span className="lvl">{row.depth}</span> : null}
           </span>
         ) : null}
-        <span className="title" title={result.node.title}>
+        <TitleCell nodeId={id} title={result.node.title} cells={cells} lock={lockOf('title')}>
           <Highlight text={result.node.title} query={ctx.highlight} />
-        </span>
+        </TitleCell>
         {big ? (
           <span
             className="big"
@@ -305,6 +335,12 @@ const Row = memo(function Row({
             title={mark.user.full_name}
           >
             {t('collab.changed', { initials: mark.user.initials })}
+          </span>
+        ) : null}
+        {menu ? (
+          <span className={menu.context === id ? 'row-btns open' : 'row-btns'}>
+            <AddMenu nodeId={id} api={menu} />
+            <NodeMenu nodeId={id} api={menu} />
           </span>
         ) : null}
       </div>
@@ -385,6 +421,7 @@ export function TreeTable({
   visible = null,
   onConfirm,
   locking,
+  menus: menuSetup,
 }: {
   store: TreeStore;
   ctx: TreeContext;
@@ -402,6 +439,8 @@ export function TreeTable({
     lock: (cell: CellRef, force?: boolean) => Promise<LockResult>;
     unlock: (cell: CellRef) => void;
   };
+  /** Меню строки и «+» (FE-027). */
+  menus?: MenuSetup | undefined;
 }) {
   const { t } = useTranslation();
   const revision = useTree(store, (s) => s.revision);
@@ -446,15 +485,24 @@ export function TreeTable({
       if (index >= 0) virtualizer.scrollToIndex(index, { align: 'auto' });
     },
   });
-  useImperativeHandle(apiRef, () => ({
-    show: (nodeId: string) => {
-      const calcNow = store.getState().calc;
-      if (!calcNow?.nodes.has(nodeId)) return;
-      const up = new Set(ancestorsOf(calcNow, nodeId));
-      setCollapsed((prev) => new Set([...prev].filter((id) => !up.has(id))));
-      setTarget(nodeId);
+  const show = (nodeId: string) => {
+    const calcNow = store.getState().calc;
+    if (!calcNow?.nodes.has(nodeId)) return;
+    const up = new Set(ancestorsOf(calcNow, nodeId));
+    setCollapsed((prev) => new Set([...prev].filter((id) => !up.has(id))));
+    setTarget(nodeId);
+  };
+  useImperativeHandle(apiRef, () => ({ show }));
+  const menus = useRowMenus({
+    setup: onConfirm ? menuSetup : undefined,
+    store,
+    canEdit: ctx.canEdit,
+    onShow: show,
+    onCreated: (nodeId) => {
+      show(nodeId);
+      cells.start({ nodeId, field: 'title' });
     },
-  }));
+  });
   // прокрутка после того, как раскрытые предки попали в список строк
   useEffect(() => {
     if (!target) return;
@@ -488,6 +536,7 @@ export function TreeTable({
       target: row.id !== null && row.id === target,
       cells: onConfirm ? cells : undefined,
       pendingFields: edit ? new Set(Object.keys(edit)) : undefined,
+      menu: menus.api,
     };
   };
 
@@ -514,6 +563,7 @@ export function TreeTable({
   const conflictNode = cells.conflict ? nodes.get(cells.conflict.nodeId) : undefined;
   return (
     <div className="tree" role="treegrid" aria-label={t('tree.label')} aria-rowcount={rows.length}>
+      {menus.dialogs}
       {cells.conflict ? (
         <ConflictDialog conflict={cells.conflict} title={conflictNode?.title ?? ''} onResolve={cells.resolveConflict} />
       ) : null}
@@ -552,7 +602,7 @@ export function TreeTable({
         {sticky.length ? (
           <div className="tree-sticky">
             {sticky.map((r) => (
-              <Row key={`sticky-${r.key}`} {...rowProps(r)} />
+              <Row key={`sticky-${r.key}`} {...rowProps(r)} menu={undefined} />
             ))}
           </div>
         ) : null}

@@ -73,7 +73,19 @@ export const DISCIPLINES = [
   { key: 'd-frontend', name: 'Фронтенд', short: 'FE', color: '#d08a2f', profile: 'Экран' },
   { key: 'd-qa', name: 'QA', short: 'QA', color: '#c0504d', profile: 'Тест-набор' },
 ];
-export const NODE_TYPES = ['Работа', 'Модуль', 'Функция', 'Интеграция', 'Экран', 'Тест-набор'];
+/** Типы словаря SPEC 5.2 в порядке сетки меню «+» (tree-menu.png). */
+export const NODE_TYPES = [
+  'Функция',
+  'Экран',
+  'Интеграция',
+  'Сущность',
+  'Отчёт',
+  'Работа',
+  'Модуль',
+  'Сервис',
+  'Тест-набор',
+  'Документ',
+];
 
 export const phaseId = (key: string) => uuidFrom('phase', key);
 export const disciplineId = (key: string) => uuidFrom('discipline', key);

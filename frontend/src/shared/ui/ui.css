@@ -310,3 +310,40 @@ span.person-name{cursor:default}
 .conflict-row{display:flex;gap:18px;align-items:baseline;margin:6px 0}
 .conflict-row .k{width:84px;color:var(--muted)}
 .conflict-row b{font-size:15px;font-weight:700}
+
+/* FE-027 · «+» и «⋯» у строки, меню и диалоги (DESIGN.md 9.9, 16.3) */
+.tree .row-btns{margin-left:auto;display:flex;gap:4px;flex:none;opacity:0;padding-left:6px}
+.tree .tr:hover .row-btns,.tree .tr:focus-within .row-btns,.tree .row-btns.open{opacity:1}
+.row-btn{width:22px;height:22px;border-radius:5px;background:#fff;display:grid;place-items:center;padding:0;cursor:pointer;font:700 14px/1 inherit;font-family:inherit}
+.row-btn.add{border:1px solid var(--accent);color:var(--accent)}
+.row-btn.more{border:1px solid var(--line);color:var(--muted)}
+.row-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row-menu .mantine-Menu-label{text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.row-menu .menu-why{font-size:12px;color:var(--faint);text-align:right;max-width:150px;line-height:1.25}
+.row-menu .mantine-Menu-item[data-disabled]{opacity:1;color:var(--faint)}
+.row-menu .mantine-Menu-item.danger{color:var(--bad)}
+.row-menu .type-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px}
+.row-menu .type-opt.sel{background:var(--accent-soft)}
+.type-opt .ti{display:inline-block;width:16px;text-align:center;margin-right:4px;font-size:14px}
+.type-opt .type-note{margin-left:6px;font-size:12px;color:var(--faint)}
+.row-menu .local-type{color:var(--accent);font-weight:600}
+.row-menu .menu-pair{display:grid;grid-template-columns:1fr 1fr}
+.type-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+button.type-opt{border:1px solid transparent;border-radius:6px;background:none;text-align:left;padding:7px 8px;cursor:pointer;font:inherit}
+button.type-opt:hover{background:var(--line2)}
+button.type-opt.sel{background:var(--accent-soft);border-color:#b8d8e4}
+.icon-grid{display:grid;grid-template-columns:repeat(6,40px);gap:8px}
+.icon-opt{width:40px;height:40px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center;padding:0}
+.icon-opt.sel{border-color:var(--accent);background:var(--accent-soft)}
+.pick-list{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;margin-top:8px}
+.pick-list.tall{max-height:340px}
+.pick{border:1px solid transparent;border-radius:6px;background:none;text-align:left;padding:7px 10px;cursor:pointer;font:inherit;display:flex;flex-direction:column;gap:2px}
+.pick:hover{background:var(--line2)}
+.pick.sel{background:var(--accent-soft);border-color:#b8d8e4}
+.pick .pick-sub{font-size:12px;color:var(--muted)}
+.fork-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ops-error{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px;background:var(--bad-soft);color:var(--bad);border-bottom:1px solid var(--line);font-size:13px}
+.row-menu .type-opt{white-space:nowrap;padding:7px 8px}
+.row-menu .type-opt .type-note{font-size:11px;margin-left:4px}
+.tree .title-edit{flex:1;min-width:0;max-width:420px;position:relative}
+.tree .cell-in.title-in{width:100%;text-align:left;padding:0 8px}

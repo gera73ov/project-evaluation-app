@@ -131,6 +131,13 @@ export type TreeEvent =
       data: { phase_id: string; discipline_id: string; status: BranchStatus };
     };
 
+export interface TreeMutation {
+  nodes: readonly ApiNode[];
+  deleted_ids?: readonly string[] | undefined;
+  project_version: number;
+  branch_statuses?: readonly { phase_id: string; discipline_id: string; status: string }[] | undefined;
+}
+
 export interface TreeState {
   /** Последняя применённая версия проекта. */
   version: number;
@@ -154,6 +161,11 @@ export interface TreeActions {
   applyEvent(event: TreeEvent): boolean;
   /** Узел из ответа PATCH/POST: сервер подтвердил правку. */
   applyNode(node: ApiNode, projectVersion: number): void;
+  /**
+   * Ответ операции с поддеревом (FE-027: разбить, свернуть, переместить, дублировать, удалить,
+   * скопировать ветку): изменённые узлы, удалённые и новые статусы веток.
+   */
+  applyMutation(mutation: TreeMutation): void;
   /** Оптимистичная правка: значения сразу в расчёте, ячейки помечены «сохраняется». */
   edit(nodeId: string, values: NodeEdit): void;
   /** Сервер отказал: снять несохранённые значения полей. */
@@ -360,6 +372,30 @@ export function createTreeStore(): TreeStore {
         const pending = new Map(state.pending);
         pending.delete(node.id);
         set({ version: Math.max(state.version, projectVersion), ...recompute(nodes, pending, node.id) });
+      },
+
+      applyMutation(mutation) {
+        const state = get();
+        const nodes = new Map(state.nodes);
+        withoutSubtrees(nodes, mutation.deleted_ids ?? []);
+        for (const apiNode of mutation.nodes) {
+          const node = toTreeNode(apiNode);
+          const known = nodes.get(node.id);
+          if (!known || known.version <= node.version) nodes.set(node.id, node);
+        }
+        const branchStatus = new Map(state.branchStatus);
+        for (const b of mutation.branch_statuses ?? [])
+          branchStatus.set(branchKey(b.phase_id, b.discipline_id), b.status as BranchStatus);
+        const changed = new Set(mutation.nodes.map((n) => n.id));
+        const pending = new Map([...state.pending].filter(([id]) => nodes.has(id) && !changed.has(id)));
+        set({
+          version: Math.max(state.version, mutation.project_version),
+          nodes,
+          branchStatus,
+          pending,
+          ...rebuild(nodes, pending, branchStatus, state.settings),
+          revision: state.revision + 1,
+        });
       },
 
       edit(nodeId, values) {

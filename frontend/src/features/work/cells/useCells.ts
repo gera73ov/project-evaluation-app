@@ -25,7 +25,10 @@ type ApiNode = components['schemas']['Node'];
 type Changes = components['schemas']['NodeChanges'];
 export type CommentLine = components['schemas']['CommentLine'];
 
-export type CellField = 'o' | 'r' | 'p' | 'comment' | 'multiplier';
+export type CellField = 'title' | 'o' | 'r' | 'p' | 'comment' | 'multiplier';
+
+/** Название узла: 1–200 символов (NodeChanges.title). */
+export const TITLE_MAX = 200;
 export type Direction = 1 | -1;
 
 /** Порядок Tab внутри листа; ×N в него не входит (11.4). */
@@ -54,6 +57,9 @@ const HINT_MS = 4000;
 
 /** Следующая ячейка по Tab: внутри листа, затем первая ячейка следующего листа. */
 export function nextCell(leaves: readonly string[], from: CellRef, dir: Direction): CellRef | null {
+  // из названия нового листа Tab ведёт в O, дальше — обычный порядок
+  if (from.field === 'title')
+    return dir > 0 && leaves.includes(from.nodeId) ? { nodeId: from.nodeId, field: 'o' } : null;
   const at = TAB_ORDER.indexOf(from.field);
   const inLeaf = TAB_ORDER.at(at + dir);
   if (at >= 0 && inLeaf && at + dir >= 0) return { nodeId: from.nodeId, field: inLeaf };
@@ -196,7 +202,7 @@ export function useCells({
     const fields = [...drafts.keys()];
     const optimistic: NodeEdit = {};
     const values = new Map(Object.entries(changes));
-    for (const field of ['o', 'r', 'p', 'multiplier'] as const) {
+    for (const field of ['title', 'o', 'r', 'p', 'multiplier'] as const) {
       if (values.has(field)) Object.assign(optimistic, { [field]: values.get(field) });
     }
     if (Object.keys(optimistic).length) store.getState().edit(nodeId, optimistic);
@@ -245,6 +251,21 @@ export function useCells({
     const { nodeId, field } = cell;
     const key = cellKey(nodeId, field);
     if (field === 'comment') return true;
+    if (field === 'title') {
+      const title = text.trim();
+      if (!title || title.length > TITLE_MAX) {
+        setError(key, { message: t('cells.titleError'), draft: text });
+        return false;
+      }
+      if (title !== store.getState().effective(nodeId)?.title)
+        void send(nodeId, { title }, new Map([[field, text]]), cell);
+      else {
+        setError(key, null);
+        release(cell);
+      }
+      go(cell, dir);
+      return true;
+    }
     if (field === 'multiplier') {
       const parsed = parseMultiplier(text);
       if (!parsed.ok) {

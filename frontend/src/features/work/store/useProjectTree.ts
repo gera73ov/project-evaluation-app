@@ -13,7 +13,14 @@ import { api, type components } from '../../../shared/api/client';
 import { call } from '../../../shared/api/problem';
 import type { WsEvent } from '../../../shared/ws/client';
 import { useProjectChannel, useWsClient } from '../../../shared/ws/WsProvider';
-import { createTreeStore, settingsOf, type TreeEvent, type TreeState, type TreeStore } from './treeStore';
+import {
+  createTreeStore,
+  settingsOf,
+  type TreeEvent,
+  type TreeMutation,
+  type TreeState,
+  type TreeStore,
+} from './treeStore';
 
 type Project = components['schemas']['Project'];
 
@@ -32,6 +39,8 @@ export interface ProjectTree {
   error: Error | null;
   /** Ответ сервера на правку узла: применить и сообщить WS-клиенту версию. */
   confirm: (node: components['schemas']['Node'], projectVersion: number) => void;
+  /** Ответ операции с поддеревом (`NodesMutation`). */
+  confirmMutation: (mutation: TreeMutation) => void;
   reload: () => Promise<void>;
 }
 
@@ -92,11 +101,20 @@ export function useProjectTree(
     [projectId, store, ws],
   );
 
+  const confirmMutation = useCallback(
+    (mutation: TreeMutation) => {
+      store.getState().applyMutation(mutation);
+      if (projectId) ws?.markApplied(projectId, mutation.project_version);
+    },
+    [projectId, store, ws],
+  );
+
   return {
     store,
     loaded,
     error: tree.error,
     confirm,
+    confirmMutation,
     reload: async () => {
       await tree.refetch();
     },

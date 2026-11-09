@@ -421,6 +421,49 @@ function CommentEditor({
   );
 }
 
+/** Название узла: двойной щелчок или новый узел — поле ввода (FE-027, «курсор в названии»). */
+export function TitleCell({
+  nodeId,
+  title,
+  cells,
+  lock,
+  children,
+}: {
+  nodeId: string;
+  title: string;
+  cells: CellsApi | undefined;
+  lock?: CellLock | undefined;
+  /** Название с подсветкой поиска. */
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const key = cellKey(nodeId, 'title');
+  const error = cells?.errors.get(key);
+  const editing = cells?.editing?.nodeId === nodeId && cells.editing.field === 'title';
+  if (cells && editing)
+    return (
+      <span className="title-edit">
+        <CellInput
+          className={error ? 'cell-in title-in error' : 'cell-in title-in'}
+          label={t('cells.title')}
+          initial={error?.draft ?? title}
+          onCommit={(text, dir) => cells.commit({ nodeId, field: 'title' }, text, dir)}
+          onCancel={cells.cancel}
+        />
+        <CellNote error={error?.message} hint={undefined} />
+      </span>
+    );
+  return (
+    <span
+      className={error ? 'title error' : lock ? 'title locked-title' : 'title'}
+      title={lock ? t('cells.lockedBy', { name: lock.user.full_name }) : title}
+      {...(cells && !lock ? { onDoubleClick: () => cells.start({ nodeId, field: 'title' }) } : {})}
+    >
+      {children}
+    </span>
+  );
+}
+
 export interface Norm {
   label: string;
   o: string;
