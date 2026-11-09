@@ -7,10 +7,13 @@
 .err{background:var(--bad-soft);color:var(--bad);border-radius:6px;padding:9px 12px;margin-bottom:14px;font-weight:500}
 .hint{background:var(--line2);color:var(--muted);border-radius:6px;padding:9px 12px;margin-top:16px;font-size:12px}
 .link-row{display:flex;justify-content:space-between;margin-top:14px}
-.link{color:var(--accent);font-weight:500;cursor:pointer;background:none;border:0;padding:0;font:inherit}
+.link{color:var(--accent);cursor:pointer;background:none;border:0;padding:0;font:inherit;font-weight:500;text-decoration:none}
+.link:hover{text-decoration:underline}
 .link.muted{color:var(--muted)}
-.link.center{display:block;margin:14px auto 0}
-.totp{display:flex;gap:8px;justify-content:space-between;margin:8px 0 16px}
+.link.center{display:table;margin:14px auto 0}
+.totp{display:flex;gap:8px;justify-content:space-between;margin:8px 0 14px}
+/* DESIGN.md 5.2: неактивная кнопка — свой цвет с непрозрачностью 0,45, а не серый Mantine */
+.mantine-Button-root:is(:disabled,[data-disabled]):not([data-loading]):is(:not([data-variant]),[data-variant="filled"]){background:var(--accent);color:#fff;opacity:.45;cursor:not-allowed}
 .totp input{width:40px;height:46px;text-align:center;font:600 20px var(--m);border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
 .totp input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .empty{padding:40px 24px;text-align:center;color:var(--muted)}

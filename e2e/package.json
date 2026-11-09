@@ -1,0 +1,13 @@
+{
+  "name": "estimator-e2e",
+  "private": true,
+  "type": "module",
+  "description": "FE-090, QA-018 · Playwright-сценарии UI против dev-стенда или локального API",
+  "scripts": {
+    "test": "playwright test",
+    "test:auth": "playwright test auth"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

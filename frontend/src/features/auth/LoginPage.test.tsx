@@ -156,6 +156,9 @@ describe('экран входа (11.1)', () => {
     fillCredentials();
     submit();
     await screen.findByRole('heading', { name: 'Подтвердите вход' });
+    // «Подтвердить» неактивна, пока не введены все 6 цифр (DESIGN.md 11.1)
+    const confirm = screen.getByRole('button', { name: 'Подтвердить' });
+    expect(confirm.hasAttribute('disabled')).toBe(true);
     pasteCode('111111');
     await screen.findByText('Неверный код. Проверьте время на телефоне и введите новый код.');
     expect((screen.getByLabelText('Цифра 1') as HTMLInputElement).value).toBe('');
