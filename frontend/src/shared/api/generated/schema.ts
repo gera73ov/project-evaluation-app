@@ -429,6 +429,46 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/system/auth/role-mapping/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отчёт перед включением сопоставления групп AD с ролями
+         * @description CR-009. Без записи: какие роли «Модератор» и «Пресейл» у пользователей AD будут сняты или добавлены, если сохранить переданное сопоставление (FR-AUTH-AD-07, 11.2 №4). Членство — с учётом вложенных групп, как при входе. Ручные роли, которые остаются по группам, в отчёт не попадают. Сохраняет и пересчитывает роли PUT /system/settings/auth с тем же значением (step-up там).
+         */
+        post: operations["roleMappingPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/auth/switch-mode/last": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Итог последнего перехода «Приложение → AD»
+         * @description CR-009. Для блока «Способ входа» (макет sa-auth.png): когда и кто выполнил переход, отчёт сопоставления и сколько неоднозначных совпадений решено через /switch-mode/resolve. null — перехода через интерфейс не было. dry_run не сохраняется.
+         */
+        get: operations["getLastSwitch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/admins": {
         parameters: {
             query?: never;
@@ -2606,6 +2646,8 @@ export type components = {
             values: Record<string, never>;
         };
         AdTestLogin: {
+            /** @description CR-009. Несохранённые параметры формы (ключи auth.ad.* по settings.schema.json), как у adTestConnection; без него — сохранённые */
+            values?: Record<string, never>;
             login: string;
             /** Format: password */
             password: string;
@@ -2651,6 +2693,28 @@ export type components = {
                 user_id: components["schemas"]["Uuid"];
                 object_guid: components["schemas"]["Uuid"] | null;
             }[];
+        };
+        RoleMappingPreviewRequest: {
+            values: {
+                /** @description Значение ключа auth.ad.role_mapping по contracts/settings.schema.json */
+                "auth.ad.role_mapping": Record<string, never>;
+            };
+        };
+        RoleMappingPreview: {
+            /** @description Только пользователи AD, у которых что-то изменится; по login */
+            items: {
+                user: components["schemas"]["UserRef"];
+                login: string;
+                removed: ("moderator" | "presale")[];
+                added: ("moderator" | "presale")[];
+            }[];
+        };
+        LastSwitch: {
+            at: components["schemas"]["Timestamp"];
+            by: components["schemas"]["UserRef"];
+            /** @description Сколько неоднозначных совпадений решено после перехода */
+            resolved: number;
+            report: components["schemas"]["SwitchReport"];
         };
         AdminAccount: {
             id: components["schemas"]["Uuid"];
@@ -4764,6 +4828,61 @@ export interface operations {
             404: components["responses"]["Problem404"];
             422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    roleMappingPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleMappingPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleMappingPreview"];
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    getLastSwitch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LastSwitch"] | null;
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             500: components["responses"]["Problem500"];
         };
     };

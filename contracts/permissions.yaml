@@ -153,6 +153,7 @@ permissions:
     network: true
     endpoints:
       - "GET /system/settings/{section}"
+      - "GET /system/auth/switch-mode/last"
   system.settings.write:
     title: Политики безопасности, SMTP, сети, сроки хранения, SIEM, адрес и часовой пояс
     spec: [3.3, SEC-AUTH-05, SEC-AUTH-07]
@@ -176,6 +177,7 @@ permissions:
       - "PUT /system/settings/auth"
       - "POST /system/auth/switch-mode"
       - "POST /system/auth/switch-mode/resolve"
+      - "POST /system/auth/role-mapping/preview"
   system.admins.manage:
     title: Создать, заблокировать, разжаловать администратора и суперадминистратора; выдать и снять роль «Аудитор ИБ»
     spec: [3.3, FR-SA-05, BR-ROLE-03, SEC-AUTHZ-06, SEC-AUTH-05]
