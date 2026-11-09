@@ -175,7 +175,8 @@ class Authorizer:
             object_type="project", object_id=target.project_id, project_id=target.project_id,
             details={
                 "status": exc.status, "permission": exc.permission,
-                "method": self.request.method, "route": self._route(), "suppressed": suppressed,
+                "method": getattr(self.request, "method", "WS"),  # WS: подписка RT-003
+                "route": self._route(), "suppressed": suppressed,
             },
         )  # fmt: skip
 

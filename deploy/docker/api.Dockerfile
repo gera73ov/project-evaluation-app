@@ -53,5 +53,6 @@ USER 10001:10001
 EXPOSE 8000
 # Порт 8000 доступен только во внутренней сети compose; наружу публикует Nginx.
 # FORWARDED_ALLOW_IPS (адреса Nginx) Uvicorn читает из окружения.
+# --ws-max-size 65536: сообщение WebSocket не больше 64 КБ (SEC-WEB-08, RT-003), больше — код 1009.
 CMD ["uvicorn", "--factory", "estimator.main:app_factory", "--host", "0.0.0.0", "--port", "8000", \
-     "--proxy-headers", "--no-server-header", "--no-date-header"]
+     "--proxy-headers", "--no-server-header", "--no-date-header", "--ws-max-size", "65536"]

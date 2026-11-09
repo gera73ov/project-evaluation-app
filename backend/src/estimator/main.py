@@ -25,6 +25,8 @@ from estimator.metrics import (
     RequestMetricsMiddleware,
     metrics_app,
 )
+from estimator.realtime import ws as realtime_ws
+from estimator.realtime.runtime import Realtime
 from estimator.redis_client import make_redis
 from estimator.security.authz.routes import assert_routes_protected
 from estimator.security.web.headers import SecurityHeadersMiddleware
@@ -42,7 +44,9 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         log.info("app_started", app_env=settings.app_env.value, version=settings.app_version)
+        await _app.state.realtime.start()
         yield
+        await _app.state.realtime.stop()
         await probes.close()
         await _app.state.redis.aclose()
         log.info("app_stopped")
@@ -57,9 +61,13 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     app.state.settings = settings
     app.state.probes = probes
     app.state.redis = make_redis(settings)
+    # Совместная работа (RT-003…RT-008): WebSocket /api/v1/ws, Redis pub/sub, присутствие
+    app.state.realtime = Realtime(settings, app.state.redis)
     install_error_handlers(app)
     app.include_router(health.router)
     app.include_router(api_v1.router, prefix=api_v1.PREFIX)
+    # WebSocket — не REST-маршрут: права проверяет сам эндпоинт на каждую команду (RT-003)
+    app.include_router(realtime_ws.router, prefix=api_v1.PREFIX)
     # Запрещено по умолчанию: маршрут без обеспеченного права не даёт стартовать (SEC-AUTHZ-02)
     assert_routes_protected(app)
     app.mount("/metrics", metrics_app())
