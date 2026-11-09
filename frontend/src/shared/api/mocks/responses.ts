@@ -673,16 +673,38 @@ const DEMO: Record<string, Demo> = {
       })),
     ),
 
-  listNodeTypes: (_ctx, schema) =>
-    list(
-      schema,
-      NODE_TYPES.map((name) => ({
-        id: typeId(name),
-        name,
-        icon: NODE_TYPE_ICONS.get(name) ?? "work",
-        norms: [],
-        is_system: name === "Работа",
-        is_active: true,
-      })),
-    ),
+  listNodeTypes: (_ctx, schema) => list(schema, dictionaryNodeTypes()),
+
+  // CR-006: типы словаря и локальные типы проекта (в «Портале дилеров» — «Шлюз оплаты»)
+  listProjectNodeTypes: (ctx, schema) =>
+    ctx.project
+      ? list(schema, [
+          ...dictionaryNodeTypes(),
+          ...(ctx.project.key === "portal"
+            ? [
+                {
+                  id: typeId("local:Шлюз оплаты"),
+                  name: "Шлюз оплаты",
+                  icon: "credit_card",
+                  norms: [],
+                  is_system: false,
+                  is_active: true,
+                  project_id: ctx.project.id,
+                },
+              ]
+            : []),
+        ])
+      : undefined,
 };
+
+function dictionaryNodeTypes() {
+  return NODE_TYPES.map((name) => ({
+    id: typeId(name),
+    name,
+    icon: NODE_TYPE_ICONS.get(name) ?? "work",
+    norms: [],
+    is_system: name === "Работа",
+    is_active: true,
+    project_id: null,
+  }));
+}
