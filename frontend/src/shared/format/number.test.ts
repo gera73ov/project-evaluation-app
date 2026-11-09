@@ -8,6 +8,7 @@ import {
   formatFork,
   formatHours,
   formatHoursInput,
+  formatMillions,
   formatMoney,
   formatNumber,
   formatPercent,
@@ -26,6 +27,8 @@ describe('форматирование чисел (DESIGN.md 11)', () => {
   it('деньги — целые, большие значения без потери точности', () => {
     expect(formatMoney('1146798')).toBe(`1${NBSP}146${NBSP}798${NBSP}₽`);
     expect(formatMoney(dec('12977.5'), 'USD')).toBe(`12${NBSP}978${NBSP}USD`);
+    expect(formatMillions('18240000')).toBe(`18,2${NBSP}млн${NBSP}₽`);
+    expect(formatMillions(null)).toBe(DASH);
     expect(formatMoney('10999945000000000')).toBe(
       ['10', '999', '945', '000', '000', '000'].join(NBSP) + `${NBSP}₽`,
     );

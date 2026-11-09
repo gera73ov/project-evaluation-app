@@ -33,6 +33,7 @@ import {
 import * as demoDiscussions from "./demoDiscussions";
 import * as demoDocuments from "./demoDocuments";
 import * as demoOutcome from "./demoOutcome";
+import * as demoPortfolio from "./demoPortfolio";
 import * as demoTree from "./demoTree";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
@@ -100,7 +101,16 @@ export function mockResponse(
 ): MockResult {
   const project = projectOf(op, params);
   const global = accessOf(persona, null);
-  const scoped = project ? accessOf(persona, project.key) : null;
+  // проекты портфеля без демо-данных (FE-050): «Стать модератором» проверяется как в чужом проекте
+  const portfolioOnly =
+    project === null &&
+    op.operationId === "joinAsModerator" &&
+    demoPortfolio.isPortfolioOnly(params.id ?? "");
+  const scoped = project
+    ? accessOf(persona, project.key)
+    : portfolioOnly
+      ? accessOf(persona, "portfolio")
+      : null;
   const permissions = new Set([
     ...global.permissions,
     ...(scoped?.permissions ?? []),
@@ -579,6 +589,47 @@ const DEMO: Record<string, Demo> = {
       schema,
       demoOutcome.lossReasons(ctx.params.include_inactive === "true"),
     ),
+  // FE-050 · портфель руководителя пресейла (FR-PORT-01…03)
+  portfolioProjects: (ctx, schema) =>
+    list(schema, demoPortfolio.portfolioProjects(ctx.params)),
+  portfolioSummary: (ctx) => demoPortfolio.portfolioSummary(ctx.params),
+  portfolioExport: (ctx) => {
+    const b = body(ctx);
+    const from = typeof b.from === "string" ? b.from : TODAY;
+    const to = typeof b.to === "string" ? b.to : TODAY;
+    return demoPortfolio.createExport(
+      "portfolio_xlsx",
+      `Портфель_${from}_${to}.xlsx`,
+    );
+  },
+  getExport: (ctx) => demoPortfolio.exportJob(ctx.params.id ?? "") ?? undefined,
+  joinAsModerator: (ctx, schema) => {
+    const result = demoPortfolio.joinAsModerator(
+      ctx.params.id ?? "",
+      ctx.persona,
+    );
+    if ("error" in result)
+      return new MockProblem(
+        result.error === "NOT_FOUND"
+          ? problem(404, "NOT_FOUND", "Не найдено")
+          : problem(
+              409,
+              "PROJECT_STATUS_CONFLICT",
+              "Сначала восстановите проект",
+            ),
+      );
+    return list(
+      schema,
+      result.map((user) => ({
+        user,
+        role: "moderator",
+        discipline_id: null,
+        is_reviewer: false,
+        status: "active",
+        added_by_admin_self: false,
+      })),
+    );
+  },
   listDocuments: (ctx) =>
     ctx.project ? demoDocuments.listDocuments(ctx.project) : undefined,
   uploadDocument: (ctx) => {

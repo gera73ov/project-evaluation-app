@@ -15,6 +15,7 @@ import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
 import { DocumentsPage } from '../features/documents/DocumentsPage';
 import { ReadinessPage } from '../features/stats/grid/ReadinessPage';
+import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
 import { OutcomePage } from '../features/settings/outcome/OutcomePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TrashPage } from '../features/trash/TrashPage';
@@ -122,7 +123,7 @@ export const ROUTES: readonly RouteDef[] = [
     access: 'private',
     nav: 'portfolio',
     roles: ['presale_head'],
-    render: stub('Портфель', 'FE-050'),
+    render: () => <PortfolioRoute />,
   },
   { path: '/system', access: 'private', nav: 'system', roles: ['superadmin'], render: stub('Система', 'FE-060') },
   {

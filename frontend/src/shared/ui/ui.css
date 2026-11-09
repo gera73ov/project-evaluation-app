@@ -540,3 +540,50 @@ tr:target td{background:var(--accent-soft)}
 .ratio .pill{justify-self:start}
 .set-tabs .pill{margin-left:6px}
 @media (max-width:1100px){.stats-grid{grid-template-columns:1fr}}
+
+/* FE-050 · портфель руководителя пресейла (DESIGN.md 10.12) */
+.pf-tools{display:flex;gap:8px;align-items:center;padding:12px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.pf-period{width:220px;justify-content:flex-start;font-weight:400}
+.pf-filter{width:170px}
+.pf-search{width:220px}
+.pf-period-form{display:grid;gap:8px;width:220px}
+.pf-msg{margin:12px 22px 0}
+.pf-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:16px 22px 0}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi .lbl{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.kpi .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .d{font-size:11.5px;color:var(--muted)}
+.kpi.m{border-color:var(--money-border,#d9cff2);background:var(--money-surface,#fcfbff)}
+.kpi.m .v{color:var(--money)}
+.pf-plate{grid-column:1/-1;justify-self:start;background:var(--surface-subtle,#fafbfc);border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--muted)}
+.pf-charts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:12px 22px 0}
+.pf-card{border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.pf-card.m{border-color:var(--money-border,#d9cff2);background:var(--money-surface,#fcfbff)}
+.pf-card h4{margin:0 0 10px;font-size:13px}
+.pf-card h4.money{color:var(--money)}
+.pf-sub{font-weight:500;font-size:11.5px;color:var(--muted)}
+.hb{display:grid;grid-template-columns:130px 1fr 44px;gap:8px;align-items:center;padding:3px 0;font-variant-numeric:tabular-nums;font-size:12.5px}
+.hb>span:last-child{text-align:right}
+.hb .link{text-align:left;font-size:12.5px}
+.hb .b{height:11px;border-radius:3px}
+.hb .b.lost{background:var(--bad)} .hb .b.money{background:var(--money)}
+.hb .stack{display:flex;height:14px;border-radius:4px;overflow:hidden;background:var(--line2)}
+.stack i.won,.pf-legend b.won{background:var(--ok);color:var(--ok)}
+.stack i.lost,.pf-legend b.lost{background:var(--bad);color:var(--bad)}
+.stack i.none{background:var(--line)} .pf-legend b.none{color:var(--line)}
+.pf-legend b{background:none!important}
+.pf-legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.pf-hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+.pf-texts{margin:6px 0 0;padding-left:18px;font-size:12.5px}
+.pf-main{padding:14px 22px 22px}
+.pf-notice{background:var(--ok-soft);color:var(--ok);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-weight:500}
+.pf-table td{font-variant-numeric:tabular-nums}
+.pf-table td.m,.pf-table th.m{color:var(--money)}
+.pf-table td.m{background:var(--money-surface,#fcfbff)}
+.pf-table .sub{color:var(--muted);font-size:12px}
+.pf-table tr.muted{color:var(--muted)}
+.pf-actions{white-space:nowrap}
+.pf-actions>*+*{margin-left:6px}
+.pf-actions a.btn-sm{display:inline-flex;align-items:center;text-decoration:none}
+.pf-join-off{display:inline-block}
+@media (max-width:1300px){.pf-kpis{grid-template-columns:repeat(3,1fr)}.pf-charts{grid-template-columns:1fr}}
