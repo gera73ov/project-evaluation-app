@@ -5,10 +5,23 @@
 
 from fastapi import APIRouter
 
-from estimator.api.v1 import auth, me
+from estimator.api.v1 import (
+    admin_calendar,
+    auth,
+    me,
+    notifications,
+    projects,
+    tree,
+    view_state,
+)
 
 PREFIX = "/api/v1"
 
 router = APIRouter()
 router.include_router(auth.router)
 router.include_router(me.router)
+router.include_router(view_state.router)
+router.include_router(projects.router)
+router.include_router(tree.router)
+router.include_router(notifications.router)
+router.include_router(admin_calendar.router)
