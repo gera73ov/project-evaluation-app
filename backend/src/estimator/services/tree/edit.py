@@ -42,6 +42,7 @@ from estimator.db.uuid7 import uuid7
 from estimator.realtime.locks import iface as locks
 from estimator.services.branches.status import touch
 from estimator.services.common import emit, user_ref
+from estimator.services.review import marks
 from estimator.services.tree.load import DEPTH_LIMIT, NODES_LIMIT, count_live_nodes, node_event
 from estimator.services.tree.positions import key_between
 
@@ -321,6 +322,7 @@ async def create_node(
     if multiplier != 1:
         created["multiplier"] = (1, multiplier)
     db.add(_history(node, principal, version, NodeAction.CREATE, created))
+    await marks.clear(db, principal, [parent, *await marks.ancestors(db, parent)])
     branch = None
     if node.discipline_id is not None:  # ребёнок ветки всегда в дисциплине (CHECK item_branch)
         branch = await touch(
@@ -418,11 +420,17 @@ async def patch_node(
     if not diff:
         return node, None, rounded
 
+    resets = bool(RESETS_DONE & diff.keys())
+    unreview = resets and node.reviewed_by is not None
     node.version += 1
     versions = dict(node.field_versions)
     for field, (_, value) in diff.items():
         setattr(node, field, value)
         versions[FIELD_KEYS[field]] = node.version
+    if unreview:  # FR-REV-02: правка цифры снимает «Проверено» с листа
+        node.reviewed_by, node.reviewed_at, node.self_review = None, None, False
+        versions["review"] = node.version
+        keys.add("review")
     node.field_versions = versions
     node.updated_by = principal.user_id
     await db.flush()
@@ -439,9 +447,12 @@ async def patch_node(
             principal,
             version,
             NodeAction.UPDATE,
-            {FIELD_KEYS[f]: change for f, change in diff.items()},
+            {FIELD_KEYS[f]: change for f, change in diff.items()}
+            | ({"review": (True, False)} if unreview else {}),
         )
     )
+    if resets:  # BR-BR-02: и со всех предков
+        await marks.clear(db, principal, await marks.ancestors(db, node))
     branch = None
     if node.discipline_id is not None:
         branch = await touch(
@@ -450,6 +461,6 @@ async def patch_node(
             project.id,
             node.phase_id,
             node.discipline_id,
-            resets_done=bool(RESETS_DONE & diff.keys()),
+            resets_done=resets,
         )
     return node, branch, rounded
