@@ -38,11 +38,19 @@ export function moneyDynamicsOf(p: DemoProject) {
   }));
 }
 
-/** Снимки демо: у «Портала дилеров» — v1 «КП отправлено» и v2, у ФНС снимков нет. */
+/** Снимки демо: у «Портала дилеров» — v2, v1 «КП отправлено» и ошибочный v0; у ФНС снимков нет. */
 const SNAPS = [
+  { key: "v2", name: "v2 — после ответов заказчика", day: 1, curve: 6 },
   { key: "v1", name: "v1 — КП отправлено", day: 2, curve: 5 },
-  { key: "v2", name: "v2", day: 1, curve: 6 },
+  // ошибочный снимок: в списке зачёркнут, на графике не отмечается
+  { key: "v0", name: "v0 — черновик", day: 7, curve: 0 },
 ];
+
+const DESCRIPTIONS = new Map([
+  ["v2", "Учтён REST для 1С"],
+  ["v1", "Предварительная цифра"],
+  ["v0", "Снят с не той ставкой QA"],
+]);
 
 export function snapshotsOf(p: DemoProject) {
   if (p.key !== "portal") return [];
@@ -53,11 +61,11 @@ export function snapshotsOf(p: DemoProject) {
     return {
       id: uuidFrom("snapshot", p.key, s.key),
       name: s.name,
-      description: s.key === "v1" ? "Версия, отправленная заказчику" : "",
+      description: DESCRIPTIONS.get(s.key) ?? "",
       created_by: userRef(PERSONAS.moderator),
       created_at: `${dayBefore(s.day)}T15:00:00Z`,
-      is_invalid: false,
-      project_version: s.key === "v1" ? 17 : 19,
+      is_invalid: s.key === "v0",
+      project_version: s.key === "v2" ? 19 : s.key === "v1" ? 17 : 9,
       totals: {
         e: scaled(total.e, k),
         sigma: scaled(total.sigma, k),

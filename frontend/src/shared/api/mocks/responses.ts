@@ -36,6 +36,7 @@ import * as demoExports from "./demoExports";
 import * as demoOutcome from "./demoOutcome";
 import * as demoPortfolio from "./demoPortfolio";
 import * as demoSnapshots from "./demoSnapshots";
+import * as demoStatsDetails from "./demoStatsDetails";
 import * as demoSystem from "./demoSystem";
 import * as demoTree from "./demoTree";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
@@ -614,6 +615,8 @@ const DEMO: Record<string, Demo> = {
       "stats_tab_xlsx",
       `Статистика_${ctx.params.tab ?? "tab"}.xlsx`,
     ),
+  exportAssumptions: () =>
+    demoExports.createExport("assumptions_docx", "Допущения_и_риски.docx"),
   getExport: (ctx) => demoExports.exportJob(ctx.params.id ?? "") ?? undefined,
   joinAsModerator: (ctx, schema) => {
     const result = demoPortfolio.joinAsModerator(
@@ -958,6 +961,13 @@ const DEMO: Record<string, Demo> = {
               },
             ]
           : [],
+      // FE-042 · объёмы и кандидаты — по дереву, метки — строки макета
+      volumes: demoStatsDetails.volumes(
+        p,
+        (id) => NODE_TYPES.find((name) => typeId(name) === id) ?? "Работа",
+      ),
+      candidates: demoStatsDetails.candidates(p),
+      tag_lists: demoStatsDetails.tagLists(p),
       // FE-041 · точка в день (GAP-01) за 8 дней, последняя — текущий итог
       dynamics: demoSnapshots.dynamicsOf(p),
       ...(ctx.money
@@ -1076,6 +1086,7 @@ const DEMO: Record<string, Demo> = {
   },
 
   listRatios: (_ctx, schema) => list(schema, [DEMO_RATIO]),
+  getMethodSettings: () => demoSystem.methodSettings(),
   listPhases: (_ctx, schema) =>
     list(
       schema,

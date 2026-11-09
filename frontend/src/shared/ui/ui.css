@@ -654,3 +654,37 @@ tr:target td{background:var(--accent-soft)}
 .dyn-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle}
 .dyn-legend i.e{background:var(--accent)} .dyn-legend i.p80{background:var(--warn)}
 @media (max-width:1200px){.tot-grid{grid-template-columns:1fr}}
+
+/* FE-042 · статистика: доли, объёмы, кандидаты, допущения, снимки (DESIGN.md 10.9) */
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px 22px 22px;align-items:start}
+.det-one{padding:18px 22px 22px}
+.det-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0;display:grid;gap:6px}
+.det-card h3{margin:0;font-size:14px}
+.det-phase{width:200px}
+.det-tools{display:flex;gap:8px;align-items:center}
+.hb .b.acc{background:var(--accent)}
+.det-table td{font-variant-numeric:tabular-nums}
+.det-table td.m,.det-table th.m{color:var(--money)}
+.type-ico{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:4px;background:var(--line2);font-size:11px}
+.det-summary{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;margin-top:6px}
+.det-list{list-style:none;margin:0;padding:0}
+.det-list li+li{border-top:1px solid var(--line2)}
+.det-row{display:flex;width:100%;gap:12px;align-items:center;justify-content:space-between;background:none;border:0;padding:9px 10px;font:inherit;text-align:left;cursor:pointer;border-radius:6px}
+.det-row:hover{background:var(--line2)}
+.det-row:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.det-main{display:grid;gap:2px}
+.det-main b{font-weight:500}
+.det-main .sub,.det-tag .sub{color:var(--muted);font-size:12px}
+.det-side{display:flex;gap:10px;align-items:center;white-space:nowrap;font-variant-numeric:tabular-nums}
+.det-side.warn{color:var(--warn);font-weight:600}
+.det-pill-space{display:inline-block;width:90px}
+.det-tags{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.det-tag{display:grid;grid-template-columns:auto 1fr;column-gap:6px;row-gap:2px;align-items:baseline;background:none;border:0;padding:4px 6px;font:inherit;text-align:left;width:100%;border-radius:6px}
+button.det-tag{cursor:pointer}
+button.det-tag:hover{background:var(--line2)}
+.det-tag .sub{grid-column:1/-1}
+.snaps tr.invalid td{color:var(--faint)}
+.snaps tr.invalid .snap-name,.snaps tr.invalid td.num{text-decoration:line-through}
+.snaps .pill{margin-left:6px}
+.snaps td.desc{color:var(--muted)}
+@media (max-width:1200px){.det-grid{grid-template-columns:1fr}}
