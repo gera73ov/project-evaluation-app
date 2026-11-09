@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { formatHoursInput } from '../../../shared/format/number';
 import { ConfirmDialog } from '../../../shared/ui/ConfirmDialog';
+import { branchKey, type BranchStatus } from '../../../shared/calc';
 import type { TreeStore } from '../store/treeStore';
 import { CollapseDialog, CopyBranchDialog, LocalTypeDialog, MoveDialog, ProfileDialog, TypeDialog } from './dialogs';
 import { childrenOf, isLeaf, moveTargets, needsDeleteConfirm, reorderAfter, suggestType } from './ops';
@@ -27,7 +28,15 @@ export interface MenuSetup {
   profileOf: (disciplineId: string) => string | null;
   /** История листа (FE-028); нет — пункт бледный. */
   onHistory?: (nodeId: string) => void;
+  /** Правка структуры «готовой» ветки в «Сведении» спрашивает подтверждение (FE-029, GAP-10). */
+  guard?: (nodeId: string) => boolean | Promise<boolean>;
+  /** «Ветка не нужна» / «снова нужна» (FE-029, модератор). */
+  setBranchStatus?: (branchNodeId: string, status: BranchStatus) => void;
+  canNotNeeded?: boolean;
 }
+
+/** Действия, которые меняют структуру или цифры ветки (BR-BR-02). */
+const STRUCTURE: ReadonlySet<NodeAction> = new Set(['split', 'collapse', 'up', 'down', 'duplicate', 'delete', 'copy']);
 
 type Dialog =
   | { kind: 'type' | 'local' | 'profile' | 'move' | 'copy' | 'split' | 'delete'; nodeId: string }
@@ -56,9 +65,12 @@ export function useRowMenus({
   const tree = () => store.getState();
   const close = () => setDialog(null);
 
+  /** Правка структуры вернёт «готовую» ветку в черновик: в «Сведении» сначала спросить. */
+  const allowed = async (nodeId: string) => (setup.guard ? await setup.guard(nodeId) : true);
+
   const add = async (nodeId: string, where: 'sibling' | 'child', typeId: string | null) => {
     const node = tree().nodes.get(nodeId);
-    if (!node) return;
+    if (!node || !(await allowed(nodeId))) return;
     const parent = where === 'sibling' ? node.parent_id : nodeId;
     if (!parent) return;
     const after = where === 'sibling' ? nodeId : (childrenOf(tree(), nodeId).at(-1) ?? null);
@@ -70,7 +82,12 @@ export function useRowMenus({
   const act = async (nodeId: string, action: NodeAction) => {
     const node = tree().nodes.get(nodeId);
     if (!node) return;
+    if (STRUCTURE.has(action) && !(await allowed(nodeId))) return;
     switch (action) {
+      case 'notNeeded':
+      case 'needed':
+        setup.setBranchStatus?.(nodeId, action === 'notNeeded' ? 'not_needed' : 'not_started');
+        return;
       case 'up':
       case 'down': {
         const to = reorderAfter(tree(), nodeId, action === 'up' ? -1 : 1);
@@ -95,7 +112,7 @@ export function useRowMenus({
         setup.onHistory?.(nodeId);
         return;
       default:
-        setDialog({ kind: action, nodeId });
+        setDialog({ kind: action as Exclude<Dialog['kind'], 'collapse'>, nodeId });
     }
   };
 
@@ -108,6 +125,11 @@ export function useRowMenus({
     context,
     setContext,
     history: Boolean(setup.onHistory),
+    canNotNeeded: Boolean(setup.canNotNeeded && setup.setBranchStatus),
+    statusOf: (nodeId) => {
+      const node = tree().nodes.get(nodeId);
+      return node?.discipline_id ? tree().branchStatus.get(branchKey(node.phase_id, node.discipline_id)) : undefined;
+    },
   };
 
   const node = dialog ? tree().nodes.get(dialog.nodeId) : undefined;
@@ -176,11 +198,14 @@ export function useRowMenus({
             busy={ops.busy}
             onPick={(parentId) => {
               const last = childrenOf(tree(), parentId).at(-1) ?? null;
-              void ops.move(id, parentId, last).then((ok) => {
-                if (!ok) return;
-                close();
-                onShow(id);
-              });
+              // ветка, куда переносят, тоже может быть «готовой»
+              void Promise.resolve(allowed(parentId))
+                .then((go) => (go ? ops.move(id, parentId, last) : false))
+                .then((ok) => {
+                  if (!ok) return;
+                  close();
+                  onShow(id);
+                });
             }}
             onClose={close}
           />

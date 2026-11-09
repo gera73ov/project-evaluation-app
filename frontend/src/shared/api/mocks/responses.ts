@@ -176,7 +176,8 @@ function projectBody(ctx: Ctx, p: DemoProject, schema: Schema) {
     name: p.name,
     customer: p.customer,
     description: p.description,
-    status: "estimation",
+    // статус проекта демо можно подменить в тестах (FE-029: «Сведение»)
+    status: (p as { status?: string }).status ?? "estimation",
     outcome: "unknown",
     detail_level: "medium",
     pm_percent: p.key === "portal" ? "18" : "15",
@@ -322,6 +323,40 @@ const DEMO: Record<string, Demo> = {
     ctx.project
       ? demoTree.nodeHistory(ctx.project, ctx.params.id ?? "")
       : undefined,
+
+  // FE-029: «Проверено»; у ревьюера-эксперта — самопроверка (в демо — всегда)
+  reviewNode: (ctx) =>
+    ctx.project
+      ? demoTree.reviewNode(
+          ctx.project,
+          ctx.params.id ?? "",
+          body(ctx).reviewed === true,
+          userRef(ctx.persona),
+          ctx.persona.projects[ctx.project.key]?.role !== "moderator",
+        )
+      : undefined,
+  putBranchStatus: (ctx) => {
+    const p = ctx.project;
+    if (!p) return undefined;
+    const was =
+      (
+        p.branchStatuses as {
+          phase_id: string;
+          discipline_id: string;
+          status: string;
+        }[]
+      ).find(
+        (b) =>
+          b.phase_id === ctx.params.phase &&
+          b.discipline_id === ctx.params.discipline,
+      )?.status ?? "not_started";
+    return {
+      phase_id: ctx.params.phase,
+      discipline_id: ctx.params.discipline,
+      status: typeof body(ctx).status === "string" ? body(ctx).status : "done",
+      was,
+    };
+  },
 
   // FE-027: операции со структурой дерева
   createNode: (ctx) =>

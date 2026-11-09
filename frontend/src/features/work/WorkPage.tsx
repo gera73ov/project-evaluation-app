@@ -24,6 +24,7 @@ import { membersKey } from '../settings/team/TeamSection';
 import { useProject, type Project } from '../settings/useProject';
 import { useCollab, useCollabState, type Collab } from './collab/useCollab';
 import { FilterBar } from './filters/FilterBar';
+import type { BranchSetup } from './branch/useBranch';
 import type { MenuSetup } from './menu/useRowMenus';
 import { projectTypesKey, useTreeOps } from './menu/useTreeOps';
 import {
@@ -301,11 +302,27 @@ function WorkScreen({
         .map((p) => ({ id: p.id, name: p.name, chain: p.type_chain.map(typeName).join(' → ') })),
     profileOf: (disciplineId) => data.disciplines.find((d) => d.discipline_id === disciplineId)?.profile_id ?? null,
   };
+  const canEdit = editRule(data, members, userId, offline);
+  const reviewerOf = new Set(
+    members.filter((m) => m.user.id === userId && m.is_reviewer && m.discipline_id).map((m) => m.discipline_id),
+  );
+  const branchSetup: BranchSetup = {
+    projectId,
+    confirmMutation,
+    consolidation: data.status === 'consolidation',
+    canDone: (d) => perms.has('branch.status.draft_done') && canEdit(d),
+    canNotNeeded: perms.has('branch.status.not_needed') && !offline && !READ_ONLY_STATUSES.has(data.status),
+    canReview: (d) =>
+      perms.has('review.mark') &&
+      !offline &&
+      !READ_ONLY_STATUSES.has(data.status) &&
+      (moderator || (d !== null && reviewerOf.has(d))),
+  };
   const ctx: TreeContext = {
     roleOf: (id) => (members.some((m) => m.user.id === id && m.role === 'moderator') ? t('history.moderator') : null),
     highlight: deferredQuery,
     collab: { locks, marks, canForce: data.my_permissions.includes('tree.lock.force') },
-    canEdit: editRule(data, members, userId, offline),
+    canEdit,
     withoutExpert: new Set(data.disciplines.filter((d) => !d.has_expert).map((d) => d.discipline_id)),
     disciplineNames: new Map(data.disciplines.map((d) => [d.discipline_id, d.name])),
     nodeTypes: allTypes,
@@ -367,6 +384,7 @@ function WorkScreen({
           onConfirm={confirm}
           locking={collab}
           menus={menus}
+          branchSetup={branchSetup}
         />
       </div>
     </div>

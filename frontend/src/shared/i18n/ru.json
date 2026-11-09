@@ -820,7 +820,11 @@
       "bug": "Ошибка",
       "robot": "Робот",
       "map": "Карта местности"
-    }
+    },
+    "notNeeded": "Ветка не нужна",
+    "needed": "Ветка снова нужна",
+    "notEmpty": "в ветке есть узлы",
+    "branchDone": "ветка готова"
   },
   "history": {
     "heading": "История: {{name}}",
@@ -851,5 +855,27 @@
       "review": "Отметка «Проверено» изменена",
       "other": "Изменён"
     }
+  },
+  "branch": {
+    "markDone": "Отметить «Готово»",
+    "notReady": "Нельзя отметить «Готово»: {{why}}",
+    "empty_one": "{{count}} пустой лист",
+    "empty_few": "{{count}} пустых листа",
+    "empty_many": "{{count}} пустых листов",
+    "empty_other": "{{count}} пустого листа",
+    "invalid_one": "{{count}} лист с O > R или R > P",
+    "invalid_few": "{{count}} листа с O > R или R > P",
+    "invalid_many": "{{count}} листов с O > R или R > P",
+    "invalid_other": "{{count}} листа с O > R или R > P",
+    "openQuestions_one": "{{count}} открытый вопрос",
+    "openQuestions_few": "{{count}} открытых вопроса",
+    "openQuestions_many": "{{count}} открытых вопросов",
+    "openQuestions_other": "{{count}} открытого вопроса",
+    "review": "Отметить «Проверено»: {{name}}",
+    "unreview": "Снять «Проверено»: {{name}}",
+    "reviewHint": "Отметить «Проверено»",
+    "doneEditTitle": "Ветка «{{name}}» готова",
+    "doneEditMessage": "Ветка вернётся в черновик, модератор получит уведомление. Дальнейшие правки в этой ветке — без вопросов. Продолжить?",
+    "doneEditConfirm": "Продолжить"
   }
 }

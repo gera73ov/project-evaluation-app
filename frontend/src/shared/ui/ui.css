@@ -363,3 +363,14 @@ button.type-opt.sel{background:var(--accent-soft);border-color:#b8d8e4}
 .history-panel .hp-foot{padding:10px 14px;font-size:12px;color:var(--muted)}
 .history-panel .hp-empty{padding:14px;color:var(--muted);font-size:13px}
 .history-panel .hp-error{padding:6px 14px;background:var(--bad-soft);color:var(--bad);font-size:13px}
+
+/* FE-029 · статус ветки и «Проверено» (DESIGN.md 9.5) */
+.tree .done-btn{height:24px;padding:0 10px;font-size:12px;white-space:nowrap}
+.tree .done-btn:disabled{opacity:.45;cursor:not-allowed}
+.tree .done-wrap{display:inline-flex}
+.tree .branch-open{font-size:12px;color:var(--muted);font-weight:400;white-space:nowrap}
+.tree .rv-btn{width:24px;height:24px;border:0;border-radius:5px;background:none;cursor:pointer;display:inline-grid;place-items:center;padding:0}
+.tree .rv-btn:hover{background:var(--line2)}
+.tree .rv-btn .rv-ghost{color:var(--faint);opacity:0}
+.tree .tr:hover .rv-btn .rv-ghost,.tree .rv-btn:focus-visible .rv-ghost{opacity:1}
+.tree .rv-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
