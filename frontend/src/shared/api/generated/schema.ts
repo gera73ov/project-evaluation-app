@@ -1467,7 +1467,11 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Типы узлов проекта
+         * @description CR-006. Активные типы словаря и локальные типы этого проекта (FR-TREE-03, 11.5 №1) — для меню «+» и названий типов в дереве; у типа словаря `project_id` = null.
+         */
+        get: operations["listProjectNodeTypes"];
         put?: never;
         /** Локальный тип узла */
         post: operations["createLocalNodeType"];
@@ -2785,11 +2789,17 @@ export type components = {
             norms: components["schemas"]["Norm"][];
             readonly is_system: boolean;
             is_active: boolean;
+            /** @description CR-006. Проект локального типа; null — тип словаря */
+            readonly project_id: components["schemas"]["Uuid"] | null;
         };
+        /**
+         * @description CR-006. Ключ иконки типа узла из курируемого набора GAP-07 (DESIGN.md 16.3): 10 иконок типов 5.2 и 20 дополнительных для локальных типов. Другие ключи сервер не принимает (VALIDATION_FAILED).
+         * @enum {string}
+         */
+        NodeTypeIcon: "module" | "function" | "screen" | "integration" | "report" | "entity" | "service" | "test_suite" | "document" | "work" | "api" | "cloud" | "server" | "lock" | "users" | "mail" | "bell" | "chart_bar" | "file_spreadsheet" | "device_mobile" | "world" | "search" | "upload" | "download" | "calendar" | "credit_card" | "shield_check" | "bug" | "robot" | "map";
         NodeTypeWrite: {
             name?: string;
-            /** @description Ключ из курируемого набора (GAP-07) */
-            icon?: string;
+            icon?: components["schemas"]["NodeTypeIcon"];
             norms?: components["schemas"]["Norm"][];
             readonly is_system?: boolean;
             is_active?: boolean;
@@ -3067,7 +3077,7 @@ export type components = {
         };
         LocalNodeType: {
             name: string;
-            icon: string;
+            icon: components["schemas"]["NodeTypeIcon"];
         };
         RemindResult: {
             sent_to: number;
@@ -7277,6 +7287,34 @@ export interface operations {
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listProjectNodeTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["NodeType"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             500: components["responses"]["Problem500"];
         };
     };

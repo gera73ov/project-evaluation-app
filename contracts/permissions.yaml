@@ -460,6 +460,7 @@ permissions:
       - "GET /projects/{id}/tree"
       - "GET /projects/{id}/changes"
       - "GET /nodes/{id}/history"
+      - "GET /projects/{id}/node-types"
       - "WS subscribe project:{id}"
   tree.write:
     title: Менять структуру и O/R/P/×N (создать, изменить, перенести внутри области, разбить, свернуть, дублировать, удалить в корзину, захват ячейки)

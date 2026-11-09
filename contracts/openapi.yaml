@@ -5535,6 +5535,53 @@ paths:
         '500':
           $ref: '#/components/responses/Problem500'
   /projects/{id}/node-types:
+    get:
+      operationId: listProjectNodeTypes
+      summary: Типы узлов проекта
+      description: >-
+        CR-006. Активные типы словаря и локальные типы этого проекта (FR-TREE-03, 11.5 №1) —
+        для меню «+» и названий типов в дереве; у типа словаря `project_id` = null.
+      tags:
+      - Проекты
+      x-permission: tree.read
+      x-spec:
+      - FR-TREE-03
+      - GAP-07
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NodeType'
+                required:
+                - items
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '500':
+          $ref: '#/components/responses/Problem500'
     post:
       operationId: createLocalNodeType
       summary: Локальный тип узла
@@ -10073,6 +10120,12 @@ components:
           readOnly: true
         is_active:
           type: boolean
+        project_id:
+          description: CR-006. Проект локального типа; null — тип словаря
+          readOnly: true
+          anyOf:
+          - $ref: '#/components/schemas/Uuid'
+          - type: 'null'
       required:
       - id
       - name
@@ -10080,7 +10133,45 @@ components:
       - norms
       - is_system
       - is_active
+      - project_id
       additionalProperties: false
+    NodeTypeIcon:
+      type: string
+      description: >-
+        CR-006. Ключ иконки типа узла из курируемого набора GAP-07 (DESIGN.md 16.3): 10 иконок
+        типов 5.2 и 20 дополнительных для локальных типов. Другие ключи сервер не принимает
+        (VALIDATION_FAILED).
+      enum:
+      - module
+      - function
+      - screen
+      - integration
+      - report
+      - entity
+      - service
+      - test_suite
+      - document
+      - work
+      - api
+      - cloud
+      - server
+      - lock
+      - users
+      - mail
+      - bell
+      - chart_bar
+      - file_spreadsheet
+      - device_mobile
+      - world
+      - search
+      - upload
+      - download
+      - calendar
+      - credit_card
+      - shield_check
+      - bug
+      - robot
+      - map
     NodeTypeWrite:
       type: object
       properties:
@@ -10089,9 +10180,7 @@ components:
           minLength: 1
           maxLength: 50
         icon:
-          type: string
-          maxLength: 64
-          description: Ключ из курируемого набора (GAP-07)
+          $ref: '#/components/schemas/NodeTypeIcon'
         norms:
           type: array
           items:
@@ -10950,8 +11039,7 @@ components:
           minLength: 1
           maxLength: 50
         icon:
-          type: string
-          maxLength: 64
+          $ref: '#/components/schemas/NodeTypeIcon'
       required:
       - name
       - icon
