@@ -321,10 +321,11 @@ async def create_node(
     if multiplier != 1:
         created["multiplier"] = (1, multiplier)
     db.add(_history(node, principal, version, NodeAction.CREATE, created))
-    assert node.discipline_id is not None  # noqa: S101 — ребёнок ветки всегда в дисциплине
-    branch = await touch(
-        db, principal, project.id, node.phase_id, node.discipline_id, resets_done=True
-    )
+    branch = None
+    if node.discipline_id is not None:  # ребёнок ветки всегда в дисциплине (CHECK item_branch)
+        branch = await touch(
+            db, principal, project.id, node.phase_id, node.discipline_id, resets_done=True
+        )
     return node, branch, rounded
 
 
