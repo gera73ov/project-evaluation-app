@@ -246,3 +246,18 @@ span.person-name{cursor:default}
 .pick-list li button{display:flex;align-items:center;gap:8px;width:100%;padding:8px 6px;border:0;background:none;cursor:pointer;text-align:left;font:13px var(--f);border-radius:6px}
 .pick-list li button:hover{background:var(--row-hover)}
 .pick-list .grow{flex:1}
+
+/* FE-024 · полоса инструментов дерева (DESIGN.md 9.3, 6.3) */
+.tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+.tools-search{width:280px;height:30px;padding:0 10px;border:1px solid var(--line);border-radius:6px;font:inherit;background:#fff;color:var(--ink)}
+.chip.sm{height:26px;border-radius:13px;padding:0 10px;font-size:12px;font-weight:500;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.chip.sm.on{color:var(--accent-ink)}
+.chip .c{background:var(--line2);color:var(--muted-ink);font-size:11px;border-radius:8px;padding:0 6px}
+.tools-show{margin-left:10px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.tools-show .k{color:var(--muted);font-size:12px}
+.btn-sm{height:26px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font:inherit;font-size:12px;cursor:pointer}
+.tools-warn{margin-left:auto;order:-1;flex-basis:100%;text-align:left;border:0;background:none;color:var(--warn-ink);font:inherit;font-weight:600;cursor:pointer;padding:0}
+@media (min-width:1366px){.tools-warn{order:0;flex-basis:auto}}
+.tools-nothing{padding:14px 18px;color:var(--muted);border-bottom:1px solid var(--line)}
+.tree mark{background:var(--warn-soft);color:var(--ink);border-radius:2px}
+.top button.risk-cnt{border:0;background:none;font:inherit;cursor:pointer;padding:0}

@@ -6,6 +6,9 @@
  * Строки фазы и дисциплины прилипают под шапкой столбцов, пока видны их узлы: поверх прокрутки
  * рисуются копии ближайших сверху строк фазы и дисциплины. Ячейки пока только показывают значения;
  * ввод — FE-025, кнопки «+» и «⋯» — FE-027, статус ветки и «Проверено» — FE-029.
+ *
+ * Свёртку и набор видимых узлов может вести экран (FE-024: фильтры, поиск, сохранение вида);
+ * без них таблица хранит свёртку сама.
  */
 import { Tooltip } from '@mantine/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -45,6 +48,25 @@ export interface TreeContext {
   pmReason: string;
   /** Модератор: строка УП ведёт в настройки. */
   settingsHref: string | null;
+  /** Строка поиска для подсветки совпадений (FE-024); пусто — без подсветки. */
+  highlight?: string;
+}
+
+/** Подсветка совпадений поиска тегом `<mark>` (DESIGN.md 9.3). */
+export function Highlight({ text, query }: { text: string; query: string | undefined }) {
+  const q = query?.trim().toLocaleLowerCase('ru') ?? '';
+  if (q.length < 2) return <>{text}</>;
+  const lower = text.toLocaleLowerCase('ru');
+  const parts: ReactNode[] = [];
+  let from = 0;
+  for (let at = lower.indexOf(q); at >= 0; at = lower.indexOf(q, from)) {
+    if (at > from) parts.push(text.slice(from, at));
+    parts.push(<mark key={at}>{text.slice(at, at + q.length)}</mark>);
+    from = at + q.length;
+  }
+  if (!parts.length) return <>{text}</>;
+  parts.push(text.slice(from));
+  return <>{parts}</>;
 }
 
 interface CommentLine {
@@ -96,7 +118,7 @@ function Comment({ lines, ctx, placeholder }: { lines: CommentLine[]; ctx: TreeC
   const more = rest.map((l) => (l.tag_id ? ctx.tags.get(l.tag_id) : undefined)).filter(Boolean);
   return (
     <span className="cm-line">
-      {tag ? <span className="tag">{tag}</span> : null} {first.text}
+      {tag ? <span className="tag">{tag}</span> : null} <Highlight text={first.text} query={ctx.highlight} />
       {rest.length ? (
         <span className="tag more">
           +{rest.length}
@@ -176,19 +198,20 @@ const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThresh
   if (errorRow) classes.push('err');
   if (notNeeded) classes.push('not-needed');
   if (target) classes.push('target');
-  const toggle = row.hasChildren ? (
-    <button
-      type="button"
-      className="tg"
-      aria-expanded={!row.collapsed}
-      aria-label={t(row.collapsed ? 'tree.expand' : 'tree.collapse', { name: result.node.title })}
-      onClick={() => onToggle(id)}
-    >
-      {row.collapsed ? '▸' : '▾'}
-    </button>
-  ) : (
-    <span className="tg" aria-hidden="true" />
-  );
+  const toggle =
+    row.hasChildren && !row.filtered ? (
+      <button
+        type="button"
+        className="tg"
+        aria-expanded={!row.collapsed}
+        aria-label={t(row.collapsed ? 'tree.expand' : 'tree.collapse', { name: result.node.title })}
+        onClick={() => onToggle(id)}
+      >
+        {row.collapsed ? '▸' : '▾'}
+      </button>
+    ) : (
+      <span className="tg" aria-hidden="true" />
+    );
   const type = node?.type_id ? ctx.nodeTypes.get(node.type_id) : undefined;
   const big = leaf && largeThreshold ? candidate(result.node, leaf, largeThreshold).large : false;
   const comments = extra<CommentLine[] | null>(node, 'comment_lines') ?? [];
@@ -239,7 +262,7 @@ const Row = memo(function Row({ row, result, node, status, ctx, pmE, largeThresh
           </span>
         ) : null}
         <span className="title" title={result.node.title}>
-          {result.node.title}
+          <Highlight text={result.node.title} query={ctx.highlight} />
         </span>
         {big ? (
           <span
@@ -312,25 +335,38 @@ export function TreeTable({
   ctx,
   height,
   apiRef,
+  collapsed: collapsedProp,
+  onCollapsedChange,
+  visible = null,
 }: {
   store: TreeStore;
   ctx: TreeContext;
   height?: number | string;
   apiRef?: Ref<TreeTableApi>;
+  /** Свёрнутые узлы, если их ведёт экран. */
+  collapsed?: ReadonlySet<string>;
+  onCollapsedChange?: (next: ReadonlySet<string>) => void;
+  /** Видимые узлы под фильтром; null — без фильтра. */
+  visible?: ReadonlySet<string> | null;
 }) {
   const { t } = useTranslation();
   const revision = useTree(store, (s) => s.revision);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [ownCollapsed, setOwnCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const collapsed = collapsedProp ?? ownCollapsed;
+  const setCollapsed = (update: (prev: ReadonlySet<string>) => ReadonlySet<string>) => {
+    if (onCollapsedChange) onCollapsedChange(update(collapsed));
+    else setOwnCollapsed(update);
+  };
   const [scrollTop, setScrollTop] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const state = store.getState();
   const { calc, children, settings, nodes, pending, branchStatus, result } = state;
   const rows = useMemo(
-    () => (calc && settings ? buildRows(calc, children, settings, collapsed) : []),
+    () => (calc && settings ? buildRows(calc, children, settings, collapsed, visible) : []),
     // revision меняется при каждом изменении расчёта
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [revision, collapsed],
+    [revision, collapsed, visible],
   );
   // виртуализатор не мемоизируется компилятором React — строки перерисовываются по revision
   // eslint-disable-next-line react-hooks/incompatible-library

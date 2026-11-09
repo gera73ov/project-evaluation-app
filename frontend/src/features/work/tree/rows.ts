@@ -5,6 +5,9 @@
  * Порядок: фазы в порядке дерева, внутри — ветки дисциплин и узлы по `position`; сквозная фаза
  * не рисуется деревом — вместо неё последняя строка «Управление проектом». Выключенные фазы не
  * показываются. Свёрнутые узлы скрывают потомков; по умолчанию всё раскрыто.
+ *
+ * С фильтром или поиском (FE-024) показываются только узлы из `visible` (найденные и их предки),
+ * свёртка при этом не действует (кнопок свёртки нет), строка УП остаётся последней.
  */
 import type { CalcTree } from '../../../shared/calc';
 import type { CalcSettings } from '../store/treeStore';
@@ -20,6 +23,8 @@ export interface TreeRow {
   depth: number;
   hasChildren: boolean;
   collapsed: boolean;
+  /** Дерево под фильтром: свёртка не действует, кнопки свёртки нет. */
+  filtered: boolean;
   phaseId: string;
   disciplineId: string | null;
 }
@@ -37,6 +42,7 @@ export function buildRows(
   children: ReadonlyMap<string | null, readonly string[]>,
   settings: CalcSettings,
   collapsed: ReadonlySet<string>,
+  visible: ReadonlySet<string> | null = null,
 ): TreeRow[] {
   const phases = new Map(settings.phases.map((p) => [p.id, p]));
   const rows: TreeRow[] = [];
@@ -45,9 +51,10 @@ export function buildRows(
   const visit = (id: string, depth: number) => {
     const result = calc.nodes.get(id);
     if (!result) return;
+    if (visible && !visible.has(id)) return;
     const node = result.node;
     const kids = children.get(id) ?? [];
-    const isCollapsed = collapsed.has(id);
+    const isCollapsed = !visible && collapsed.has(id);
     const kind: RowKind =
       node.kind === 'phase' ? 'phase' : node.kind === 'discipline' ? 'discipline' : result.isLeaf ? 'leaf' : 'node';
     rows.push({
@@ -56,6 +63,7 @@ export function buildRows(
       id,
       depth,
       hasChildren: kids.length > 0,
+      filtered: visible !== null,
       collapsed: isCollapsed,
       phaseId: node.phaseId,
       disciplineId: node.disciplineId,
@@ -77,11 +85,13 @@ export function buildRows(
         depth: 0,
         hasChildren: false,
         collapsed: false,
+        filtered: false,
         phaseId: phase.id,
         disciplineId: null,
       };
       continue;
     }
+    if (visible && !visible.has(id)) continue;
     visit(id, 0);
   }
   const cross = settings.phases.find((p) => p.isCrossCutting && p.enabled);
@@ -93,6 +103,7 @@ export function buildRows(
       depth: 0,
       hasChildren: false,
       collapsed: false,
+      filtered: false,
       phaseId: cross.id,
       disciplineId: null,
     };

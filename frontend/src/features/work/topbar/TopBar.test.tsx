@@ -91,21 +91,6 @@ describe('верхняя полоса рабочего экрана', () => {
     expect(bar.textContent).not.toMatch(/USD/);
   });
 
-  it('лист без оценки — предупреждение «не учтён»', async () => {
-    persona.current = PERSONAS.expert;
-    const leaf = PROJECTS.portal.nodes.find((x) => x.kind === 'item' && x.o !== null);
-    if (!leaf) throw new Error('нет листа');
-    const saved = leaf.o;
-    leaf.o = null;
-    try {
-      renderApp(`/projects/${id}`);
-      const bar = await screen.findByRole('banner', { name: 'Проект' });
-      expect(await within(bar).findByText(/1 лист без оценки не учтён/)).toBeTruthy();
-    } finally {
-      leaf.o = saved;
-    }
-  });
-
   it('«Открыто» — список вопросов, клик показывает строку', async () => {
     persona.current = PERSONAS.expert;
     renderApp(`/projects/${id}`);

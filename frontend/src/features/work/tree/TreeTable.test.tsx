@@ -220,6 +220,9 @@ describe('таблица', () => {
     const grid = await screen.findByRole('treegrid', { name: 'Дерево оценки' });
     const row = (title: string) => within(grid).getByText(title).closest('[role="row"]') as HTMLElement;
     await within(grid).findByText('Разработка');
+    // при первом входе эксперта включён «Мои ветки» (FE-024) — снимаем, чтобы увидеть чужие ветки
+    fireEvent.click(screen.getByRole('button', { name: /Мои ветки/, pressed: true }));
+    await within(grid).findByText('Фронтенд');
     expect(within(row('Разработка')).getByText('190,0')).toBeTruthy();
     expect(within(row('Фронтенд')).getByText(/чужая дисциплина/)).toBeTruthy();
     expect(within(row('Бэкенд')).queryByText(/чужая дисциплина/)).toBeNull();

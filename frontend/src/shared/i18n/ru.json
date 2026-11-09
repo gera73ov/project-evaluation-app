@@ -647,6 +647,39 @@
     "openN": "открыто: {{count}}",
     "risks": "Риски",
     "stats": "Статистика",
-    "settings": "Настройки"
+    "settings": "Настройки",
+    "risksFilter": "Показать листья с рисками"
+  },
+  "filters": {
+    "label": "Поиск и фильтры",
+    "search": "Поиск по названию и комментарию",
+    "chip": {
+      "mine": "Мои ветки",
+      "unestimated": "Без оценки",
+      "large": "Крупные",
+      "unreviewed": "Без «Проверено»",
+      "questions": "С вопросами",
+      "selfReview": "Самопроверка",
+      "risk": "Риски"
+    },
+    "show": "Показать:",
+    "toPhases": "до фаз",
+    "toDisciplines": "до дисциплин",
+    "expandAll": "всё раскрыть",
+    "unaccounted_one": "{{count}} лист не учтён в итогах",
+    "unaccounted_few": "{{count}} листа не учтены в итогах",
+    "unaccounted_many": "{{count}} листов не учтены в итогах",
+    "unaccounted_other": "{{count}} листа не учтены в итогах",
+    "empty_one": "{{count}} пустой",
+    "empty_few": "{{count}} пустых",
+    "empty_many": "{{count}} пустых",
+    "empty_other": "{{count}} пустого",
+    "invalid_one": "{{count}} неверный",
+    "invalid_few": "{{count}} неверных",
+    "invalid_many": "{{count}} неверных",
+    "invalid_other": "{{count}} неверного",
+    "and": " и ",
+    "nothing": "Под фильтр не попала ни одна строка",
+    "reset": "Сбросить фильтры"
   }
 }
