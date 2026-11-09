@@ -6,9 +6,14 @@
  * 404 NOT_FOUND; доступ есть, права нет → 403 FORBIDDEN. Без `money.read` денежных ключей в
  * ответе нет (SEC-AUTHZ-04). Изменяющие запросы ничего не сохраняют: ответ — пример по схеме.
  */
-import Decimal from 'decimal.js';
+import Decimal from "decimal.js";
 
-import { PSEUDO_PERMISSIONS, successResponse, type Operation, type Schema } from './contract';
+import {
+  PSEUDO_PERMISSIONS,
+  successResponse,
+  type Operation,
+  type Schema,
+} from "./contract";
 import {
   DISCIPLINES,
   NODE_TYPES,
@@ -24,10 +29,10 @@ import {
   typeId,
   userRef,
   type DemoProject,
-} from './data';
-import { NOW, TODAY, minutesAgo, uuidFrom } from './ids';
-import { PERSONAS, accessOf, personaId, type Persona } from './personas';
-import { sample, stripMoney } from './sample';
+} from "./data";
+import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
+import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
+import { sample, stripMoney } from "./sample";
 
 export type MockResult = { status: number; body: unknown; binary?: boolean };
 
@@ -36,7 +41,7 @@ const PROJECT_SCOPED =
   /^\/(projects\/\{id\}|nodes|threads|messages|notes|documents|snapshots|trash|exports|me\/view-state)(\/|$)/;
 
 /** Операции, где деньги решаются по каждому проекту в ответе, а не по проекту запроса. */
-const PER_PROJECT_MONEY = new Set(['listProjects']);
+const PER_PROJECT_MONEY = new Set(["listProjects"]);
 
 type Ctx = {
   persona: Persona;
@@ -54,19 +59,23 @@ function problem(status: number, code: string, title: string): MockResult {
       title,
       status,
       code,
-      error_id: uuidFrom('error', code),
+      error_id: uuidFrom("error", code),
     },
   };
 }
 
-function projectOf(op: Operation, params: Record<string, string>): DemoProject | null | undefined {
+function projectOf(
+  op: Operation,
+  params: Record<string, string>,
+): DemoProject | null | undefined {
   if (!PROJECT_SCOPED.test(op.path)) return undefined; // операция вне проекта
   const id = params.id ?? params.project_id ?? params.batch_id;
   const key = projectKeyOf(id);
   if (key) return PROJECTS[key];
   // /projects/{id} с неизвестным id — чужой или несуществующий проект; узлы, треды и прочие
   // объекты без демо-данных считаются объектами «Портала дилеров»
-  return op.path.startsWith('/projects/') || op.path.startsWith('/me/view-state')
+  return op.path.startsWith("/projects/") ||
+    op.path.startsWith("/me/view-state")
     ? null
     : PROJECTS.portal;
 }
@@ -80,7 +89,10 @@ export function mockResponse(
   const project = projectOf(op, params);
   const global = accessOf(persona, null);
   const scoped = project ? accessOf(persona, project.key) : null;
-  const permissions = new Set([...global.permissions, ...(scoped?.permissions ?? [])]);
+  const permissions = new Set([
+    ...global.permissions,
+    ...(scoped?.permissions ?? []),
+  ]);
   const pseudo = op.permission.some((p) => PSEUDO_PERMISSIONS.has(p));
   const granted = pseudo || op.permission.some((p) => permissions.has(p));
 
@@ -90,20 +102,31 @@ export function mockResponse(
     !op.permission.some((p) => global.permissions.has(p)) &&
     !pseudo
   ) {
-    return problem(404, 'NOT_FOUND', 'Не найдено');
+    return problem(404, "NOT_FOUND", "Не найдено");
   }
-  if (!granted) return problem(403, 'FORBIDDEN', 'Недостаточно прав');
+  if (!granted) return problem(403, "FORBIDDEN", "Недостаточно прав");
 
   // деньги: право money.read в проекте или портфель руководителя пресейла (FR-PORT-01)
-  const money = permissions.has('money.read') || permissions.has('portfolio.read');
-  const ctx: Ctx = { persona, project: project ?? null, permissions, money, params };
+  const money =
+    permissions.has("money.read") || permissions.has("portfolio.read");
+  const ctx: Ctx = {
+    persona,
+    project: project ?? null,
+    permissions,
+    money,
+    params,
+  };
   const { status, schema, binary } = successResponse(op);
-  if (binary) return { status, body: 'mock file', binary: true };
+  if (binary) return { status, body: "mock file", binary: true };
   if (!schema) return { status, body: null };
   const custom = DEMO[op.operationId]?.(ctx, schema);
-  const body = custom === undefined ? sample(schema, { money: ctx.money }, op.operationId) : custom;
+  const body =
+    custom === undefined
+      ? sample(schema, { money: ctx.money }, op.operationId)
+      : custom;
   // список «Мои оценки» сам решает по каждому проекту, показывать ли деньги (FR-HOME-04)
-  if (custom !== undefined && PER_PROJECT_MONEY.has(op.operationId)) return { status, body };
+  if (custom !== undefined && PER_PROJECT_MONEY.has(op.operationId))
+    return { status, body };
   return { status, body: stripMoney(schema, body, { money: ctx.money }) };
 }
 
@@ -113,12 +136,15 @@ function overlay(
   ctx: Ctx,
   fields: Record<string, unknown>,
 ): Record<string, unknown> {
-  return { ...(sample(schema, { money: ctx.money }) as Record<string, unknown>), ...fields };
+  return {
+    ...(sample(schema, { money: ctx.money }) as Record<string, unknown>),
+    ...fields,
+  };
 }
 
 /** Обёртка списка по схеме ответа: `next_cursor` — только если он есть в контракте. */
 const list = (schema: Schema, items: unknown[]) =>
-  schema.properties && 'next_cursor' in schema.properties
+  schema.properties && "next_cursor" in schema.properties
     ? { items, next_cursor: null }
     : { items };
 
@@ -145,13 +171,13 @@ function projectBody(ctx: Ctx, p: DemoProject, schema: Schema) {
     name: p.name,
     customer: p.customer,
     description: p.description,
-    status: 'estimation',
-    outcome: 'unknown',
-    detail_level: 'medium',
-    pm_percent: p.key === 'portal' ? '18' : '15',
-    pm_percent_reason: '',
-    quote_figure: 'p80',
-    duration_weeks: p.key === 'portal' ? 12 : 6,
+    status: "estimation",
+    outcome: "unknown",
+    detail_level: "medium",
+    pm_percent: p.key === "portal" ? "18" : "15",
+    pm_percent_reason: "",
+    quote_figure: "p80",
+    duration_weeks: p.key === "portal" ? 12 : 6,
     deadline: p.deadline,
     version: 21,
     phases: p.phases.map((key) => {
@@ -169,24 +195,26 @@ function projectBody(ctx: Ctx, p: DemoProject, schema: Schema) {
       name: DISCIPLINES.find((d) => d.key === key)?.name ?? key,
       profile_id: profileId(key),
       has_expert: p.members.some(
-        (m) => (m as { discipline_id: string | null }).discipline_id === disciplineId(key),
+        (m) =>
+          (m as { discipline_id: string | null }).discipline_id ===
+          disciplineId(key),
       ),
     })),
     completed_at: null,
     archived_at: null,
     cancel_reason: null,
     created_at: minutesAgo(60 * 24 * 14),
-    access: access.access === 'presale_head' ? 'presale_head' : 'member',
+    access: access.access === "presale_head" ? "presale_head" : "member",
     my_permissions: [...access.permissions].sort(),
     support_expires_at: null,
   });
 }
 
-function moneyFigure(p: DemoProject, figure: 'e' | 'p80' | 'p90') {
+function moneyFigure(p: DemoProject, figure: "e" | "p80" | "p90") {
   const f = p.money.figures[figure];
   const rows = (src: Record<string, string>) =>
     Object.entries(src).map(([d, amount]) => ({
-      discipline_id: d === 'pm' ? null : disciplineId(d),
+      discipline_id: d === "pm" ? null : disciplineId(d),
       amount,
     }));
   return {
@@ -208,18 +236,19 @@ const DEMO: Record<string, Demo> = {
     login: ctx.persona.login,
     full_name: ctx.persona.fullName,
     email: `${ctx.persona.login}@example.test`,
-    source: 'local',
-    timezone: 'Europe/Moscow',
+    source: "local",
+    timezone: "Europe/Moscow",
     system_roles: ctx.persona.systemRoles,
     totp_enabled: true,
     totp_required:
-      ctx.persona.systemRoles.some((r) => r !== 'moderator' && r !== 'presale') ||
-      ctx.persona.key === 'moderator',
+      ctx.persona.systemRoles.some(
+        (r) => r !== "moderator" && r !== "presale",
+      ) || ctx.persona.key === "moderator",
     mfa_passed: true,
-    auth_mode: 'app',
+    auth_mode: "app",
     session_expires_at: new Date(Date.parse(NOW) + 8 * 3600_000)
       .toISOString()
-      .replace('.000Z', 'Z'),
+      .replace(".000Z", "Z"),
     idle_timeout_seconds: 1800,
   }),
 
@@ -229,20 +258,26 @@ const DEMO: Record<string, Demo> = {
       Object.values(PROJECTS)
         .filter((p) => ctx.persona.projects[p.key])
         .map((p) => {
-          const money = accessOf(ctx.persona, p.key).permissions.has('money.read');
+          const money = accessOf(ctx.persona, p.key).permissions.has(
+            "money.read",
+          );
           const quote = p.money.figures.p80;
           return {
             id: p.id,
             name: p.name,
             customer: p.customer,
-            status: 'estimation',
+            status: "estimation",
             my_roles: myRoles(ctx, p),
-            my_progress: p.key === 'portal' ? { done: 2, total: 3 } : { done: 0, total: 6 },
+            my_progress:
+              p.key === "portal"
+                ? { done: 2, total: 3 }
+                : { done: 0, total: 6 },
             deadline: p.deadline,
-            deadline_alert: p.key === 'portal',
-            questions_to_me: p.key === 'portal' ? 2 : 1,
-            updated_at: p.key === 'portal' ? minutesAgo(10) : minutesAgo(60 * 20),
-            quote_figure: 'p80',
+            deadline_alert: p.key === "portal",
+            questions_to_me: p.key === "portal" ? 2 : 1,
+            updated_at:
+              p.key === "portal" ? minutesAgo(10) : minutesAgo(60 * 20),
+            quote_figure: "p80",
             quote_hours: hours(p.totals.total.p80 ?? p.totals.total.e),
             ...(money
               ? {
@@ -258,9 +293,33 @@ const DEMO: Record<string, Demo> = {
         }),
     ),
 
-  getProject: (ctx, schema) => (ctx.project ? projectBody(ctx, ctx.project, schema) : undefined),
+  getProject: (ctx, schema) =>
+    ctx.project ? projectBody(ctx, ctx.project, schema) : undefined,
 
-  getMembers: (ctx, schema) => (ctx.project ? list(schema, ctx.project.members) : undefined),
+  getMembers: (ctx, schema) =>
+    ctx.project ? list(schema, ctx.project.members) : undefined,
+
+  // CR-005: кандидаты в команду — активные, без суперадминистратора и аудитора ИБ
+  getMemberCandidates: (ctx, schema) =>
+    ctx.project
+      ? list(schema, [
+          ...Object.values(PERSONAS)
+            .filter(
+              (p) =>
+                !p.systemRoles.some(
+                  (r) => r === "superadmin" || r === "security_auditor",
+                ),
+            )
+            .map((p) => ({
+              user: userRef(p),
+              system_roles: [...p.systemRoles],
+            })),
+          ...Object.values(PEOPLE).map((p) => ({
+            user: userRef(p),
+            system_roles: [],
+          })),
+        ])
+      : undefined,
 
   getTree: (ctx) => {
     const p = ctx.project;
@@ -286,14 +345,18 @@ const DEMO: Record<string, Demo> = {
     return {
       currency: p.money.currency,
       exchange_rate: p.money.exchangeRate,
-      vat_rate_id: uuidFrom('vat', p.money.vatPercent),
+      vat_rate_id: uuidFrom("vat", p.money.vatPercent),
       vat_percent: p.money.vatPercent,
       rates: Object.entries(p.money.rates).map(([d, rate]) => ({
-        discipline_id: d === 'pm' ? null : disciplineId(d),
+        discipline_id: d === "pm" ? null : disciplineId(d),
         rate_rub: rate,
       })),
       rates_missing: [],
-      figures: { e: moneyFigure(p, 'e'), p80: moneyFigure(p, 'p80'), p90: moneyFigure(p, 'p90') },
+      figures: {
+        e: moneyFigure(p, "e"),
+        p80: moneyFigure(p, "p80"),
+        p90: moneyFigure(p, "p90"),
+      },
       updated_at: minutesAgo(60 * 24),
       project_version: 21,
     };
@@ -309,25 +372,27 @@ const DEMO: Record<string, Demo> = {
     return overlay(schema, ctx, {
       project_version: 21,
       readiness: p.branchStatuses.map((b) => {
-        const disc = DISCIPLINES.find((d) => disciplineId(d.key) === b.discipline_id)?.key ?? '';
+        const disc =
+          DISCIPLINES.find((d) => disciplineId(d.key) === b.discipline_id)
+            ?.key ?? "";
         return {
           phase_id: b.phase_id,
           discipline_id: b.discipline_id,
           e: hours(
             (p.nodes.find(
               (n) =>
-                n.kind === 'discipline' &&
+                n.kind === "discipline" &&
                 n.phase_id === b.phase_id &&
                 n.discipline_id === b.discipline_id,
-            )?.e as string) ?? '0',
+            )?.e as string) ?? "0",
           ),
           status: b.status,
           last_change_at: b.changed_at,
           flags:
             (b.open_questions as number) > 0
-              ? ['open_question']
-              : disc === 'd-analytics'
-                ? ['large']
+              ? ["open_question"]
+              : disc === "d-analytics"
+                ? ["large"]
                 : [],
           overdue_working_days: null,
         };
@@ -346,18 +411,26 @@ const DEMO: Record<string, Demo> = {
         works: hoursTotals(t.works),
         pm: hoursTotals(t.pm),
         total: hoursTotals(t.total),
-        quote_figure: 'p80',
-        duration_weeks: p.key === 'portal' ? 12 : 6,
+        quote_figure: "p80",
+        duration_weeks: p.key === "portal" ? 12 : 6,
       },
-      dynamics: [{ date: TODAY, e: hours(t.total.e), p80: hours(t.total.p80 ?? t.total.e) }],
+      dynamics: [
+        {
+          date: TODAY,
+          e: hours(t.total.e),
+          p80: hours(t.total.p80 ?? t.total.e),
+        },
+      ],
       ...(ctx.money
         ? {
             money: {
-              ...(sample((schema.properties?.money ?? {}) as Schema, { money: true }) as object),
+              ...(sample((schema.properties?.money ?? {}) as Schema, {
+                money: true,
+              }) as object),
               figures: {
-                e: moneyFigure(p, 'e'),
-                p80: moneyFigure(p, 'p80'),
-                p90: moneyFigure(p, 'p90'),
+                e: moneyFigure(p, "e"),
+                p80: moneyFigure(p, "p80"),
+                p90: moneyFigure(p, "p90"),
               },
             },
           }
@@ -369,8 +442,14 @@ const DEMO: Record<string, Demo> = {
     const p = ctx.project;
     if (!p) return undefined;
     const by = userRef(PERSONAS.moderator);
-    const entry = (n: number, minutes: number, action: string, changes: object, extra: object = {}) => ({
-      id: uuidFrom('journal', p.key, String(n)),
+    const entry = (
+      n: number,
+      minutes: number,
+      action: string,
+      changes: object,
+      extra: object = {},
+    ) => ({
+      id: uuidFrom("journal", p.key, String(n)),
       created_at: minutesAgo(minutes),
       user: by,
       action,
@@ -379,11 +458,28 @@ const DEMO: Record<string, Demo> = {
     });
     // денежная запись приходит только с money.read (CORE-032, 15.2)
     const items = [
-      entry(1, 35, 'project.settings', { pm_percent: ['15', '18'], deadline: [null, p.deadline] }),
-      ...(ctx.money ? [entry(2, 90, 'money.changed', {}, { money: { changes: { rate_rub: ['2800', '3000'] } } })] : []),
-      entry(3, 60 * 26, 'team.changed', { experts: [[], [PEOPLE.orlova.fullName]] }),
-      entry(4, 60 * 24 * 3, 'project.status', { status: ['preparation', 'estimation'] }),
-      entry(5, 60 * 24 * 14, 'project.created', {}),
+      entry(1, 35, "project.settings", {
+        pm_percent: ["15", "18"],
+        deadline: [null, p.deadline],
+      }),
+      ...(ctx.money
+        ? [
+            entry(
+              2,
+              90,
+              "money.changed",
+              {},
+              { money: { changes: { rate_rub: ["2800", "3000"] } } },
+            ),
+          ]
+        : []),
+      entry(3, 60 * 26, "team.changed", {
+        experts: [[], [PEOPLE.orlova.fullName]],
+      }),
+      entry(4, 60 * 24 * 3, "project.status", {
+        status: ["preparation", "estimation"],
+      }),
+      entry(5, 60 * 24 * 14, "project.created", {}),
     ];
     return { items, next_cursor: null };
   },
@@ -392,14 +488,14 @@ const DEMO: Record<string, Demo> = {
     const portal = PROJECTS.portal;
     const items = ctx.persona.projects.portal
       ? [
-          { kind: 'question_to_me', node: 'n-regress', minutes: 10 },
-          { kind: 'answer_to_my_question', node: 'n-1c', minutes: 25 },
-          { kind: 'moderator_change', node: 'n-profile', minutes: 1 },
+          { kind: "question_to_me", node: "n-regress", minutes: 10 },
+          { kind: "answer_to_my_question", node: "n-1c", minutes: 25 },
+          { kind: "moderator_change", node: "n-profile", minutes: 1 },
         ].map((n) => ({
-          id: uuidFrom('notification', ctx.persona.login, n.kind),
+          id: uuidFrom("notification", ctx.persona.login, n.kind),
           kind: n.kind,
           project_id: portal.id,
-          node_id: uuidFrom('node', 'portal', n.node),
+          node_id: uuidFrom("node", "portal", n.node),
           payload: {},
           created_at: minutesAgo(n.minutes),
           read_at: null,
@@ -439,9 +535,9 @@ const DEMO: Record<string, Demo> = {
       NODE_TYPES.map((name) => ({
         id: typeId(name),
         name,
-        icon: 'task',
+        icon: "task",
         norms: [],
-        is_system: name === 'Работа',
+        is_system: name === "Работа",
         is_active: true,
       })),
     ),

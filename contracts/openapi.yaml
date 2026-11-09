@@ -5005,6 +5005,82 @@ paths:
           $ref: '#/components/responses/Problem429'
         '500':
           $ref: '#/components/responses/Problem500'
+  /projects/{id}/member-candidates:
+    get:
+      operationId: getMemberCandidates
+      summary: Поиск пользователей для команды проекта
+      description: >-
+        CR-005. Кандидаты для «+ добавить» и «Заменить» в команде: только активные пользователи,
+        без суперадминистраторов и аудиторов ИБ (BR-ROLE-02). С `role=moderator` — пользователи с
+        системной ролью «Модератор», с `role=presale` — с ролью «Пресейл», с `role=expert` или
+        без `role` — любой из них. Поиск по ФИО без учёта регистра; логин, почта и статус в
+        ответ не попадают. Порядок — по ФИО. Руководитель пресейла, пока он не модератор
+        проекта, получает 403: себя он добавляет кнопкой «Стать модератором» (FR-PORT-03).
+      tags:
+      - Проекты
+      x-permission: team.write
+      x-spec:
+      - FR-PRJ-01
+      - FR-ADM-05
+      - BR-ROLE-02
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 100
+      - name: role
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/ProjectRole'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - VALIDATION_FAILED
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MemberCandidate'
+                required:
+                - items
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
+        '500':
+          $ref: '#/components/responses/Problem500'
   /projects/{id}/members:
     get:
       operationId: getMembers
@@ -11196,6 +11272,20 @@ components:
       - changes
       additionalProperties: false
       description: 'Записи об изменении денег приходят только с money.read: у остальных их нет в списке'
+    MemberCandidate:
+      type: object
+      description: Кандидат в команду проекта (CR-005) — без логина, почты и статуса
+      properties:
+        user:
+          $ref: '#/components/schemas/UserRef'
+        system_roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/SystemRole'
+      required:
+      - user
+      - system_roles
+      additionalProperties: false
     SuggestItem:
       type: object
       properties:
