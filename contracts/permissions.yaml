@@ -153,6 +153,7 @@ permissions:
     network: true
     endpoints:
       - "GET /system/settings/{section}"
+      - "GET /system/auth/switch-mode/last"
   system.settings.write:
     title: Политики безопасности, SMTP, сети, сроки хранения, SIEM, адрес и часовой пояс
     spec: [3.3, SEC-AUTH-05, SEC-AUTH-07]
@@ -160,6 +161,7 @@ permissions:
     step_up: true
     endpoints:
       - "PUT /system/settings/{section}"
+      - "POST /system/smtp/test"
   system.auth.test:
     title: Проверить подключение и вход AD (без сохранения)
     spec: [FR-AUTH-AD-03]
@@ -176,6 +178,7 @@ permissions:
       - "PUT /system/settings/auth"
       - "POST /system/auth/switch-mode"
       - "POST /system/auth/switch-mode/resolve"
+      - "POST /system/auth/role-mapping/preview"
   system.admins.manage:
     title: Создать, заблокировать, разжаловать администратора и суперадминистратора; выдать и снять роль «Аудитор ИБ»
     spec: [3.3, FR-SA-05, BR-ROLE-03, SEC-AUTHZ-06, SEC-AUTH-05]
@@ -186,6 +189,7 @@ permissions:
       - "POST /system/admins"
       - "PATCH /system/admins/{id}"
       - "DELETE /system/admins/{id}"
+      - "GET /system/auth/ad/search"
   system.users.reset_credentials:
     title: Сбросить пароль или TOTP администратору или суперадминистратору
     spec: [FR-2FA-03, Q-22, SEC-AUTH-05]
@@ -200,6 +204,7 @@ permissions:
     network: true
     step_up: true
     endpoints:
+      - "GET /system/users"
       - "POST /system/users/{id}/anonymize"
   registry.read:
     title: Реестр всех проектов без денег (название, модератор, статус, даты)

@@ -429,6 +429,86 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/system/auth/ad/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Поиск в каталоге AD для раздела «Система» (от 3 символов, до 50 записей)
+         * @description CR-011. Тот же поиск, что adSearch, для суперадминистратора, у которого нет ad.search: шаг 5 мастера первичной настройки в режиме AD (7.1, FR-SA-02) и создание учёток в разделах «Суперадминистраторы и администраторы» и «Аудиторы ИБ». Найденный object_guid передаётся в AdminAccountCreate.ad_object_guid.
+         */
+        get: operations["systemAdSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/auth/role-mapping/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отчёт перед включением сопоставления групп AD с ролями
+         * @description CR-009. Без записи: какие роли «Модератор» и «Пресейл» у пользователей AD будут сняты или добавлены, если сохранить переданное сопоставление (FR-AUTH-AD-07, 11.2 №4). Членство — с учётом вложенных групп, как при входе. Ручные роли, которые остаются по группам, в отчёт не попадают. Сохраняет и пересчитывает роли PUT /system/settings/auth с тем же значением (step-up там).
+         */
+        post: operations["roleMappingPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/auth/switch-mode/last": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Итог последнего перехода «Приложение → AD»
+         * @description CR-009. Для блока «Способ входа» (макет sa-auth.png): когда и кто выполнил переход, отчёт сопоставления и сколько неоднозначных совпадений решено через /switch-mode/resolve. null — перехода через интерфейс не было. dry_run не сохраняется.
+         */
+        get: operations["getLastSwitch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/smtp/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отправить тестовое письмо
+         * @description CR-009. Письмо на адрес to с параметрами из values (несохранёнными, ключи smtp.* по settings.schema.json); без values — с сохранёнными. Ничего не записывает. Сохранённый smtp.password подставляется, только если host, port и username в values совпадают с сохранёнными: иначе пароль из хранилища ушёл бы на чужой сервер, и без smtp.password в values ответ 422 VALIDATION_FAILED. Ошибка отправки — ok: false и detail, а не код ошибки.
+         */
+        post: operations["smtpTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/admins": {
         parameters: {
             query?: never;
@@ -463,6 +543,26 @@ export type paths = {
         head?: never;
         /** Изменить роли или заблокировать */
         patch: operations["patchAdmin"];
+        trace?: never;
+    };
+    "/system/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Заблокированные и анонимизированные пользователи (для анонимизации)
+         * @description CR-010. Список для экрана «Анонимизация» (11.2 №1, SEC-PD-03): все учётки со статусом status, включая обычных пользователей, которых нет в listAdmins. Только поля, нужные для решения об анонимизации: без почты, денег и проектных данных. Порядок — по blocked_at, новые сверху, затем по id.
+         */
+        get: operations["systemListUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/system/users/{id}/reset-password": {
@@ -2606,6 +2706,8 @@ export type components = {
             values: Record<string, never>;
         };
         AdTestLogin: {
+            /** @description CR-009. Несохранённые параметры формы (ключи auth.ad.* по settings.schema.json), как у adTestConnection; без него — сохранённые. Сохранённый пароль сервисной учётки подставляется, только если адрес сервера и учётка bind совпадают с сохранёнными */
+            values?: Record<string, never>;
             login: string;
             /** Format: password */
             password: string;
@@ -2651,6 +2753,49 @@ export type components = {
                 user_id: components["schemas"]["Uuid"];
                 object_guid: components["schemas"]["Uuid"] | null;
             }[];
+        };
+        RoleMappingPreviewRequest: {
+            values: {
+                /** @description Значение ключа auth.ad.role_mapping по contracts/settings.schema.json */
+                "auth.ad.role_mapping": Record<string, never>;
+            };
+        };
+        RoleMappingPreview: {
+            /** @description Только пользователи AD, у которых что-то изменится; по login */
+            items: {
+                user: components["schemas"]["UserRef"];
+                login: string;
+                removed: ("moderator" | "presale")[];
+                added: ("moderator" | "presale")[];
+            }[];
+        };
+        LastSwitch: {
+            at: components["schemas"]["Timestamp"];
+            by: components["schemas"]["UserRef"];
+            /** @description Сколько неоднозначных совпадений решено после перехода */
+            resolved: number;
+            report: components["schemas"]["SwitchReport"];
+        };
+        SmtpTest: {
+            /** @description Ключи smtp.server и необязательный smtp.password по contracts/settings.schema.json */
+            values?: Record<string, never>;
+            /** Format: email */
+            to: string;
+        };
+        SmtpTestResult: {
+            ok: boolean;
+            elapsed_ms: number;
+            detail: string | null;
+        };
+        SystemUserItem: {
+            id: components["schemas"]["Uuid"];
+            login: string;
+            full_name: string;
+            roles: components["schemas"]["SystemRole"][];
+            /** @enum {string} */
+            status: "blocked" | "anonymized";
+            blocked_at: components["schemas"]["Timestamp"] | null;
+            last_login_at: components["schemas"]["Timestamp"] | null;
         };
         AdminAccount: {
             id: components["schemas"]["Uuid"];
@@ -4767,6 +4912,121 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    systemAdSearch: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AdSearchItem"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    roleMappingPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleMappingPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleMappingPreview"];
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    getLastSwitch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LastSwitch"] | null;
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    smtpTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SmtpTest"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmtpTestResult"];
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     listAdmins: {
         parameters: {
             query?: never;
@@ -4880,6 +5140,39 @@ export interface operations {
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    systemListUsers: {
+        parameters: {
+            query?: {
+                status?: "blocked" | "anonymized";
+                q?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["SystemUserItem"][];
+                        next_cursor: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             500: components["responses"]["Problem500"];
         };
     };

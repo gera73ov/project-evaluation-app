@@ -1212,6 +1212,203 @@ paths:
           $ref: '#/components/responses/Problem429'
         '500':
           $ref: '#/components/responses/Problem500'
+  /system/auth/ad/search:
+    get:
+      operationId: systemAdSearch
+      summary: Поиск в каталоге AD для раздела «Система» (от 3 символов, до 50 записей)
+      description: 'CR-011. Тот же поиск, что adSearch, для суперадминистратора, у которого нет ad.search: шаг 5
+        мастера первичной настройки в режиме AD (7.1, FR-SA-02) и создание учёток в разделах «Суперадминистраторы и
+        администраторы» и «Аудиторы ИБ». Найденный object_guid передаётся в AdminAccountCreate.ad_object_guid.'
+      tags:
+      - Система
+      x-permission: system.admins.manage
+      x-spec:
+      - FR-AUTH-AD-10
+      - FR-SA-02
+      - '7.1'
+      x-network-restricted: true
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 3
+          maxLength: 100
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - VALIDATION_FAILED
+      - AUTH_SERVICE_UNAVAILABLE
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdSearchItem'
+                required:
+                - items
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
+        '503':
+          $ref: '#/components/responses/Problem503'
+        '500':
+          $ref: '#/components/responses/Problem500'
+  /system/auth/role-mapping/preview:
+    post:
+      operationId: roleMappingPreview
+      summary: Отчёт перед включением сопоставления групп AD с ролями
+      description: 'CR-009. Без записи: какие роли «Модератор» и «Пресейл» у пользователей AD будут сняты или
+        добавлены, если сохранить переданное сопоставление (FR-AUTH-AD-07, 11.2 №4). Членство — с учётом вложенных
+        групп, как при входе. Ручные роли, которые остаются по группам, в отчёт не попадают. Сохраняет и пересчитывает
+        роли PUT /system/settings/auth с тем же значением (step-up там).'
+      tags:
+      - Система
+      x-permission: system.auth.manage
+      x-spec:
+      - FR-AUTH-AD-07
+      - '11.2'
+      x-network-restricted: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleMappingPreviewRequest'
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - CSRF_FAILED
+      - RATE_LIMITED
+      - VALIDATION_FAILED
+      - AUTH_SERVICE_UNAVAILABLE
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleMappingPreview'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          $ref: '#/components/responses/Problem503'
+        '500':
+          $ref: '#/components/responses/Problem500'
+  /system/auth/switch-mode/last:
+    get:
+      operationId: getLastSwitch
+      summary: Итог последнего перехода «Приложение → AD»
+      description: 'CR-009. Для блока «Способ входа» (макет sa-auth.png): когда и кто выполнил переход, отчёт
+        сопоставления и сколько неоднозначных совпадений решено через /switch-mode/resolve. null — перехода через
+        интерфейс не было. dry_run не сохраняется.'
+      tags:
+      - Система
+      x-permission: system.settings.read
+      x-spec:
+      - FR-AUTH-SW-01
+      - '11.2'
+      x-network-restricted: true
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/LastSwitch'
+                - type: 'null'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '500':
+          $ref: '#/components/responses/Problem500'
+  /system/smtp/test:
+    post:
+      operationId: smtpTest
+      summary: Отправить тестовое письмо
+      description: 'CR-009. Письмо на адрес to с параметрами из values (несохранёнными, ключи smtp.* по
+        settings.schema.json); без values — с сохранёнными. Ничего не записывает. Сохранённый smtp.password
+        подставляется, только если host, port и username в values совпадают с сохранёнными: иначе пароль из
+        хранилища ушёл бы на чужой сервер, и без smtp.password в values ответ 422 VALIDATION_FAILED. Ошибка
+        отправки — ok: false и detail, а не код ошибки.'
+      tags:
+      - Система
+      x-permission: system.settings.write
+      x-spec:
+      - '7.1'
+      - FR-NOTIF-02
+      x-network-restricted: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmtpTest'
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - CSRF_FAILED
+      - RATE_LIMITED
+      - VALIDATION_FAILED
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmtpTestResult'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '500':
+          $ref: '#/components/responses/Problem500'
   /system/admins:
     get:
       operationId: listAdmins
@@ -1405,6 +1602,88 @@ paths:
           $ref: '#/components/responses/Problem409'
         '429':
           $ref: '#/components/responses/Problem429'
+        '500':
+          $ref: '#/components/responses/Problem500'
+  /system/users:
+    get:
+      operationId: systemListUsers
+      summary: Заблокированные и анонимизированные пользователи (для анонимизации)
+      description: 'CR-010. Список для экрана «Анонимизация» (11.2 №1, SEC-PD-03): все учётки со статусом status,
+        включая обычных пользователей, которых нет в listAdmins. Только поля, нужные для решения об анонимизации:
+        без почты, денег и проектных данных. Порядок — по blocked_at, новые сверху, затем по id.'
+      tags:
+      - Система
+      x-permission: system.users.anonymize
+      x-spec:
+      - SEC-PD-03
+      - '11.2'
+      - Q-34
+      x-network-restricted: true
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - blocked
+          - anonymized
+          default: blocked
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 512
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      - CURSOR_INVALID
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SystemUserItem'
+                  next_cursor:
+                    anyOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - items
+                - next_cursor
+                additionalProperties: false
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
         '500':
           $ref: '#/components/responses/Problem500'
   /system/users/{id}/reset-password:
@@ -9512,6 +9791,12 @@ components:
     AdTestLogin:
       type: object
       properties:
+        values:
+          type: object
+          properties: {}
+          description: 'CR-009. Несохранённые параметры формы (ключи auth.ad.* по settings.schema.json), как у
+            adTestConnection; без него — сохранённые. Сохранённый пароль сервисной учётки подставляется, только если
+            адрес сервера и учётка bind совпадают с сохранёнными'
         login:
           type: string
           minLength: 1
@@ -9661,6 +9946,142 @@ components:
           description: object_guid = null — отклонить сопоставление
       required:
       - decisions
+      additionalProperties: false
+    RoleMappingPreviewRequest:
+      type: object
+      properties:
+        values:
+          type: object
+          properties:
+            auth.ad.role_mapping:
+              type: object
+              description: Значение ключа auth.ad.role_mapping по contracts/settings.schema.json
+              properties: {}
+          required:
+          - auth.ad.role_mapping
+          additionalProperties: false
+      required:
+      - values
+      additionalProperties: false
+    RoleMappingPreview:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                $ref: '#/components/schemas/UserRef'
+              login:
+                type: string
+              removed:
+                type: array
+                items:
+                  type: string
+                  enum:
+                  - moderator
+                  - presale
+              added:
+                type: array
+                items:
+                  type: string
+                  enum:
+                  - moderator
+                  - presale
+            required:
+            - user
+            - login
+            - removed
+            - added
+            additionalProperties: false
+          description: Только пользователи AD, у которых что-то изменится; по login
+      required:
+      - items
+      additionalProperties: false
+    LastSwitch:
+      type: object
+      properties:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        by:
+          $ref: '#/components/schemas/UserRef'
+        resolved:
+          type: integer
+          minimum: 0
+          description: Сколько неоднозначных совпадений решено после перехода
+        report:
+          $ref: '#/components/schemas/SwitchReport'
+      required:
+      - at
+      - by
+      - resolved
+      - report
+      additionalProperties: false
+    SmtpTest:
+      type: object
+      properties:
+        values:
+          type: object
+          properties: {}
+          description: Ключи smtp.server и необязательный smtp.password по contracts/settings.schema.json
+        to:
+          type: string
+          format: email
+          maxLength: 254
+      required:
+      - to
+      additionalProperties: false
+    SmtpTestResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        elapsed_ms:
+          type: integer
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - ok
+      - elapsed_ms
+      - detail
+      additionalProperties: false
+    SystemUserItem:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        login:
+          type: string
+        full_name:
+          type: string
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/SystemRole'
+        status:
+          type: string
+          enum:
+          - blocked
+          - anonymized
+        blocked_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        last_login_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+      required:
+      - id
+      - login
+      - full_name
+      - roles
+      - status
+      - blocked_at
+      - last_login_at
       additionalProperties: false
     AdminAccount:
       type: object
