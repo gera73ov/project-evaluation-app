@@ -42,6 +42,7 @@ import * as demoSnapshots from "./demoSnapshots";
 import * as demoStatsDetails from "./demoStatsDetails";
 import * as demoSystem from "./demoSystem";
 import * as demoTree from "./demoTree";
+import * as demoUsers from "./demoUsers";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
 import { sample, stripMoney } from "./sample";
@@ -101,6 +102,19 @@ const ACCOUNT_STATUS = new Map<demoSystem.AccountError, [number, string]>([
 ]);
 
 /** Ошибка действия с учёткой раздела «Система». */
+const USER_STATUS = new Map<demoUsers.UserError, [number, string]>([
+  ["NOT_FOUND", [404, "Не найдено"]],
+  ["ALREADY_EXISTS", [409, "Пользователь с таким логином уже есть"]],
+  ["AD_USER_NOT_IN_GROUP", [422, "Учётка AD не в группе доступа"]],
+  ["VALIDATION_FAILED", [422, "Проверьте поля"]],
+  ["FORBIDDEN", [403, "Нельзя менять свои роли и блокировать себя"]],
+]);
+
+function userProblem(code: demoUsers.UserError) {
+  const [status, title] = USER_STATUS.get(code) ?? [409, code];
+  return new MockProblem(problem(status, code, title));
+}
+
 function accountProblem(code: demoSystem.AccountError) {
   const [status, title] = ACCOUNT_STATUS.get(code) ?? [409, code];
   return new MockProblem(problem(status, code, title));
@@ -653,6 +667,50 @@ const DEMO: Record<string, Demo> = {
     const err = demoSystem.anonymize(ctx.params.id ?? "");
     return err ? accountProblem(err) : undefined;
   },
+  // FE-070 · пользователи админки администратора (7.5, FR-AUTH-AD-10, FR-ADM-05)
+  listUsers: (ctx) => demoUsers.list(ctx.params),
+  getUser: (ctx) => demoUsers.get(ctx.params.id ?? "") ?? undefined,
+  createUser: (ctx) => {
+    const res = demoUsers.create(ctx.body);
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  patchUser: (ctx) => {
+    const res = demoUsers.patch(
+      ctx.params.id ?? "",
+      ctx.body,
+      personaId(ctx.persona),
+    );
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  blockUser: (ctx) => {
+    const res = demoUsers.setBlocked(
+      ctx.params.id ?? "",
+      true,
+      personaId(ctx.persona),
+    );
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  unblockUser: (ctx) => {
+    const res = demoUsers.setBlocked(
+      ctx.params.id ?? "",
+      false,
+      personaId(ctx.persona),
+    );
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  adminResetPassword: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const res = demoUsers.resetPassword(ctx.params.id ?? "");
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  adminResetTotp: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const err = demoUsers.resetTotp(ctx.params.id ?? "");
+    return err ? userProblem(err) : undefined;
+  },
+  replaceEverywhere: (ctx) =>
+    demoUsers.replace(ctx.params.id ?? "", ctx.body) ?? undefined,
+  adSearch: (ctx) => demoUsers.adSearch(ctx.params.q ?? ""),
   // FE-065 · журнал аудита (SEC-AUD-06); выгрузка CSV — со step-up (FR-EXP-06)
   listAudit: (ctx) => demoAudit.list(ctx.persona, ctx.params),
   exportAudit: (ctx) => {
@@ -925,7 +983,7 @@ const DEMO: Record<string, Demo> = {
         (r) => r !== "moderator" && r !== "presale",
       ) || ctx.persona.key === "moderator",
     mfa_passed: true,
-    auth_mode: "app",
+    auth_mode: demoSystem.settingValue("auth.mode") === "ad" ? "ad" : "app",
     session_expires_at: new Date(Date.parse(NOW) + 8 * 3600_000)
       .toISOString()
       .replace(".000Z", "Z"),

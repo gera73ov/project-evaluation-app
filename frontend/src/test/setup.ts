@@ -15,6 +15,7 @@ import { resetDemoPortfolio } from '../shared/api/mocks/demoPortfolio';
 import { resetDemoSnapshots } from '../shared/api/mocks/demoSnapshots';
 import { resetDemoSetup } from '../shared/api/mocks/demoSetup';
 import { resetDemoSystem } from '../shared/api/mocks/demoSystem';
+import { resetDemoUsers } from '../shared/api/mocks/demoUsers';
 import { resetDemoTree } from '../shared/api/mocks/demoTree';
 import { buildHandlers } from '../shared/api/mocks/handlers';
 import { PERSONAS, type Persona } from '../shared/api/mocks/personas';
@@ -61,6 +62,7 @@ if (browser) {
     resetDemoSystem();
     resetDemoAuth();
     resetDemoSetup();
+    resetDemoUsers();
     window.history.replaceState(null, '', '/');
   });
   afterAll(() => server.close());
