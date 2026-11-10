@@ -42,6 +42,7 @@ import * as demoPortfolio from "./demoPortfolio";
 import * as demoProposed from "./demoProposed";
 import * as demoSetup from "./demoSetup";
 import * as demoSnapshots from "./demoSnapshots";
+import * as demoSupport from "./demoSupport";
 import * as demoStatsDetails from "./demoStatsDetails";
 import * as demoSystem from "./demoSystem";
 import * as demoTree from "./demoTree";
@@ -281,9 +282,12 @@ function projectBody(ctx: Ctx, p: DemoProject, schema: Schema) {
     archived_at: null,
     cancel_reason: null,
     created_at: minutesAgo(60 * 24 * 14),
-    access: access.access === "presale_head" ? "presale_head" : "member",
+    access: access.access ?? "member",
     my_permissions: [...access.permissions].sort(),
-    support_expires_at: null,
+    support_expires_at:
+      access.access === "support"
+        ? new Date(demoSupport.active(p.key)?.expiresAt ?? 0).toISOString()
+        : null,
   });
 }
 
@@ -1384,6 +1388,80 @@ const DEMO: Record<string, Demo> = {
       return new MockProblem(problem(404, "NOT_FOUND", "Не найдено"));
     return target;
   },
+  // FE-073 · реестр проектов, «Передать / добавить модератора», режим поддержки (FR-ADM-06)
+  adminRegistry: (ctx, schema) =>
+    list(schema, demoPortfolio.registry(ctx.params)),
+  transferModerators: (ctx) => {
+    const b = body(ctx) as {
+      add_user_ids?: string[];
+      remove_user_ids?: string[];
+    };
+    const add = [];
+    for (const id of b.add_user_ids ?? []) {
+      const u = demoUsers.get(id);
+      if (!u)
+        return new MockProblem(
+          problem(422, "VALIDATION_FAILED", "Ошибка в данных"),
+        );
+      const roles = u.system_roles.map((r) => r.role);
+      if (
+        u.status !== "active" ||
+        !roles.some((r) => r === "moderator" || r === "presale_head")
+      )
+        return new MockProblem(
+          problem(
+            409,
+            "MEMBER_ROLE_REQUIRED",
+            "Нет системной роли «Модератор»",
+          ),
+        );
+      add.push(refOf(u));
+    }
+    const r = demoPortfolio.transferModerators(
+      ctx.params.id ?? "",
+      add,
+      b.remove_user_ids ?? [],
+    );
+    if ("error" in r)
+      return new MockProblem(
+        r.error === "NOT_FOUND"
+          ? problem(404, "NOT_FOUND", "Не найдено")
+          : problem(409, "LAST_MODERATOR", "Последний модератор"),
+      );
+    return {
+      items: r.map((user) => ({
+        user,
+        role: "moderator",
+        discipline_id: null,
+        is_reviewer: false,
+        status: "active",
+        added_by_admin_self: false,
+      })),
+    };
+  },
+  openSupportSession: (ctx) => {
+    const id = ctx.params.id ?? "";
+    // пустое тело (проверка моков) — ответ из примера схемы, сессия не открывается
+    if (!("reason" in body(ctx))) return undefined;
+    const reason = String(body(ctx).reason ?? "").trim();
+    if (!demoPortfolio.registry().some((r) => r.id === id))
+      return new MockProblem(problem(404, "NOT_FOUND", "Не найдено"));
+    if (reason.length < 10 || reason.length > 500)
+      return new MockProblem(
+        problem(422, "VALIDATION_FAILED", "Ошибка в данных"),
+      );
+    const key = projectKeyOf(id) ?? id;
+    const s = demoSupport.open(
+      key,
+      uuidFrom("support", id, String(Date.now())),
+      reason,
+    );
+    return {
+      id: s.id,
+      project_id: id,
+      expires_at: new Date(s.expiresAt).toISOString(),
+    };
+  },
   rejectProposedType: (ctx) =>
     demoProposed.take(ctx.params.id ?? "")
       ? undefined
@@ -1451,6 +1529,17 @@ function dictProblem(err: demoDictionaries.DictError) {
         }
       : base,
   );
+}
+
+/** Ссылка на пользователя по карточке админки: инициалы — первые буквы слов ФИО. */
+function refOf(u: { id: string; full_name: string }) {
+  const initials = u.full_name
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}]/gu, "").charAt(0))
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return { id: u.id, full_name: u.full_name, initials, is_active: true };
 }
 
 function dictionaryHandlers(): Record<string, Demo> {

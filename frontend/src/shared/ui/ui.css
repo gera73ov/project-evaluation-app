@@ -903,3 +903,8 @@ table.cq-table td{vertical-align:top}
 .cal-total td{font-weight:600}
 .adm-row-actions{white-space:nowrap;text-align:right}
 .adm-row-actions .mantine-Button-root+.mantine-Button-root{margin-left:6px}
+/* FE-073 · реестр и режим поддержки */
+.adm-added{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.adm-added li .btn-link{margin-left:8px}
+.support-bar .sp{flex:1}
+.support-bar a{color:var(--warn-text-strong);font-weight:600}

@@ -8,6 +8,7 @@
  * главное для интерфейса: есть право или нет, видны ли деньги (SEC-AUTHZ-04).
  */
 import { permissionsDoc, type Grant } from './contract';
+import { active as supportSession } from './demoSupport';
 import { uuidFrom } from './ids';
 
 export type ProjectRole = 'moderator' | 'expert' | 'presale';
@@ -131,7 +132,7 @@ function allowed(grant: Grant, persona: Persona): boolean {
 
 export type Access = {
   /** доступ к проекту: участник, руководитель пресейла или нет доступа (→ 404) */
-  access: 'member' | 'presale_head' | null;
+  access: 'member' | 'presale_head' | 'support' | null;
   permissions: Set<string>;
 };
 
@@ -157,6 +158,11 @@ export function accessOf(persona: Persona, project: string | null): Access {
   if (persona.systemRoles.includes('presale_head')) {
     add(grantsOf('presale_head'), ['any_project']);
     return { access: 'presale_head', permissions };
+  }
+  // FE-073 · режим поддержки: только чтение, без денег и заметок (FR-ADM-06)
+  if (persona.systemRoles.includes('admin') && supportSession(project)) {
+    add(grantsOf('admin'), ['support_session']);
+    return { access: 'support', permissions };
   }
   return { access: null, permissions };
 }

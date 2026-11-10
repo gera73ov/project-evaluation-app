@@ -39,6 +39,7 @@ import {
 import { parseView, useSaveView, useSavedView, type WorkView } from './filters/viewState';
 import type { TreeState, TreeStore } from './store/treeStore';
 import { useProjectTree, useTree } from './store/useProjectTree';
+import { SupportBanner } from './support-banner/SupportBanner';
 import { TopBar, type OpenQuestion } from './topbar/TopBar';
 import { TreeTable, type TreeContext, type TreeTableApi } from './tree/TreeTable';
 
@@ -383,6 +384,9 @@ function WorkScreen({
         discussionOpen={projectDisc}
         onDiscussion={() => setProjectDisc((v) => !v)}
       />
+      {data.access === 'support' ? (
+        <SupportBanner projectId={data.id} expiresAt={data.support_expires_at ?? null} />
+      ) : null}
       {projectDisc ? (
         <div className="project-disc">
           <DiscussionPanel nodeId={null} title={data.name} setup={discussion} />

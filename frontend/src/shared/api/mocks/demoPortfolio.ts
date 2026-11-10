@@ -448,23 +448,32 @@ export function joinAsModerator(
   return [...r.moderators.filter((m) => m.id !== me.id), me];
 }
 
+/** FE-073 · модераторы после «Передать / добавить модератора»: проект → новый список. */
+const moderatorEdits = new Map<string, Ref[]>();
+
+export function resetDemoRegistry(): void {
+  moderatorEdits.clear();
+}
+
+const DAY_MS = 24 * 60 * 60_000;
+
 /**
- * FE-063, FE-073 · реестр проектов без денег (FR-ADM-06, 7.5): проекты портфеля и проект,
- * у которого 12 дней нет модератора (модератор заблокирован).
+ * FE-063, FE-073 · реестр проектов без денег (FR-ADM-06, 7.5, BR-PRJ-07): проекты портфеля и
+ * проект, у которого 12 дней нет модератора (модератор заблокирован). Фильтры администратора —
+ * поиск, статус и «без модератора».
  */
-export function registry() {
+export function registry(query: Query = {}) {
   const orphan = {
     id: uuidFrom("project", "orphan"),
     name: "Миграция CRM",
     customer: "ООО «Северный ветер»",
-    moderators: [],
-    status: "estimation" as const,
+    moderators: [] as Ref[],
+    status: "estimation" as Status,
     created_at: daysAgo(40),
     updated_at: daysAgo(12),
-    no_moderator_since: daysAgo(12),
-    days_without_moderator: 12,
+    since: daysAgo(12),
   };
-  return [
+  const base = [
     orphan,
     ...rows().map((r) => ({
       id: r.id,
@@ -474,8 +483,49 @@ export function registry() {
       status: r.status,
       created_at: daysAgo(r.createdDaysAgo),
       updated_at: daysAgo(r.updatedDaysAgo),
-      no_moderator_since: null,
-      days_without_moderator: null,
+      since: daysAgo(5),
     })),
   ];
+  const q = (query.q ?? "").trim().toLowerCase();
+  return base
+    .map(({ since, ...r }) => {
+      const moderators = moderatorEdits.get(r.id) ?? r.moderators;
+      const from = moderators.length ? null : since;
+      return {
+        ...r,
+        moderators,
+        no_moderator_since: from,
+        days_without_moderator: from
+          ? Math.floor((Date.parse(NOW) - Date.parse(from)) / DAY_MS)
+          : null,
+      };
+    })
+    .filter((r) => !query.status || r.status === query.status)
+    .filter(
+      (r) =>
+        query.without_moderator !== "true" || r.no_moderator_since !== null,
+    )
+    .filter(
+      (r) =>
+        !q ||
+        r.name.toLowerCase().includes(q) ||
+        r.customer.toLowerCase().includes(q),
+    );
+}
+
+/** «Передать / добавить модератора»: без модераторов проект не оставляют (LAST_MODERATOR). */
+export function transferModerators(
+  projectId: string,
+  add: Ref[],
+  removeIds: readonly string[],
+): { error: "NOT_FOUND" | "LAST_MODERATOR" } | Ref[] {
+  const r = registry().find((x) => x.id === projectId);
+  if (!r) return { error: "NOT_FOUND" };
+  const next = [
+    ...r.moderators.filter((m) => !removeIds.includes(m.id)),
+    ...add.filter((a) => !r.moderators.some((m) => m.id === a.id)),
+  ];
+  if (next.length === 0) return { error: "LAST_MODERATOR" };
+  moderatorEdits.set(projectId, next);
+  return next;
 }
