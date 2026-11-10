@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import secrets
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 
 import httpx
 import pytest
@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from estimator import health
 from estimator.auth.context import get_session_service
+from estimator.auth.providers import ldap
 from estimator.auth.sessions import SessionService
 from estimator.config import Settings, get_settings
 from estimator.db.session import db_session as db_session_dependency
@@ -25,6 +26,7 @@ from estimator.security.crypto.keys import format_key, generate_key
 from estimator.security.web.csrf import CSRF_COOKIE, CSRF_HEADER
 from tests.contract.openapi_impl import check_response
 from tests.integration.db.conftest import as_app
+from tests.support.fake_ad import FakeDirectory
 
 
 class Clock:
@@ -108,3 +110,12 @@ async def contract_hook(response: httpx.Response) -> None:
 def csrf_headers(client: httpx.AsyncClient) -> dict[str, str]:
     token = client.cookies.get(CSRF_COOKIE)
     return {CSRF_HEADER: token} if token else {}
+
+
+@pytest.fixture
+def fake_ad() -> Iterator[FakeDirectory]:
+    """Имитация AD вместо настоящего каталога (AUTH-013…019 до стенда Samba AD)."""
+    directory = FakeDirectory()
+    ldap.set_directory_factory(lambda _config: directory)
+    yield directory
+    ldap.set_directory_factory(None)

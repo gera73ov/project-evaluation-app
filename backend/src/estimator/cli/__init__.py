@@ -33,6 +33,7 @@ COMMAND_MODULES: tuple[str, ...] = (
     "estimator.cli.rotate_key",
     "estimator.cli.audit",
     "estimator.cli.superadmin",
+    "estimator.cli.auth_mode",
     "estimator.cli.seed_demo",
 )
 

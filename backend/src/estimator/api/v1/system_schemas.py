@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from estimator.api.v1 import core_schemas as core
 from estimator.api.v1.admin_schemas import _EMAIL
 
 AdminRole = Literal["superadmin", "admin", "security_auditor"]
@@ -139,3 +140,121 @@ class AuditExport(_Strict):
     user_id: uuid.UUID | None = None
     event_type: str | None = Field(default=None, max_length=200)
     result: Literal["success", "failure", "denied"] | None = None
+
+
+# --- AD: проверки, сопоставление ролей (AUTH-015, CR-009) ---------------------------------------
+
+
+class AdTestConnection(_Strict):
+    values: dict[str, Any] | None = None
+
+
+class AdTestLogin(_Strict):
+    values: dict[str, Any] | None = None
+    login: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=1, max_length=128, repr=False)
+
+
+class AdTestUser(_Strict):
+    full_name: str
+    email: str | None
+    disabled: bool
+    groups: list[str]
+    roles: list[Literal["superadmin", "admin", "moderator", "presale", "presale_head",
+                        "security_auditor"]]  # fmt: skip
+    in_access_group: bool
+
+
+class AdTestResult(_Strict):
+    ok: bool
+    elapsed_ms: int
+    detail: str | None = None
+    user: AdTestUser | None = None
+
+
+class RoleMappingValues(_Strict):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    role_mapping: dict[str, Any] = Field(alias="auth.ad.role_mapping")
+
+
+class RoleMappingPreviewRequest(_Strict):
+    values: RoleMappingValues
+
+
+class RoleMappingItem(_Strict):
+    user: core.UserRef
+    login: str
+    removed: list[Literal["moderator", "presale"]]
+    added: list[Literal["moderator", "presale"]]
+
+
+class RoleMappingPreview(_Strict):
+    items: list[RoleMappingItem]
+
+
+# --- поиск в AD (AUTH-017) ----------------------------------------------------------------------
+
+
+class AdSearchItem(_Strict):
+    object_guid: uuid.UUID
+    login: str
+    full_name: str
+    email: str | None
+    department: str | None
+    in_access_group: bool
+    user_id: uuid.UUID | None
+
+
+class AdSearchList(_Strict):
+    items: list[AdSearchItem]
+
+
+class ProjectAdCreate(_Strict):
+    object_guid: uuid.UUID
+    discipline_id: uuid.UUID
+    is_reviewer: bool = False
+
+
+# --- переход «Приложение → AD» (AUTH-018) -------------------------------------------------------
+
+
+class SwitchModeRequest(_Strict):
+    mode: Literal["ad", "local"]
+    dry_run: bool = True
+
+
+class SwitchDecision(_Strict):
+    user_id: uuid.UUID
+    object_guid: uuid.UUID | None
+
+
+class SwitchResolve(_Strict):
+    decisions: list[SwitchDecision] = Field(min_length=1)
+
+
+class SwitchAdCandidate(_Strict):
+    object_guid: uuid.UUID
+    login: str
+    full_name: str
+
+
+class SwitchCandidate(_Strict):
+    user_id: uuid.UUID
+    login: str
+    full_name: str
+    ad_candidates: list[SwitchAdCandidate]
+
+
+class SwitchReport(_Strict):
+    matched: list[SwitchCandidate]
+    ambiguous: list[SwitchCandidate]
+    not_found: list[SwitchCandidate]
+    applied: bool
+
+
+class LastSwitch(_Strict):
+    at: dt.datetime
+    by: core.UserRef
+    resolved: int = Field(ge=0)
+    report: SwitchReport
