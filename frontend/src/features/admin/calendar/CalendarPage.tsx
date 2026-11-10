@@ -32,7 +32,6 @@ type Preview = components['schemas']['CalendarPreview'];
 
 const calendarKey = ['admin', 'calendar'] as const;
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 export function CalendarPage({ now = new Date() }: { now?: Date }) {
   const { t } = useTranslation();
@@ -260,7 +259,7 @@ function Month({
       <table>
         <thead>
           <tr>
-            {WEEKDAYS.map((w) => (
+            {(t('admin.calendar.weekdays', { returnObjects: true }) as string[]).map((w) => (
               <th key={w}>{w}</th>
             ))}
           </tr>

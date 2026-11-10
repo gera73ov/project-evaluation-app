@@ -273,7 +273,7 @@ export function ReadinessPage({ projectId }: { projectId: string }) {
                       </span>
                     </span>
                   ))}{' '}
-                  ч
+                  {t('top.hours')}
                 </dd>
               </div>
             </dl>

@@ -102,7 +102,7 @@ export function NotificationBell({ timeZone }: { timeZone?: string | undefined }
   }
 
   return (
-    <Popover opened={opened} onChange={setOpened} position="bottom-end" width={420} shadow="md">
+    <Popover opened={opened} onChange={setOpened} position="bottom-end" width={420} shadow="md" trapFocus returnFocus>
       <Popover.Target>
         <UnstyledButton
           className="bell"

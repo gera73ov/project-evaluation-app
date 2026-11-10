@@ -95,7 +95,7 @@ function Locked({
   );
   if (!onForce) return body;
   return (
-    <Popover position="top" shadow="md" withinPortal>
+    <Popover position="top" shadow="md" withinPortal trapFocus returnFocus>
       <Popover.Target>
         <button type="button" className="lock-target">
           {body}

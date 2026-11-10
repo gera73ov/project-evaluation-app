@@ -539,6 +539,8 @@ export function TreeTable({
   };
   const [scrollTop, setScrollTop] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  /** Шапка вне прокрутки строк: уже 1366 px её сдвигаем вслед за горизонтальной прокруткой (FR-UI-03). */
+  const headRef = useRef<HTMLDivElement>(null);
 
   const state = store.getState();
   const { calc, children, settings, nodes, pending, branchStatus, result } = state;
@@ -782,37 +784,42 @@ export function TreeTable({
       {cells.conflict ? (
         <ConflictDialog conflict={cells.conflict} title={conflictNode?.title ?? ''} onResolve={cells.resolveConflict} />
       ) : null}
-      <div className="tr th" role="row">
-        <div className="td node" role="columnheader">
-          {t('tree.col.node')}
-        </div>
-        <div className="td mul-c" role="columnheader">
-          ×N
-        </div>
-        <div className="td cm" role="columnheader">
-          {t('tree.col.comment')}
-        </div>
-        <div className="td num" role="columnheader">
-          O
-        </div>
-        <div className="td num" role="columnheader">
-          R
-        </div>
-        <div className="td num" role="columnheader">
-          P
-        </div>
-        <div className="td e" role="columnheader">
-          {t('tree.col.sum')}
-        </div>
-        <div className="td rv" role="columnheader" aria-label={t('tree.col.reviewed')}>
-          ✓
+      <div className="tree-head" ref={headRef}>
+        <div className="tr th" role="row">
+          <div className="td node" role="columnheader">
+            {t('tree.col.node')}
+          </div>
+          <div className="td mul-c" role="columnheader">
+            ×N
+          </div>
+          <div className="td cm" role="columnheader">
+            {t('tree.col.comment')}
+          </div>
+          <div className="td num" role="columnheader">
+            O
+          </div>
+          <div className="td num" role="columnheader">
+            R
+          </div>
+          <div className="td num" role="columnheader">
+            P
+          </div>
+          <div className="td e" role="columnheader">
+            {t('tree.col.sum')}
+          </div>
+          <div className="td rv" role="columnheader" aria-label={t('tree.col.reviewed')}>
+            ✓
+          </div>
         </div>
       </div>
       <div
         className="tree-scroll"
         ref={scrollRef}
         style={{ height: height ?? 'calc(100vh - 230px)' }}
-        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+        onScroll={(e) => {
+          setScrollTop(e.currentTarget.scrollTop);
+          if (headRef.current) headRef.current.scrollLeft = e.currentTarget.scrollLeft;
+        }}
       >
         {sticky.length ? (
           <div className="tree-sticky">
@@ -821,7 +828,7 @@ export function TreeTable({
             ))}
           </div>
         ) : null}
-        <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        <div className="tree-body" style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {items.map((item) => {
             const row = rows.at(item.index);
             if (!row) return null;

@@ -143,7 +143,10 @@ export function TopBar({
   const figure = (key: 'e' | 'p80' | 'p90', label: string) => {
     const value = total ? (key === 'e' ? total.e : key === 'p80' ? total.p80 : total.p90) : null;
     return (
-      <span className={key === quote ? 'fig quote' : 'fig'}>
+      <span
+        className={`fig fig-${key}${key === quote ? ' quote' : ''}`}
+        {...(key === 'p80' && total ? { title: `P90 ${formatHours(total.p90)} ${t('top.hours')}` } : {})}
+      >
         <span className="k">{label}</span> <b>{value ? formatHours(value) : '—'}</b>
         {key === quote ? (
           <>
@@ -190,10 +193,19 @@ export function TopBar({
           🔒 {t('top.moneyLocked')}
         </Link>
       ) : null}
-      <Popover opened={openList} onChange={setOpenList} position="bottom-start" width={330} shadow="md">
+      <Popover
+        opened={openList}
+        onChange={setOpenList}
+        position="bottom-start"
+        width={330}
+        shadow="md"
+        trapFocus
+        returnFocus
+      >
         <Popover.Target>
           <button type="button" className="open-btn" onClick={() => setOpenList((v) => !v)} aria-expanded={openList}>
-            💬 {t('top.open')} <span className="pill warn">{t('top.openCount', { me: toMe, total: openTotal })}</span>
+            💬 <span className="lbl">{t('top.open')}</span>{' '}
+            <span className="pill warn">{t('top.openCount', { me: toMe, total: openTotal })}</span>
           </button>
         </Popover.Target>
         <Popover.Dropdown className="open-list">
@@ -223,7 +235,7 @@ export function TopBar({
         </Popover.Dropdown>
       </Popover>
       <button type="button" className="risk-cnt" onClick={onRiskFilter} title={t('top.risksFilter')}>
-        ⚠ {t('top.risks')} <span className="pill bad">{risks}</span>
+        ⚠ <span className="lbl">{t('top.risks')}</span> <span className="pill bad">{risks}</span>
       </button>
       <span className="sp" />
       {presence.length ? (
@@ -258,7 +270,7 @@ export function TopBar({
           aria-expanded={discussionOpen}
           onClick={onDiscussion}
         >
-          💬 {t('top.discussion')}
+          💬 <span className="lbl">{t('top.discussion')}</span>
         </button>
       ) : null}
       <Link to={`/projects/${project.id}/stats`} className="btn-link">
@@ -267,7 +279,7 @@ export function TopBar({
       <SnapshotButton projectId={project.id} perms={project.my_permissions} />
       <ExportMenu projectId={project.id} perms={project.my_permissions} />
       <Link to={`/projects/${project.id}/settings`} className="btn-link ghost">
-        ⚙ {t('top.settings')}
+        ⚙ <span className="lbl">{t('top.settings')}</span>
       </Link>
     </header>
   );

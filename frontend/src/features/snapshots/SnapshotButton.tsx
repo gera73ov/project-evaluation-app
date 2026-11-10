@@ -52,7 +52,7 @@ export function SnapshotButton({ projectId, perms }: { projectId: string; perms:
   return (
     <>
       <button type="button" className="btn-link" onClick={() => setOpen(true)}>
-        📷 {t('snapshot.button')}
+        📷 <span className="lbl">{t('snapshot.button')}</span>
       </button>
       <Modal opened={open} onClose={close} title={t('snapshot.title')} centered>
         <TextInput
