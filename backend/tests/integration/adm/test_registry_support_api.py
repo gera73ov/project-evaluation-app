@@ -137,7 +137,13 @@ async def test_support_session(world: World, db_session: AsyncSession) -> None:
     assert dt.timedelta(minutes=59) < left <= dt.timedelta(minutes=60)
 
     # чтение — да; деньги и запись — нет
-    assert (await admin.get(f"/projects/{project_id}")).status_code == 200
+    card = await admin.get(f"/projects/{project_id}")
+    assert card.status_code == 200, card.text
+    assert card.json()["access"] == "support"  # жёлтая полоса
+    assert card.json()["support_expires_at"] == opened.json()["expires_at"]
+    granted = set(card.json()["my_permissions"])
+    assert "project.read" in granted
+    assert not granted & {"notes.read", "notes.write", "money.read", "project.settings.write"}
     assert (await admin.get(f"/projects/{project_id}/tree")).status_code == 200
     assert (await admin.get(f"/projects/{project_id}/money")).status_code == 403
     patched = await admin.patch(f"/projects/{project_id}", json={"name": "Чужое имя"})

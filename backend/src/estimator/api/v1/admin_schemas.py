@@ -322,3 +322,25 @@ class SupportSession(_Strict):
     id: uuid.UUID
     project_id: uuid.UUID
     expires_at: str
+
+
+# --- предложенные типы (ADM-009) --------------------------------------------------------------
+
+
+class ProposedType(_Strict):
+    id: uuid.UUID
+    name: str
+    icon: str
+    project_id: uuid.UUID
+    project_name: str
+    author: UserRef
+    created_at: str
+    nodes_count: int
+
+
+class ProposedTypeList(_Strict):
+    items: list[ProposedType]
+
+
+class MergeRequest(_Strict):
+    target_type_id: uuid.UUID

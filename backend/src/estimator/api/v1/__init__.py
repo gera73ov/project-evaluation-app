@@ -9,6 +9,7 @@ from estimator.api.v1 import (
     admin_calendar,
     admin_dictionaries,
     admin_projects,
+    admin_proposed_types,
     admin_users,
     auth,
     branches,
@@ -51,5 +52,6 @@ router.include_router(admin_calendar.router)
 router.include_router(admin_dictionaries.router)
 router.include_router(admin_users.router)
 router.include_router(admin_projects.router)
+router.include_router(admin_proposed_types.router)
 router.include_router(system_projects.router)
 router.include_router(system_users.router)
