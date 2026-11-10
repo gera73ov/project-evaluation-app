@@ -39,13 +39,18 @@ describe('экран «Реестр проектов»', () => {
   it('фильтр «Проекты без модератора» и назначение модератора', async () => {
     const table = await open();
     expect(within(rowOf(table, 'Миграция CRM')).getByText('без модератора 12 дней')).toBeTruthy();
+    // FE-094: заблокированный модератор остаётся в списке с пометкой, проект — «без модератора»
+    expect(within(rowOf(table, 'Миграция CRM')).getByText('Н. Новиков · заблокирован')).toBeTruthy();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Проекты без модератора' }));
     await waitFor(() => expect(table().queryByText('Портал дилеров')).toBeNull());
     expect(table().getAllByRole('row')).toHaveLength(3); // шапка и два проекта
 
     fireEvent.click(screen.getByRole('button', { name: 'Передать или добавить модератора «Миграция CRM»' }));
     const dialog = await screen.findByRole('dialog', { name: /Модераторы проекта «Миграция CRM»/ });
+    // отмеченный заблокированный не спасает от «без модератора»: сохранить без нового нельзя
+    expect(within(dialog).getByRole('checkbox', { name: 'Н. Новиков · заблокирован' })).toHaveProperty('checked', true);
     expect(within(dialog).getByText('Проект нельзя оставить без модератора.')).toBeTruthy();
+    expect((within(dialog).getByRole('button', { name: 'Сохранить' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(within(dialog).getByRole('textbox', { name: /Добавить модератора/ }));
     expect(screen.queryByRole('option', { name: /П\. Сидоров/ })).toBeNull(); // пресейл без роли модератора
     fireEvent.click(await screen.findByRole('option', { name: /А\. Смирнова/ }));

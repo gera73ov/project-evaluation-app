@@ -18,6 +18,7 @@ import { ConfirmDialog } from '../../../shared/ui/ConfirmDialog';
 import { ErrorText } from '../../../shared/ui/ErrorText';
 import { SystemLayout, adminsKey } from '../layout/SystemLayout';
 import { StepUpCancelled, useStepUp } from '../layout/useStepUp';
+import { ModeratorsCell } from '../../admin/registry/ModeratorsCell';
 
 type Item = components['schemas']['SystemUserItem'];
 type Status = Item['status'];
@@ -195,13 +196,11 @@ export function RegistryPage() {
                   <div className="sub">{p.customer}</div>
                 </td>
                 <td>
-                  {p.moderators.length > 0 ? (
-                    p.moderators.map((m) => m.full_name).join(', ')
-                  ) : (
-                    <span className="pill bad">
-                      {t('system.registry.noModerator', { count: p.days_without_moderator ?? 0 })}
-                    </span>
-                  )}
+                  <ModeratorsCell
+                    moderators={p.moderators}
+                    since={p.no_moderator_since}
+                    days={p.days_without_moderator}
+                  />
                 </td>
                 <td>{t(`status.project.${p.status}`)}</td>
                 <td className="sub">{formatDate(p.created_at)}</td>
