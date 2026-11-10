@@ -290,11 +290,12 @@ async def cleanup(db: AsyncSession, now: dt.datetime | None = None) -> int:
 async def _session_run(work: Callable[[AsyncSession], Awaitable[Any]]) -> Any:  # pragma: no cover
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from estimator.db.session import create_engine
+    from estimator.db.session import create_engine, transaction
 
     engine = create_engine(get_settings())  # свой движок: у asyncio.run свой цикл событий
     try:
-        async with async_sessionmaker(engine)() as db, db.begin():
+        # transaction — commit и хуки after-commit (события WS вопросов «отправлен»)
+        async with transaction(async_sessionmaker(engine)) as db:
             return await work(db)
     finally:
         await engine.dispose()
