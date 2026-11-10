@@ -61,6 +61,8 @@ import { sameSignature, useFresh } from './fresh';
 import { MAX_INDENT_DEPTH, ancestorsOf, buildRows, indentOf, type TreeRow } from './rows';
 
 export const ROW_HEIGHT = 38;
+/** Колонок в шапке дерева: узел, ×N, комментарий, O, R, P, E, ✓. */
+const COLUMNS = 8;
 
 export interface TreeContext {
   /** Может ли пользователь править узлы ветки этой дисциплины (своя ветка или модератор). */
@@ -834,13 +836,16 @@ export function TreeTable({
               >
                 <Row {...rowProps(row)} />
                 {disc && ctx.discussion ? (
-                  <div className="disc-wrap" style={{ paddingLeft: indentOf(row.depth) + 40 }}>
-                    <DiscussionPanel
-                      nodeId={disc}
-                      title={nodes.get(disc)?.title ?? ''}
-                      path={pathOf(disc)}
-                      setup={ctx.discussion}
-                    />
+                  // в treegrid допустимы только строки: панель — строка с одной ячейкой на все колонки
+                  <div className="disc-wrap" role="row" style={{ paddingLeft: indentOf(row.depth) + 40 }}>
+                    <div role="gridcell" aria-colspan={COLUMNS}>
+                      <DiscussionPanel
+                        nodeId={disc}
+                        title={nodes.get(disc)?.title ?? ''}
+                        path={pathOf(disc)}
+                        setup={ctx.discussion}
+                      />
+                    </div>
                   </div>
                 ) : null}
               </div>

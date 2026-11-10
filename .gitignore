@@ -43,6 +43,7 @@ e2e/.e2e-admin-data.json
 e2e/.e2e-perf-data.json
 e2e/.e2e-stats-data.json
 e2e/.e2e-a11y-data.json
+e2e/.e2e-discussions-data.json
 
 # Данные и дампы
 *.dump

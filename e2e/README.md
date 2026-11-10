@@ -1,4 +1,4 @@
-# E2E (FE-090, FE-091, FE-094, FE-081, FE-093, FE-080, QA-018)
+# E2E (FE-090, FE-091, FE-092, FE-094, FE-081, FE-093, FE-080, QA-018)
 
 Playwright-сценарии UI против настоящего API.
 
@@ -14,6 +14,8 @@ E2E_STATS_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec 
 E2E_STATS_FILL_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/perf/fill.py' \
 E2E_A11Y_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/a11y/seed.py' \
 E2E_A11Y_FILL_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/perf/fill.py' \
+E2E_DISCUSSIONS_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/discussions/seed.py' \
+E2E_DISCUSSIONS_FILL_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/perf/fill.py' \
 npx playwright test
 ```
 
@@ -21,7 +23,10 @@ npx playwright test
 
 Нужны Postgres и Redis, применённые миграции (`uv run estimator migrate`) и API на `127.0.0.1:8000`
 с `APP_BASE_URL=https://localhost:8443`, а также worker Celery (`uv run celery -A
-estimator.jobs.celery_app worker`): он пересчитывает итоги проекта для портфеля после правок. Затем:
+estimator.jobs.celery_app worker`): он пересчитывает итоги проекта для портфеля после правок, строит
+выгрузки и отдаёт документы на проверку антивирусу. Вместо контейнера ClamAV подойдёт заглушка
+`python3 e2e/tools/fake_clamd.py` (порт 3310) и `CLAMAV_HOST=127.0.0.1` у API и worker; у обоих
+нужны также `EXPORTS_DIR` и `DOCUMENTS_DIR` с правом записи. Затем:
 
 ```bash
 (cd frontend && npm run build)
@@ -56,11 +61,20 @@ cd e2e && npm ci && npx playwright test
   верхней панелью рабочего экрана, «Напомнить не начавшим» уходит эксперту ветки, снимок
   «v1 — КП отправлено» → правка оценки → сравнение с текущим, руководитель пресейла находит проект в
   портфеле и становится модератором. Данные создаёт `stats/seed.py` (модератор, руководитель пресейла,
-  эксперт), узлы — `perf/fill.py` на 60 узлов. Выгрузки появятся вместе с серверной частью EXP.
+  эксперт), узлы — `perf/fill.py` на 60 узлов. Выгрузки проверяет `discussions/`.
+
+- `discussions/` — «типовой день эксперта» SPEC 4.5 (FE-092) и выгрузки (FE-093): эксперт под листом
+  спрашивает @заказчик с «нужен ответ» и пишет в комментарии «Допущение: …»; пресейл выгружает
+  вопросы в Word и вносит ответ заказчика; эксперт по уведомлению переходит к строке, сужает вилку и
+  отмечает ветку «Готово». Модератор пишет закрытую заметку (у эксперта вкладки нет), выгружает Excel
+  «С деньгами» (в файле гриф «Коммерческая тайна» и ФИО) и загружает документ заказчика, который
+  после проверки антивирусом скачивается. Данные создаёт `discussions/seed.py` (модератор, эксперт,
+  пресейл), узлы — `perf/fill.py`. Содержимое docx и xlsx сценарий читает из XML внутри файла.
 
 - `a11y/` — аудит доступности axe (FE-080): WCAG 2.1 A/AA, нарушения serious и critical валят
-  сценарий. 24 экрана, которые уже работают на сервере (вход, «Мои оценки», рабочий экран, настройки,
-  вкладки статистики, снимки и сравнение, профиль, портфель, админка), и ввод оценки с клавиатуры.
+  сценарий. 25 экранов, которые уже работают на сервере (вход, «Мои оценки», рабочий экран, настройки,
+  документы заказчика, вкладки статистики, снимки и сравнение, профиль, портфель, админка), панель
+  обсуждения с закрытыми заметками, меню «Экспорт ▾» и ввод оценки с клавиатуры.
   Данные создаёт `a11y/seed.py` (модератор, он же руководитель пресейла, и администратор), узлы —
   `perf/fill.py`. Отчёт axe по каждому экрану — вложение `axe.json`.
 
@@ -71,3 +85,5 @@ cd e2e && npm ci && npx playwright test
   Результаты и разбор — `perf/REPORT.md`.
 
 `serve.mjs` проксирует и WebSocket `/api/v1/ws`. Все сценарии проверяют, что в консоли нет нарушений CSP.
+Chromium запускается с `LANG=C.UTF-8` (`playwright.config.ts`): без UTF-8-локали он заменяет
+кириллическое имя скачанного файла на `download`.

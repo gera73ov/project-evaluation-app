@@ -2,6 +2,8 @@
 import { Button } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
+import { saveBlob } from '../../shared/api/saveBlob';
+
 export function backupCodesText(codes: readonly string[], title: string): string {
   return [title, '', ...codes, ''].join('\n');
 }
@@ -10,12 +12,7 @@ export function BackupCodes({ codes }: { codes: readonly string[] }) {
   const { t } = useTranslation();
   function download() {
     const blob = new Blob([backupCodesText(codes, t('totp.backupFileTitle'))], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'backup-codes.txt';
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(blob, 'backup-codes.txt');
   }
   return (
     <div>

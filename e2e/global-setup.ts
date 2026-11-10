@@ -6,7 +6,8 @@
  * (FE-094: администратор, два модератора и пользователь для сценариев админки), E2E_PERF_SEED_CMD
  * (FE-081: модератор для замеров рабочего экрана), E2E_STATS_SEED_CMD (FE-093: модератор и руководитель
  * пресейла для статистики, снимков и портфеля), E2E_A11Y_SEED_CMD (FE-080: модератор и администратор
- * для аудита доступности).
+ * для аудита доступности), E2E_DISCUSSIONS_SEED_CMD (FE-092: модератор, эксперт и пресейл для обсуждений,
+ * заметок и документов).
  */
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -17,6 +18,7 @@ export const WORK_DATA_FILE = fileURLToPath(new URL('./.e2e-work-data.json', imp
 export const ADMIN_DATA_FILE = fileURLToPath(new URL('./.e2e-admin-data.json', import.meta.url));
 export const STATS_DATA_FILE = fileURLToPath(new URL('./.e2e-stats-data.json', import.meta.url));
 export const A11Y_DATA_FILE = fileURLToPath(new URL('./.e2e-a11y-data.json', import.meta.url));
+export const DISCUSSIONS_DATA_FILE = fileURLToPath(new URL('./.e2e-discussions-data.json', import.meta.url));
 export const PERF_DATA_FILE = fileURLToPath(new URL('./.e2e-perf-data.json', import.meta.url));
 
 /** Команда из каталога backend; последняя строка вывода — JSON. */
@@ -38,6 +40,10 @@ export default function globalSetup(): void {
   runSeed(process.env.E2E_ADMIN_SEED_CMD ?? 'uv run --frozen python ../e2e/admin/seed.py', ADMIN_DATA_FILE);
   runSeed(process.env.E2E_STATS_SEED_CMD ?? 'uv run --frozen python ../e2e/stats/seed.py', STATS_DATA_FILE);
   runSeed(process.env.E2E_A11Y_SEED_CMD ?? 'uv run --frozen python ../e2e/a11y/seed.py', A11Y_DATA_FILE);
+  runSeed(
+    process.env.E2E_DISCUSSIONS_SEED_CMD ?? 'uv run --frozen python ../e2e/discussions/seed.py',
+    DISCUSSIONS_DATA_FILE,
+  );
   if (process.env.E2E_PERF)
     runSeed(process.env.E2E_PERF_SEED_CMD ?? 'uv run --frozen python ../e2e/perf/seed.py', PERF_DATA_FILE);
 }
