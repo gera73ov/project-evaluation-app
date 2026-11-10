@@ -19,6 +19,7 @@ from estimator.db.enums import (
     BranchStatusValue,
     CustomerQuestionStatus,
     DetailLevel,
+    MessageHistoryReason,
     MessageKind,
     ProjectOutcome,
     ProjectRole,
@@ -684,3 +685,27 @@ class SuggestItem(_Strict):
 
 class SuggestList(_Strict):
     items: list[SuggestItem]
+
+
+class Conclusion(_Strict):
+    text: str = Field(min_length=1, max_length=2000)
+    tag_id: uuid.UUID | None
+
+
+class ResolveRequest(_Strict):
+    conclusion: Conclusion | None = None
+
+
+class MessagePatch(_Strict):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class MessageHistoryEntry(_Strict):
+    body: str = Field(max_length=10000)
+    edited_by: UserRef
+    edited_at: dt.datetime
+    reason: MessageHistoryReason
+
+
+class MessageHistoryList(_Strict):
+    items: list[MessageHistoryEntry]

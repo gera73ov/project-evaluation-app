@@ -38,6 +38,7 @@ from estimator.db.uuid7 import uuid7
 from estimator.realtime.locks import iface as locks
 from estimator.services.branches.status import touch
 from estimator.services.common import emit, user_ref
+from estimator.services.discussions import events as feed_events
 from estimator.services.review import marks
 from estimator.services.trash.batch import live_subtree, trash
 from estimator.services.tree.edit import (
@@ -214,6 +215,10 @@ async def move_node(
         if cross:
             n.phase_id, n.discipline_id = new_parent.phase_id, new_parent.discipline_id
     await moved(node, old_parent_id, changes)
+    await feed_events.node_changed(  # FR-DISC-07
+        db, project.id, node.id, principal.user_id, "node_moved",
+        {"parent": changes["parent"]},
+    )  # fmt: skip
     if cross:  # потомки сменили ветку: у каждого своя версия и событие
         for n in subtree[1:]:
             n.version += 1

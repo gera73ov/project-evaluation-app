@@ -8103,6 +8103,54 @@ paths:
           $ref: '#/components/responses/Problem429'
         '500':
           $ref: '#/components/responses/Problem500'
+  /messages/{id}/history:
+    get:
+      operationId: getMessageHistory
+      summary: История правок и отзыва сообщения
+      description: >-
+        CR-012. Прежние тексты сообщения из `message_history` (каждая правка и отзыв, FR-DISC-06,
+        14.2) от новых к старым. Только модератору проекта: «модератор видит исходный текст в
+        истории»; эксперт получает 403.
+      tags:
+      - Обсуждения
+      x-permission: discussion.history
+      x-spec:
+      - FR-DISC-06
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MessageHistoryEntry'
+                required:
+                - items
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '500':
+          $ref: '#/components/responses/Problem500'
   /threads/{id}/resolve:
     post:
       operationId: resolveThread
@@ -12735,6 +12783,29 @@ components:
       - edited_after_sent
       - first_message
       - replies_count
+      additionalProperties: false
+    MessageHistoryEntry:
+      type: object
+      description: Прежний текст сообщения до правки или отзыва (CR-012, FR-DISC-06)
+      properties:
+        body:
+          type: string
+          maxLength: 10000
+        edited_by:
+          $ref: '#/components/schemas/UserRef'
+        edited_at:
+          $ref: '#/components/schemas/Timestamp'
+        reason:
+          type: string
+          enum:
+          - edit
+          - revoke
+          - edit_after_sent
+      required:
+      - body
+      - edited_by
+      - edited_at
+      - reason
       additionalProperties: false
     MessageCreate:
       type: object
