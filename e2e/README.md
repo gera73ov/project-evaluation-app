@@ -1,4 +1,4 @@
-# E2E (FE-090, FE-091, FE-092, FE-094, FE-081, FE-093, FE-080, QA-018)
+# E2E (FE-060…065, FE-090, FE-091, FE-092, FE-094, FE-081, FE-093, FE-080, QA-018)
 
 Playwright-сценарии UI против настоящего API.
 
@@ -16,6 +16,7 @@ E2E_A11Y_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -
 E2E_A11Y_FILL_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/perf/fill.py' \
 E2E_DISCUSSIONS_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/discussions/seed.py' \
 E2E_DISCUSSIONS_FILL_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/perf/fill.py' \
+E2E_SYSTEM_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/system/seed.py' \
 npx playwright test
 ```
 
@@ -72,6 +73,12 @@ cd e2e && npm ci && npx playwright test
   меняет на «проигран» с причиной; журнал проекта показывает эти записи и дисциплины, команду, статус
   русскими подписями полей. Данные создаёт `discussions/seed.py` (модератор, эксперт,
   пресейл), узлы — `perf/fill.py`. Содержимое docx и xlsx сценарий читает из XML внутри файла.
+
+- `system/` — системная часть (FE-060…065, FE-094): суперадминистратор видит состояние служб и меню
+  раздела, режим входа «через приложение», меняет политику TOTP со step-up и возвращает её,
+  анонимизирует заблокированную учётку; аудитор ИБ находит события в журнале аудита и выгружает CSV
+  с грифом. Все 10 экранов раздела проходят axe. Данные создаёт `system/seed.py` (суперадминистратор,
+  аудитор ИБ, заблокированный пользователь). Настройка и проверка AD — на стенде с Samba AD.
 
 - `a11y/` — аудит доступности axe (FE-080): WCAG 2.1 A/AA, нарушения serious и critical валят
   сценарий. 25 экранов, которые уже работают на сервере (вход, «Мои оценки», рабочий экран, настройки,
