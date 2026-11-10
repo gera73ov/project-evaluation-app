@@ -33,6 +33,7 @@ from estimator.db.models.users import User
 from estimator.domain import calc
 from estimator.domain.calc.analytics import DEFAULT_LARGE_LEAF_HOURS, decomposition
 from estimator.services.common import hours, user_ref
+from estimator.services.discussions.counters import Counters, tree_counters
 
 NODES_LIMIT = 5000  # BR-TREE-06
 NODES_WARNING = 4500
@@ -245,7 +246,7 @@ async def _reviewers(db: AsyncSession, nodes: list[Any]) -> dict[uuid.UUID, dict
 
 
 async def mutation_view(
-    db: AsyncSession, project: Project, node_id: uuid.UUID
+    db: AsyncSession, project: Project, node_id: uuid.UUID, viewer: uuid.UUID | None = None
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, str | None]]:
     """Узел, его предки (id, E, σ) от родителя к корню и итог проекта — ответ правки (15.3).
 
@@ -257,6 +258,7 @@ async def mutation_view(
     reviewers = await _reviewers(db, [node])
     cross_cutting = {p.phase_id for p in c.phases if p.is_cross_cutting}
     out = _node_out(node, c.result, reviewers, cross_cutting, c.large, c.repeating)
+    out |= (await tree_counters(db, project.id, viewer)).node(node.id)
     ancestors = []
     parent = node.parent_id
     while parent is not None:
@@ -267,9 +269,15 @@ async def mutation_view(
     return out, ancestors, _figures(c.result.total)
 
 
-async def load_tree(db: AsyncSession, project: Project) -> dict[str, Any]:
-    """Тело ответа ``Tree`` (contracts/openapi.yaml): узлы, статусы веток, итоги, версия."""
+async def load_tree(
+    db: AsyncSession, project: Project, viewer: uuid.UUID | None = None
+) -> dict[str, Any]:
+    """Тело ответа ``Tree`` (contracts/openapi.yaml): узлы, статусы веток, итоги, версия.
+
+    ``viewer`` — зритель для счётчика «вопросы мне» (без него — 0).
+    """
     c = await compute(db, project)
+    counters = await tree_counters(db, project.id, viewer)
     phases, disciplines, nodes, status_rows = c.phases, c.disciplines, c.nodes, c.status_rows
     result, large, repeating = c.result, c.large, c.repeating
     reviewers = await _reviewers(db, nodes)
@@ -277,7 +285,7 @@ async def load_tree(db: AsyncSession, project: Project) -> dict[str, Any]:
     cross_cutting = {p.phase_id for p in phases if p.is_cross_cutting}
     order = {p.phase_id: i for i, p in enumerate(phases)}
     out_nodes = [
-        _node_out(n, result, reviewers, cross_cutting, large, repeating)
+        _node_out(n, result, reviewers, cross_cutting, large, repeating, counters)
         for n in _ordered(nodes, order)
     ]
     has_expert = {d.discipline_id: d.has_expert for d in disciplines}
@@ -292,7 +300,7 @@ async def load_tree(db: AsyncSession, project: Project) -> dict[str, Any]:
                 else None
             ),
             "changed_at": b.changed_at.isoformat().replace("+00:00", "Z"),
-            "open_questions": 0,  # счётчик вопросов подключит CORE-040
+            "open_questions": counters.branches[(b.phase_id, b.discipline_id)],
             "has_expert": has_expert.get(b.discipline_id, False),
         }
         for b, name, st in status_rows
@@ -319,6 +327,7 @@ def _node_out(
     cross_cutting: set[uuid.UUID],
     large: set[str],
     repeating: set[str],
+    counters: Counters | None = None,
 ) -> dict[str, Any]:
     key = str(node.id)
     calc_node = result.tree[key]
@@ -345,10 +354,7 @@ def _node_out(
         "field_versions": node.field_versions,
         "is_large": key in large,
         "is_repeating": key in repeating,
-        # счётчики обсуждений подключат CORE-040…043 (этап 3)
-        "messages_count": 0,
-        "open_questions": 0,
-        "questions_to_me": 0,
+        **(counters or Counters()).node(node.id),  # FR-DISC-04
     }
     if node.kind is NodeKind.PHASE and node.phase_id in cross_cutting:
         # строка «Управление проектом»: без листьев, E = k · E базы (6.3, 11.4 №15)

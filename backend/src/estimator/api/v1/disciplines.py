@@ -48,7 +48,7 @@ async def add_discipline(
     created = await disciplines.add_discipline(db, principal, project, body.discipline_id)
     await db.flush()
     project = await _load(db, id)
-    tree = await load_tree(db, project)
+    tree = await load_tree(db, project, principal.user_id)
     ids = {str(n.id) for n in created}
     return {
         "nodes": [n for n in tree["nodes"] if n["id"] in ids],
