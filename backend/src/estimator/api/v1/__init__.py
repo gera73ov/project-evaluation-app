@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from estimator.api.v1 import (
     admin_calendar,
     admin_dictionaries,
+    admin_projects,
     admin_users,
     auth,
     branches,
@@ -21,6 +22,7 @@ from estimator.api.v1 import (
     nodes,
     notifications,
     projects,
+    system_projects,
     system_users,
     trash,
     tree,
@@ -48,4 +50,6 @@ router.include_router(discussions.router)
 router.include_router(admin_calendar.router)
 router.include_router(admin_dictionaries.router)
 router.include_router(admin_users.router)
+router.include_router(admin_projects.router)
+router.include_router(system_projects.router)
 router.include_router(system_users.router)

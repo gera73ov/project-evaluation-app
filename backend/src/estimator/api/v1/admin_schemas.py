@@ -11,7 +11,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from estimator.api.common.decimal import DecimalString
-from estimator.api.v1.core_schemas import NodeType, Norm
+from estimator.api.v1.core_schemas import NodeType, Norm, UserRef
+from estimator.db.enums import ProjectStatus
 from estimator.services.tree.local_types import NodeTypeIcon
 
 _COLOR = r"^#[0-9A-Fa-f]{6}$"
@@ -286,3 +287,38 @@ class UserCreated(_Strict):
 
 class BlockRequest(_Strict):
     reason: str | None = Field(default=None, max_length=500)
+
+
+# --- реестр проектов и режим поддержки (ADM-005, ADM-010, ADM-011) ----------------------------
+
+
+class RegistryProject(_Strict):
+    id: uuid.UUID
+    name: str
+    customer: str
+    moderators: list[UserRef]
+    status: ProjectStatus
+    created_at: str
+    updated_at: str
+    no_moderator_since: str | None
+    days_without_moderator: int | None
+
+
+class RegistryList(_Strict):
+    items: list[RegistryProject]
+    next_cursor: str | None
+
+
+class ModeratorsTransfer(_Strict):
+    add_user_ids: list[uuid.UUID] = Field(default_factory=list)
+    remove_user_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class SupportSessionCreate(_Strict):
+    reason: str = Field(min_length=10, max_length=500)
+
+
+class SupportSession(_Strict):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    expires_at: str
