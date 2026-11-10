@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from redis.asyncio import Redis
 
 from estimator.api.v1 import schemas
-from estimator.auth.context import SessionServiceDep
+from estimator.auth.context import Principal, SessionServiceDep
 from estimator.auth.login import AuthError, LoginOutcome, LoginService
 from estimator.auth.mfa_policy import (
     ActivePrincipal,
@@ -37,6 +37,7 @@ from estimator.auth.sessions import SessionRecord, clear_session_cookie, set_ses
 from estimator.auth.stepup import Rotated, confirm_enrollment, start_enrollment, step_up
 from estimator.db.session import DbSession
 from estimator.redis_client import get_redis
+from estimator.security.networks import guard_superadmin_login
 from estimator.security.ratelimit.limiter import client_ip, rate_limit
 from estimator.security.web.csrf import clear_csrf_cookie, set_csrf_cookie
 
@@ -112,6 +113,17 @@ def _rotated(response: Response, rotated: Rotated) -> None:
 
 def _ua(request: Request) -> str | None:
     return request.headers.get("user-agent")
+
+
+async def _superadmin_network(
+    principal: Principal, request: Request, db: DbSession, redis: Redis, route: str
+) -> None:
+    """Сессия суперадминистратора на ``/auth/*`` не из разрешённой сети — 404 (FR-SA-06)."""
+    if principal.is_superadmin:
+        await guard_superadmin_login(
+            db, redis, ip=client_ip(request), route=route, user_id=principal.user_id,
+            login=principal.login, session_id=principal.session_id,
+        )  # fmt: skip
 
 
 @router.post(
@@ -191,8 +203,9 @@ async def logout(
     response_model=schemas.TotpEnrollStart,
 )
 async def totp_enroll_start(
-    principal: PreMfaPrincipal, db: DbSession, redis: RedisDep
+    principal: PreMfaPrincipal, request: Request, db: DbSession, redis: RedisDep
 ) -> dict[str, str]:
+    await _superadmin_network(principal, request, db, redis, "/auth/totp/enroll")
     started = await start_enrollment(db, redis, principal)
     return {"otpauth_uri": started.otpauth_uri, "secret": started.secret}
 
@@ -211,6 +224,7 @@ async def totp_enroll_confirm(
     redis: RedisDep,
     sessions: SessionServiceDep,
 ) -> dict[str, list[str]]:
+    await _superadmin_network(principal, request, db, redis, "/auth/totp/enroll/confirm")
     rotated = await confirm_enrollment(
         db, redis, sessions, principal, body.code, user_agent=_ua(request)
     )
@@ -232,6 +246,7 @@ async def auth_step_up(
     redis: RedisDep,
     sessions: SessionServiceDep,
 ) -> dict[str, Any]:
+    await _superadmin_network(principal, request, db, redis, "/auth/step-up")
     rotated = await step_up(
         db,
         redis,

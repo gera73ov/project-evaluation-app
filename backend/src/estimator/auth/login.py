@@ -57,6 +57,7 @@ from estimator.metrics import LOGIN_FAILURES
 from estimator.security import audit
 from estimator.security.audit import security_events
 from estimator.security.crypto import get_cipher
+from estimator.security.networks import guard_superadmin_login
 
 log = get_logger(__name__)
 
@@ -164,6 +165,8 @@ class LoginService:
             raise login_failed(mode)
 
         superadmin = await is_local_superadmin(db, login)
+        if superadmin:  # FR-SA-06: вход суперадминистратора только из разрешённых сетей
+            await guard_superadmin_login(db, self._redis, ip=ip, login=login, route="/auth/login")
         if not superadmin and not await setup_completed(db):
             await self._failed(db, login, None, "setup_in_progress", mode, ip, user_agent)
             raise SetupInProgressError
@@ -235,6 +238,11 @@ class LoginService:
         pending = await self._pending(login_token)
         if pending is None:
             raise AuthError(401, "LOGIN_STEP_EXPIRED")
+        if pending.superadmin:
+            await guard_superadmin_login(
+                db, self._redis, ip=ip, user_id=pending.user_id, login=pending.login,
+                route="/auth/totp",
+            )  # fmt: skip
         guard = LoginGuard(self._redis, await load_lockout_policy(db))
         gate = await guard.before_attempt(pending.login, ip, superadmin=pending.superadmin)
         if gate.code is not None:
