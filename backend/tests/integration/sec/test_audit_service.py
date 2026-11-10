@@ -6,6 +6,7 @@ SPEC SEC-AUD-01…03, TC-AUD-01 (параллельная нагрузка — Q
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from typing import Any
 
@@ -18,6 +19,7 @@ from estimator.cli import CommandRun
 from estimator.security import audit
 from estimator.security.audit.runs import AuditCliHook, verify_and_record
 from estimator.security.audit.verify import LAST_RESULT_KEY, verify_chain
+from tests.conftest import REDIS_ENV_VAR
 
 pytestmark = [pytest.mark.integration, pytest.mark.spec("SEC-AUD-03")]
 
@@ -138,7 +140,8 @@ def app_env(monkeypatch: pytest.MonkeyPatch, test_database_url: str) -> str:
     from estimator.config import get_settings
 
     monkeypatch.setenv("DATABASE_URL", test_database_url)
-    monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:6379/15")
+    # тот же Redis, что у фикстуры redis_client: индикатор проверки цепочки читается оттуда
+    monkeypatch.setenv("REDIS_URL", os.environ.get(REDIS_ENV_VAR, "redis://127.0.0.1:6379/15"))
     get_settings.cache_clear()
     return test_database_url
 
