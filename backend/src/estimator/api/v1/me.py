@@ -130,7 +130,7 @@ async def enable_totp(
 @router.delete(
     "/me/totp",
     status_code=204,
-    openapi_extra={"x-permission": "me.totp.disable"},
+    openapi_extra={"x-permission": "me.totp.disable", "x-step-up": True},
     dependencies=[gate("me.totp.disable")],
 )
 async def disable_totp(

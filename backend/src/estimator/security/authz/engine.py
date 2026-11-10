@@ -218,8 +218,14 @@ def project_visible(catalog: Catalog, subject: Subject, status: str) -> bool:
     )
 
 
-def decide(catalog: Catalog, subject: Subject, code: str, target: Target) -> Access:
-    """Решение по одному праву. Бросает :class:`AccessDenied`."""
+def decide(
+    catalog: Catalog, subject: Subject, code: str, target: Target, *, step_up: bool = True
+) -> Access:
+    """Решение по одному праву. Бросает :class:`AccessDenied`.
+
+    ``step_up=False`` — операция без ``x-step-up`` (чтение списка, проверка без записи): флаг
+    ``step_up`` права к ней не применяется (contracts/openapi.yaml задаёт step-up по операции).
+    """
     if code in PSEUDO:
         raise ValueError(f"псевдоправо {code!r} проверяют зависимости AUTH, а не движок")
     perm = catalog.permission(code)
@@ -278,7 +284,7 @@ def decide(catalog: Catalog, subject: Subject, code: str, target: Target) -> Acc
 
     if perm.totp_gate and not subject.mfa_passed:
         raise AccessDenied("TOTP_REQUIRED", code)
-    if perm.step_up and not subject.step_up_active:
+    if perm.step_up and step_up and not subject.step_up_active:
         raise AccessDenied("STEP_UP_REQUIRED", code)
 
     # Без ограничений побеждает: модератор и эксперт одного проекта — права модератора (BR-ROLE-04)
@@ -307,7 +313,12 @@ def _holds(catalog: Catalog, subject: Subject, code: str, target: Target) -> boo
 
 
 def decide_any(
-    catalog: Catalog, subject: Subject, codes: Collection[str], target: Target
+    catalog: Catalog,
+    subject: Subject,
+    codes: Collection[str],
+    target: Target,
+    *,
+    step_up: bool = True,
 ) -> Access:
     """Любое из прав (``x-permission`` списком). Отказ — самый близкий к успеху."""
     if not codes:
@@ -315,7 +326,7 @@ def decide_any(
     failures: list[AccessDenied] = []
     for code in codes:
         try:
-            access = decide(catalog, subject, code, target)
+            access = decide(catalog, subject, code, target, step_up=step_up)
         except AccessDenied as exc:
             failures.append(exc)
             continue

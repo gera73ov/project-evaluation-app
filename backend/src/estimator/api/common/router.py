@@ -49,13 +49,21 @@ def is_self_checked(codes: tuple[str, ...]) -> bool:
     return all(c in SELF_CHECKED or c.startswith("token.") for c in codes)
 
 
-def permission_guard(codes: tuple[str, ...]) -> Any:
+def needs_step_up(codes: tuple[str, ...]) -> bool:
+    """У права есть флаг ``step_up`` (contracts/permissions.yaml, R-STEP-UP)."""
+    from estimator.security.authz.catalog import PSEUDO, load_catalog
+
+    catalog = load_catalog()
+    return any(catalog.permission(c).step_up for c in codes if c not in PSEUDO)
+
+
+def permission_guard(codes: tuple[str, ...], *, step_up: bool = True) -> Any:
     """Зависимость проверки права: :func:`estimator.security.authz.gate` движка прав SEC-005.
 
     ``gate`` сам берёт принципала, сессию БД и Redis через ``Depends`` (FastAPI переиспользует их с
     эндпоинтом), проект — из параметра пути, и бросает ``HTTPException`` с ``detail={"code": ...}``.
     """
-    return gate(codes)
+    return gate(codes, step_up=step_up)
 
 
 class ApiRouter(APIRouter):
@@ -67,8 +75,11 @@ class ApiRouter(APIRouter):
         endpoint: Callable[..., Any],
         *,
         permission: Permission | None = None,
+        step_up: bool | None = None,
         **kwargs: Any,
     ) -> None:
+        """``step_up=False`` — операция без ``x-step-up``, хотя у права есть флаг ``step_up``
+        (список, проверка без записи). По умолчанию step-up требует флаг права."""
         extra = dict(kwargs.pop("openapi_extra", None) or {})
         dependencies = list(kwargs.pop("dependencies", None) or [])
         if permission is None and "x-permission" in extra:
@@ -78,28 +89,44 @@ class ApiRouter(APIRouter):
             codes = _normalize(permission)
             # форма как в контракте: строка или список (в т. ч. из одного кода)
             extra["x-permission"] = permission if isinstance(permission, str) else list(codes)
+            required = needs_step_up(codes) and step_up is not False
+            if step_up and not needs_step_up(codes):
+                raise TypeError("step_up=True у операции, право которой step-up не требует")
+            if required:
+                extra["x-step-up"] = True
             if not is_self_checked(codes):
-                dependencies.insert(0, permission_guard(codes))
+                dependencies.insert(0, permission_guard(codes, step_up=required))
         super().add_api_route(
             path, endpoint, openapi_extra=extra, dependencies=dependencies, **kwargs
         )
         self.routes[-1].permission = codes  # type: ignore[attr-defined]
 
     def api_route(  # type: ignore[override]
-        self, path: str, *, permission: Permission | None = None, **kwargs: Any
+        self,
+        path: str,
+        *,
+        permission: Permission | None = None,
+        step_up: bool | None = None,
+        **kwargs: Any,
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         def decorator(func: DecoratedCallable) -> DecoratedCallable:
-            self.add_api_route(path, func, permission=permission, **kwargs)
+            self.add_api_route(path, func, permission=permission, step_up=step_up, **kwargs)
             return func
 
         return decorator
 
     def _method(self, method: str):  # type: ignore[no-untyped-def]
         def route(
-            path: str, *, permission: Permission | None = None, **kwargs: Any
+            path: str,
+            *,
+            permission: Permission | None = None,
+            step_up: bool | None = None,
+            **kwargs: Any,
         ) -> Callable[[DecoratedCallable], DecoratedCallable]:
             _normalize(permission)  # ошибка — в строке объявления, а не при регистрации
-            return self.api_route(path, permission=permission, methods=[method], **kwargs)
+            return self.api_route(
+                path, permission=permission, step_up=step_up, methods=[method], **kwargs
+            )
 
         return route
 

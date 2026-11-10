@@ -58,7 +58,9 @@ async def test_question_flow(world: World, db_session: AsyncSession, events: InM
     mine = await _tree_node(s.backend_expert, s, leaf["id"])
     assert (mine["messages_count"], mine["open_questions"], mine["questions_to_me"]) == (2, 1, 1)
     status = next(
-        b for b in mine["_tree"]["branch_statuses"] if b["discipline_id"] == str(s.backend)
+        b
+        for b in mine["_tree"]["branch_statuses"]
+        if (b["phase_id"], b["discipline_id"]) == (str(branch.phase_id), str(s.backend))
     )
     assert status["open_questions"] == 1
     other = await _tree_node(s.frontend_expert, s, leaf["id"])

@@ -121,13 +121,22 @@ class Authorizer:
             facts=await self._facts(codes),
         )
 
-    async def check(self, codes: str | Collection[str], target: Target | None = None) -> Access:
-        """Проверить право (или любое из списка) на объекте; отказ — HTTPException."""
+    async def check(
+        self,
+        codes: str | Collection[str],
+        target: Target | None = None,
+        *,
+        step_up: bool = True,
+    ) -> Access:
+        """Проверить право (или любое из списка) на объекте; отказ — HTTPException.
+
+        ``step_up=False`` — операция без ``x-step-up``: флаг ``step_up`` права не применяется.
+        """
         wanted = (codes,) if isinstance(codes, str) else tuple(codes)
         target = target or Target()
         subject = await self.subject(target.project_id, wanted)
         try:
-            access = decide_any(self.catalog, subject, wanted, target)
+            access = decide_any(self.catalog, subject, wanted, target, step_up=step_up)
         except AccessDenied as exc:
             await self._audit_denied(exc, target)
             raise HTTPException(exc.status, detail=exc.detail()) from None
@@ -242,8 +251,11 @@ async def target_from_path(request: Request, db: AsyncSession) -> Target:
     return target
 
 
-def gate(codes: str | Collection[str]) -> Any:
-    """``Depends`` для маршрута с правом ``codes`` («любое из»). Псевдоправа сюда не передают."""
+def gate(codes: str | Collection[str], *, step_up: bool = True) -> Any:
+    """``Depends`` для маршрута с правом ``codes`` («любое из»). Псевдоправа сюда не передают.
+
+    ``step_up=False`` — у операции нет ``x-step-up`` (ApiRouter передаёт его из объявления).
+    """
     wanted = (codes,) if isinstance(codes, str) else tuple(codes)
     if not wanted:
         raise ValueError("gate без прав")
@@ -255,11 +267,12 @@ def gate(codes: str | Collection[str]) -> Any:
 
     async def check_permission(request: Request, authz: AuthorizerDep) -> Access:
         target = await target_from_path(request, authz.db)
-        access = await authz.check(wanted, target)
+        access = await authz.check(wanted, target, step_up=step_up)
         request.state.access = access
         return access
 
     check_permission.authz_codes = wanted  # type: ignore[attr-defined]
+    check_permission.authz_step_up = step_up  # type: ignore[attr-defined]
     return Depends(check_permission)
 
 
