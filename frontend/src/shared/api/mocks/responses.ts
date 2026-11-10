@@ -30,11 +30,14 @@ import {
   userRef,
   type DemoProject,
 } from "./data";
+import * as demoAudit from "./demoAudit";
+import * as demoAuth from "./demoAuth";
 import * as demoDiscussions from "./demoDiscussions";
 import * as demoDocuments from "./demoDocuments";
 import * as demoExports from "./demoExports";
 import * as demoOutcome from "./demoOutcome";
 import * as demoPortfolio from "./demoPortfolio";
+import * as demoSetup from "./demoSetup";
 import * as demoSnapshots from "./demoSnapshots";
 import * as demoStatsDetails from "./demoStatsDetails";
 import * as demoSystem from "./demoSystem";
@@ -78,6 +81,29 @@ function problem(status: number, code: string, title: string): MockResult {
       error_id: uuidFrom("error", code),
     },
   };
+}
+
+/** Критичное действие без свежего подтверждения (SEC-AUTH-05). */
+function stepUpRequired() {
+  return new MockProblem(
+    problem(403, "STEP_UP_REQUIRED", "Подтвердите действие"),
+  );
+}
+
+const ACCOUNT_STATUS = new Map<demoSystem.AccountError, [number, string]>([
+  ["ALREADY_EXISTS", [409, "Такой логин уже есть"]],
+  ["SUPERADMIN_LIMIT", [409, "Суперадминистраторов не больше трёх"]],
+  ["LAST_SUPERADMIN", [409, "Последний суперадминистратор"]],
+  ["ROLE_INCOMPATIBLE", [409, "Роли несовместимы"]],
+  ["USER_NOT_BLOCKED", [409, "Пользователь не заблокирован"]],
+  ["NOT_FOUND", [404, "Не найдено"]],
+  ["VALIDATION_FAILED", [422, "Ошибка в данных"]],
+]);
+
+/** Ошибка действия с учёткой раздела «Система». */
+function accountProblem(code: demoSystem.AccountError) {
+  const [status, title] = ACCOUNT_STATUS.get(code) ?? [409, code];
+  return new MockProblem(problem(status, code, title));
 }
 
 function projectOf(
@@ -596,7 +622,122 @@ const DEMO: Record<string, Demo> = {
   // FE-060 · раздел «Система» (FR-SA-07, BR-ROLE-03, FR-SA-04)
   getHealth: () => demoSystem.health(),
   listAdmins: (_ctx, schema) => list(schema, demoSystem.admins()),
+  // FE-063 · учётки, сбросы, анонимизация (FR-SA-05, BR-ROLE-02/03, FR-2FA-03, SEC-PD-03)
+  createAdmin: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoSystem.createAdmin(ctx.body);
+    return "error" in out ? accountProblem(out.error) : out;
+  },
+  patchAdmin: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoSystem.patchAdmin(ctx.params.id ?? "", ctx.body);
+    return "error" in out ? accountProblem(out.error) : out;
+  },
+  demoteAdmin: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const err = demoSystem.demoteAdmin(ctx.params.id ?? "");
+    return err ? accountProblem(err) : undefined;
+  },
+  systemResetPassword: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoSystem.resetCredentials(ctx.params.id ?? "");
+    return typeof out === "string" ? accountProblem(out) : out;
+  },
+  systemResetTotp: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoSystem.resetCredentials(ctx.params.id ?? "");
+    return typeof out === "string" ? accountProblem(out) : undefined;
+  },
+  anonymizeUser: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const err = demoSystem.anonymize(ctx.params.id ?? "");
+    return err ? accountProblem(err) : undefined;
+  },
+  // FE-065 · журнал аудита (SEC-AUD-06); выгрузка CSV — со step-up (FR-EXP-06)
+  listAudit: (ctx) => demoAudit.list(ctx.persona, ctx.params),
+  exportAudit: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const b = body(ctx);
+    const day = (v: unknown) =>
+      typeof v === "string" ? v.slice(0, 10) : TODAY;
+    return demoExports.createExport(
+      "audit_csv",
+      `Журнал_аудита_${day(b.from)}_${day(b.to)}.csv`,
+    );
+  },
+  systemRegistry: (_ctx, schema) => list(schema, demoPortfolio.registry()),
   getSettings: (ctx) => demoSystem.settings(ctx.params.section ?? ""),
+  // FE-064 · мастер первичной настройки (7.1, FR-SA-02)
+  getSetupStep: (ctx) =>
+    demoSetup.getStep(ctx.params.step ?? "") ??
+    new MockProblem(problem(404, "NOT_FOUND", "Шаг не найден")),
+  postSetupStep: (ctx) => {
+    const out = demoSetup.postStep(ctx.params.step ?? "", ctx.body);
+    if (!out)
+      return new MockProblem(problem(404, "NOT_FOUND", "Шаг не найден"));
+    if (!("error" in out)) return out;
+    const [status, title] =
+      out.error === "SETUP_ALREADY_COMPLETED"
+        ? [409, "Первичная настройка уже завершена"]
+        : out.error === "AD_CHECKS_REQUIRED"
+          ? [409, "Сначала проверьте подключение и вход"]
+          : [422, "Шаг нельзя завершить"];
+    const err = problem(status, out.error, title);
+    return new MockProblem({
+      status,
+      body: {
+        ...(err.body as object),
+        ...(out.missing ? { missing: out.missing } : {}),
+      },
+    });
+  },
+  // FE-061 · способ входа и AD (11.2 №2–6); критичные записи — со step-up (SEC-AUTH-05)
+  stepUp: () => demoSystem.stepUp(),
+  putSettings: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const section = ctx.params.section ?? "";
+    const values = new Map(Object.entries(body(ctx))).get("values") ?? {};
+    if (section === "auth") {
+      const missing = demoAuth.missingChecks(values);
+      if (missing.length) {
+        const err = problem(
+          409,
+          "AD_CHECKS_REQUIRED",
+          "Сначала проверьте подключение и вход",
+        );
+        return new MockProblem({
+          status: 409,
+          body: { ...(err.body as object), missing },
+        });
+      }
+    }
+    const result = demoSystem.saveSettings(section, values);
+    if (section === "auth") demoAuth.afterSave();
+    return result;
+  },
+  adTestConnection: (ctx) => demoAuth.testConnection(ctx.body),
+  adTestLogin: (ctx) => demoAuth.testLogin(ctx.body),
+  switchMode: (ctx) => {
+    const dryRun = new Map(Object.entries(body(ctx))).get("dry_run") !== false;
+    if (!dryRun && !demoSystem.stepUpFresh()) return stepUpRequired();
+    const out = demoAuth.switchMode(ctx.body);
+    if ("report" in out) return out.report;
+    const err =
+      out.error === "MODE_SWITCH_NOT_ALLOWED"
+        ? problem(409, out.error, "Переход недоступен в интерфейсе")
+        : problem(409, out.error, "Есть нерешённые совпадения");
+    return new MockProblem({
+      status: 409,
+      body: {
+        ...(err.body as object),
+        ...("unresolved" in out ? { unresolved: out.unresolved } : {}),
+      },
+    });
+  },
+  switchModeResolve: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    return demoAuth.resolve(ctx.body);
+  },
   // FE-050 · портфель руководителя пресейла (FR-PORT-01…03)
   portfolioProjects: (ctx, schema) =>
     list(schema, demoPortfolio.portfolioProjects(ctx.params)),
@@ -936,6 +1077,7 @@ const DEMO: Record<string, Demo> = {
           ctx.project,
           ctx.params.id ?? "",
           ctx.params.with ?? "current",
+          ctx.money,
         )
       : undefined,
   exportDiff: () =>

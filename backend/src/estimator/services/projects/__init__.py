@@ -51,7 +51,7 @@ from estimator.realtime.bus import publish
 from estimator.security import audit
 from estimator.services import money
 from estimator.services.common import app_today, bump_version, log_change, user_ref
-from estimator.services.projects import journal
+from estimator.services.projects import journal, totals
 from estimator.services.tree.load import project_disciplines, project_phases
 from estimator.services.tree.positions import key_between, keys_after
 
@@ -172,6 +172,7 @@ async def create_project(db: AsyncSession, principal: Principal, data: NewProjec
     )
     await money.create_defaults(db, project.id, principal.user_id)
     await db.flush()
+    totals.schedule(db, project.id)  # кэш итогов для «Моих оценок» (CORE-026)
     journal.record(
         db,
         project.id,

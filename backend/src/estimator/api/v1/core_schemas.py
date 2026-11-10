@@ -508,3 +508,100 @@ class CopyProject(_Strict):
 
 class CopyFrom(_Strict):
     source_node_id: uuid.UUID
+
+
+# --- деньги проекта (CORE-030) ------------------------------------------------------------------
+
+
+class MoneyRow(_Strict):
+    discipline_id: uuid.UUID | None
+    amount: str
+
+
+class MoneyFigure(_Strict):
+    k: str | None
+    rows_rub: list[MoneyRow]
+    total_rub: str | None
+    vat_rub: str | None
+    total_with_vat_rub: str | None
+    rows_cur: list[MoneyRow]
+    total_cur: str | None
+    vat_cur: str | None
+    total_with_vat_cur: str | None
+
+
+class MoneyFigures(_Strict):
+    e: MoneyFigure = Field(default=None)  # type: ignore[assignment]
+    p80: MoneyFigure = Field(default=None)  # type: ignore[assignment]
+    p90: MoneyFigure = Field(default=None)  # type: ignore[assignment]
+
+
+class RateOut(_Strict):
+    discipline_id: uuid.UUID | None
+    rate_rub: str | None
+
+
+class ProjectMoneyOut(_Strict):
+    currency: str
+    exchange_rate: str
+    vat_rate_id: uuid.UUID
+    vat_percent: str | None
+    rates: list[RateOut]
+    rates_missing: list[str]
+    figures: MoneyFigures
+    updated_at: dt.datetime
+    project_version: int
+
+
+class RateIn(_Strict):
+    discipline_id: uuid.UUID | None
+    rate_rub: str | None = Field(pattern=r"^\d{1,7}$")
+
+
+class ProjectMoneyPut(_Strict):
+    currency: str = Field(default=None, pattern=r"^[A-Z]{3}$")  # type: ignore[assignment]
+    exchange_rate: DecimalString = Field(default=None)  # type: ignore[assignment]
+    vat_rate_id: uuid.UUID = Field(default=None)  # type: ignore[assignment]
+    rates: list[RateIn] = Field(default=None)  # type: ignore[assignment]
+
+
+# --- «Мои оценки» (CORE-033) --------------------------------------------------------------------
+
+
+class MyRole(_Strict):
+    role: ProjectRole
+    discipline_id: uuid.UUID | None
+    is_reviewer: bool
+
+
+class MyProgress(_Strict):
+    done: int
+    total: int
+
+
+class ProjectListItemMoney(_Strict):
+    currency: str
+    quote_cur: str | None
+    quote_rub: str | None
+    rates_missing: bool
+
+
+class ProjectListItem(_Strict):
+    id: uuid.UUID
+    name: str
+    customer: str
+    status: ProjectStatus
+    my_roles: list[MyRole]
+    my_progress: MyProgress | None = Field(default=None)
+    deadline: dt.date | None
+    deadline_alert: bool
+    questions_to_me: int
+    updated_at: dt.datetime
+    quote_figure: QuoteFigure
+    quote_hours: str | None
+    money: ProjectListItemMoney = Field(default=None)  # type: ignore[assignment]
+
+
+class ProjectList(_Strict):
+    items: list[ProjectListItem]
+    next_cursor: str | None

@@ -30,7 +30,7 @@ from estimator.db.uuid7 import uuid7
 from estimator.security import audit
 from estimator.services import money
 from estimator.services.common import app_today
-from estimator.services.projects import journal
+from estimator.services.projects import journal, totals
 from estimator.services.tree.load import NODES_LIMIT
 
 NAME_MAX = 200
@@ -251,6 +251,7 @@ async def copy_project(
     rates = await _is_moderator(db, source.id, user_id)
     await money.create_defaults(db, target.id, user_id)
     await db.flush()
+    totals.schedule(db, target.id)  # кэш итогов для «Моих оценок» (CORE-026)
     if rates:
         await money.copy_settings(db, source.id, target.id, user_id)
     await db.flush()

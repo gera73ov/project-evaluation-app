@@ -2,10 +2,9 @@
  * FE-044 · сравнение со снимком (SPEC 11.12, FR-SNAP-03/04/05; DESIGN.md 10.11): выбор «что с чем»
  * (слева — текущее состояние или снимок, справа — снимок; ошибочные зачёркнуты, но выбираются),
  * сводка E и P80 «было → стало», денежные карточки только когда сервер прислал `money`, фильтры
- * видов изменения с числами, таблица строк, пояснение про УП и «Экспорт сравнения в Excel».
- *
- * Значений O–R–P «было → стало» и строк параметров в контракте пока нет (CR-008): вместо значений
- * показываются имена изменённых полей.
+ * видов изменения и «Параметры» с числами, таблица «было → стало (O–R–P × N)» с ΔE и «кто и когда
+ * последним», строки параметров проекта (денежные — только с деньгами, их присылает сервер),
+ * пояснение про пересчёт УП и «Экспорт сравнения в Excel». Контракт строк — CR-008.
  */
 import { Button, Select } from '@mantine/core';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -17,16 +16,27 @@ import { api, type components } from '../../shared/api/client';
 import { ExportTimeout, downloadExport } from '../../shared/api/exports';
 import { call, errorMessage } from '../../shared/api/problem';
 import { formatDateTime } from '../../shared/format/date';
-import { formatHours, formatNumber } from '../../shared/format/number';
+import { formatHours, formatHoursInput, formatNumber, formatRate } from '../../shared/format/number';
 import { ErrorText } from '../../shared/ui/ErrorText';
 import { useProject } from '../settings/useProject';
-import { statsKey } from '../stats/grid/ReadinessPage';
 import { snapshotsKey } from '../stats/details/SnapshotsPage';
-import { CHANGES, beforeAfter, compareHref, countByChange, deltaTone, pmDelta, sidesOf, type Change } from './compare';
+import {
+  FILTERS,
+  compareHref,
+  countByFilter,
+  deltaPct,
+  deltaTone,
+  forkOf,
+  sidesOf,
+  type Change,
+  type DiffParam,
+  type DiffRow,
+  type Filter,
+} from './compare';
 
 type Snapshot = components['schemas']['Snapshot'];
 type Diff = components['schemas']['Diff'];
-type Stats = components['schemas']['Stats'];
+type DiffMoney = components['schemas']['DiffMoney'];
 
 const CHANGE_TONE = new Map<Change, string>([
   ['added', 'ok'],
@@ -43,7 +53,7 @@ export function ComparePage({ projectId }: { projectId: string }) {
   const sides = sidesOf(useSearchParam('a'), useSearchParam('b'));
   const project = useProject(projectId);
   const perms = project.data?.my_permissions ?? [];
-  const [filter, setFilter] = useState<Change | null>(null);
+  const [filter, setFilter] = useState<Filter | null>(null);
   const snapshots = useQuery({
     queryKey: snapshotsKey(projectId),
     queryFn: () => call(() => api.GET('/projects/{id}/snapshots', { params: { path: { id: projectId } } })),
@@ -59,14 +69,6 @@ export function ComparePage({ projectId }: { projectId: string }) {
       ),
     select: (data) => data as Diff,
     enabled: sides !== null,
-  });
-  const leftIsCurrent = sides?.left === 'current';
-  /** Текущая сумма «в КП» — последняя точка денежной динамики статистики. */
-  const stats = useQuery({
-    queryKey: statsKey(projectId),
-    queryFn: () => call(() => api.GET('/projects/{id}/stats', { params: { path: { id: projectId } } })),
-    select: (data) => data as Stats,
-    enabled: leftIsCurrent && diff.data?.money !== undefined,
   });
   const exporting = useMutation({
     mutationFn: () =>
@@ -92,9 +94,13 @@ export function ComparePage({ projectId }: { projectId: string }) {
   });
   const go = (left: string, right: string) => navigate(compareHref(projectId, left, right));
   const data = diff.data;
-  const rows = (data?.rows ?? []).filter((r) => filter === null || r.change === filter);
-  const counts = countByChange(data?.rows ?? []);
-  const base = sides ? byId.get(sides.right) : undefined;
+  const params = data?.params ?? [];
+  const rows: DiffRow[] =
+    filter === 'params' ? [] : (data?.rows ?? []).filter((r) => filter === null || r.change === filter);
+  const paramRows: DiffParam[] = filter === null || filter === 'params' ? params : [];
+  const counts = countByFilter(data?.rows ?? [], params);
+  const when = (by: { full_name: string } | null, at: string | null) =>
+    by ? `${by.full_name}${at ? ` · ${formatDateTime(at, undefined, true)}` : ''}` : '—';
 
   return (
     <div className="settings stats compare">
@@ -146,40 +152,26 @@ export function ComparePage({ projectId }: { projectId: string }) {
       </div>
       {!sides ? <p className="card-hint">{t('compare.none')}</p> : null}
       <ErrorText error={diff.error ?? snapshots.error} />
-      {data && base ? (
+      {data ? (
         <>
           <div className="cmp-cards">
-            <SummaryCard label={t('compare.totalE')} before={base.totals.e} delta={data.totals_delta.e} pct />
-            <SummaryCard label={t('compare.totalP80')} before={base.totals.p80} delta={data.totals_delta.p80} />
-            {data.money ? (
-              <>
-                <section className="cmp-card money" aria-label={t('compare.rub')}>
-                  <div className="lbl">🔒 {t('compare.rub')}</div>
-                  {/* «было → стало» в рублях в контракте пока нет (CR-008) — только разница */}
-                  <div className="val">
-                    {data.money.total_delta_rub === null ? '—' : `${signed(data.money.total_delta_rub, 0)} ₽`}
-                  </div>
-                  <div className="dl">
-                    {data.money.rates_effect_rub === null || data.money.rates_effect_rub === '0'
-                      ? t('compare.ratesSame')
-                      : t('compare.ratesEffect', { value: signed(data.money.rates_effect_rub, 0) })}
-                  </div>
-                </section>
-                <CurrencyCard
-                  before={base.money?.quote_cur ?? null}
-                  after={
-                    leftIsCurrent
-                      ? (stats.data?.money?.dynamics?.at(-1)?.quote_cur ?? null)
-                      : (byId.get(sides?.left ?? '')?.money?.quote_cur ?? null)
-                  }
-                  currency={base.money?.currency ?? ''}
-                  exchange={data.money.exchange_effect_cur}
-                />
-              </>
-            ) : null}
+            <SummaryCard
+              label={t('compare.totalE')}
+              before={data.base.totals.e}
+              after={data.with.totals.e}
+              delta={data.totals_delta.e}
+              pct
+            />
+            <SummaryCard
+              label={t('compare.totalP80')}
+              before={data.base.totals.p80}
+              after={data.with.totals.p80}
+              delta={data.totals_delta.p80}
+            />
+            {data.money ? <MoneyCards money={data.money} /> : null}
           </div>
           <div className="chips cmp-chips" role="group" aria-label={t('compare.filter')}>
-            {([null, ...CHANGES] as const).map((c) => (
+            {([null, ...FILTERS] as const).map((c) => (
               <button
                 key={c ?? 'all'}
                 type="button"
@@ -192,14 +184,14 @@ export function ComparePage({ projectId }: { projectId: string }) {
             ))}
           </div>
           <section className="card cmp-table-card">
-            {rows.length === 0 ? <p className="card-hint">{t('compare.empty')}</p> : null}
-            {rows.length > 0 ? (
+            {rows.length + paramRows.length === 0 ? <p className="card-hint">{t('compare.empty')}</p> : null}
+            {rows.length + paramRows.length > 0 ? (
               <table className="t cmp-table">
                 <thead>
                   <tr>
                     <th>{t('compare.change')}</th>
                     <th>{t('compare.node')}</th>
-                    <th>{t('compare.fields')}</th>
+                    <th>{t('compare.values')}</th>
                     <th className="r">{t('compare.deltaE')}</th>
                     <th>{t('compare.lastBy')}</th>
                   </tr>
@@ -216,29 +208,46 @@ export function ComparePage({ projectId }: { projectId: string }) {
                         <span className="sub">{r.path.map((p) => `${p} › `).join('')}</span>
                         <b>{r.title}</b>
                       </td>
-                      <td className="sub">
-                        {r.change === 'changed' || r.change === 'moved'
-                          ? r.fields.length > 0
-                            ? t('compare.changedFields', {
-                                fields: r.fields.map((f) => t(`compare.field.${f}`, { defaultValue: f })).join(', '),
-                              })
-                            : '—'
-                          : r.change === 'added'
-                            ? t('compare.wasNone')
-                            : t('compare.nowNone')}
+                      <td>
+                        <BeforeAfter before={forkOf(r.before)} after={forkOf(r.after)} />
                       </td>
                       <td className={`r num ${deltaTone(r.delta_e) ?? ''}`}>{signed(r.delta_e, 1)}</td>
-                      <td>{r.last_changed_by?.full_name ?? '—'}</td>
+                      <td>{when(r.last_changed_by, r.last_changed_at)}</td>
+                    </tr>
+                  ))}
+                  {paramRows.map((r) => (
+                    <tr
+                      key={`${r.key}-${r.discipline_id ?? ''}-${r.phase_id ?? ''}`}
+                      className={r.is_money ? 'cmp-param money' : 'cmp-param'}
+                    >
+                      <td>
+                        <span className="pill money">
+                          {t('compare.kind.param')}
+                          {r.is_money ? ' 🔒' : ''}
+                        </span>
+                      </td>
+                      <td>{r.label}</td>
+                      <td>
+                        <BeforeAfter before={paramValue(r, r.before, t)} after={paramValue(r, r.after, t)} />
+                      </td>
+                      <td className="r num">—</td>
+                      <td>{when(r.last_changed_by, r.last_changed_at)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : null}
             <p className="card-hint">
-              {t('compare.pmNote', {
-                pct: project.data ? formatNumber(project.data.pm_percent, 1) : '—',
-                delta: signed(pmDelta(data), 1),
-              })}
+              {data.pm
+                ? `${t('compare.pmNote', {
+                    pct: formatHoursInput(data.pm.percent_after),
+                    delta: signed(data.pm.delta_e, 1),
+                  })} `
+                : ''}
+              {data.pm && data.pm.percent_before !== data.pm.percent_after
+                ? `${t('compare.pmPercent', { before: formatHoursInput(data.pm.percent_before), after: formatNumber(data.pm.percent_after, 1) })} `
+                : ''}
+              {t('compare.byId')}
             </p>
           </section>
         </>
@@ -247,57 +256,88 @@ export function ComparePage({ projectId }: { projectId: string }) {
   );
 }
 
+/** «было» зачёркнуто, «—» — значения на этой стороне нет. */
+function BeforeAfter({ before, after }: { before: string | null; after: string | null }) {
+  return (
+    <span className="cmp-ba">
+      {before === null ? '—' : <s>{before}</s>} → {after ?? '—'}
+    </span>
+  );
+}
+
+/** Значение параметра для таблицы: курс и ставки — числом, флаги — словами, коды — как есть. */
+function paramValue(r: DiffParam, value: string | null, t: (k: string) => string): string | null {
+  if (value === null) return null;
+  if (value === 'true' || value === 'false') return t(`compare.flag.${value}`);
+  if (r.key === 'exchange_rate') return formatRate(value);
+  if (r.key === 'pm_percent' || r.key === 'vat') return `${formatHoursInput(value)}%`;
+  if (r.key === 'rate') return `${formatNumber(value, 0)} ₽/ч`;
+  return value;
+}
+
+function MoneyCards({ money }: { money: DiffMoney }) {
+  const { t } = useTranslation();
+  const cur = money.with.currency;
+  const label = t('compare.cur', { currency: cur });
+  const rateChanged = money.base.exchange_rate !== money.with.exchange_rate;
+  return (
+    <>
+      <section className="cmp-card money" aria-label={t('compare.rub')}>
+        <div className="lbl">🔒 {t('compare.rub')}</div>
+        <div className="val">
+          {amount(money.base.total_rub)} → {amount(money.with.total_rub)}
+        </div>
+        <div className={`dl ${money.total_delta_rub ? (deltaTone(money.total_delta_rub) ?? '') : ''}`}>
+          {money.total_delta_rub === null ? '—' : `${signed(money.total_delta_rub, 0)} ₽`}{' '}
+          {money.rates_changed && money.rates_effect_rub !== null
+            ? `(${t('compare.ratesEffect', { value: signed(money.rates_effect_rub, 0) })})`
+            : `(${t('compare.ratesSame')})`}
+        </div>
+      </section>
+      <section className="cmp-card money" aria-label={label}>
+        <div className="lbl">🔒 {label}</div>
+        <div className="val">
+          {amount(money.base.total_cur)} → {amount(money.with.total_cur)}
+        </div>
+        <div className={`dl ${money.total_delta_cur ? (deltaTone(money.total_delta_cur) ?? '') : ''}`}>
+          {money.total_delta_cur === null ? '—' : `${signed(money.total_delta_cur, 0)} ${cur}`}
+          {rateChanged && money.exchange_effect_cur !== null
+            ? `, ${t('compare.exchangeEffect', {
+                before: formatNumber(money.base.exchange_rate, 1),
+                after: formatNumber(money.with.exchange_rate, 1),
+                value: signed(money.exchange_effect_cur, 0),
+              })}`
+            : ''}
+        </div>
+      </section>
+    </>
+  );
+}
+
+const amount = (v: string | null) => (v === null ? '—' : formatNumber(v, 0));
+
 function SummaryCard({
   label,
   before,
+  after,
   delta,
   pct = false,
 }: {
   label: string;
   before: string;
+  after: string;
   delta: string;
   pct?: boolean;
 }) {
-  const v = beforeAfter(before, delta);
+  const p = deltaPct(before, delta);
   return (
     <section className="cmp-card" aria-label={label}>
       <div className="lbl">{label}</div>
       <div className="val">
-        {formatHours(v.before)} → {formatHours(v.after, { unit: true })}
+        {formatHours(before)} → {formatHours(after, { unit: true })}
       </div>
       <div className={`dl ${deltaTone(delta) ?? ''}`}>
-        {signed(delta, 1)} ч
-        {pct && v.pct !== null ? ` (${v.pct > 0 ? '+' : ''}${formatNumber(String(v.pct), 1)}%)` : ''}
-      </div>
-    </section>
-  );
-}
-
-function CurrencyCard({
-  before,
-  after,
-  currency,
-  exchange,
-}: {
-  before: string | null;
-  after: string | null;
-  currency: string;
-  exchange: string | null;
-}) {
-  const { t } = useTranslation();
-  const label = t('compare.cur', { currency });
-  const delta = before !== null && after !== null ? String(Number(after) - Number(before)) : null;
-  return (
-    <section className="cmp-card money" aria-label={label}>
-      <div className="lbl">🔒 {label}</div>
-      <div className="val">
-        {before === null ? '—' : formatNumber(before, 0)} → {after === null ? '—' : formatNumber(after, 0)}
-      </div>
-      <div className={`dl ${delta ? (deltaTone(delta) ?? '') : ''}`}>
-        {delta === null ? '—' : `${signed(delta, 0)} ${currency}`}
-        {exchange !== null && exchange !== '0'
-          ? `, ${t('compare.exchangeEffect', { value: signed(exchange, 0) })}`
-          : ''}
+        {signed(delta, 1)} ч{pct && p !== null ? ` (${p > 0 ? '+' : ''}${formatNumber(String(p), 1)}%)` : ''}
       </div>
     </section>
   );

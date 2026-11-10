@@ -148,3 +148,11 @@ def test_os_user_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("getpass.getuser", no_user)
     assert cli._os_user() == "unknown"
+
+
+@pytest.mark.spec("17.4")
+def test_seed_demo_refuses_on_prod(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli.load_commands()
+    monkeypatch.setenv("APP_ENV", "prod")
+    result = runner.invoke(cli.app, ["seed-demo", "--password", "x"])
+    assert result.exit_code == EXIT_FORBIDDEN_ENV

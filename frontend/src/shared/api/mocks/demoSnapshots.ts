@@ -148,43 +148,90 @@ type Totals = { e: string; sigma: string; p80: string; p90: string };
 const nodeKey = (p: DemoProject, key: string) => uuidFrom("node", p.key, key);
 
 /**
- * Строки сравнения демо: доли общей разницы E по листам «Портала дилеров» (обмен с 1С изменён,
- * тесты обмена добавлены, регресс изменён по ×N); остаток — пересчёт УП. Отрицательную разницу
- * контракт пока не допускает (CR-008), поэтому строки только с ростом.
+ * Строки сравнения демо — как на макете `compare.png` (CR-008): обмен с 1С и дашборд изменены,
+ * тесты обмена добавлены, прототипы удалены; O–R–P «было → стало», ΔE по листу со знаком.
+ * Остаток разницы итога E — пересчёт УП (строка-пояснение `pm`).
  */
+type Orp = [string, string, string];
 const DIFF_ROWS: {
   key: string;
-  change: "added" | "changed";
+  change: "added" | "removed" | "changed";
   title: string;
   path: string[];
-  share: string;
+  before: Orp | null;
+  after: Orp | null;
   fields: string[];
-  by: "expert" | "orlova";
+  by: keyof typeof PEOPLE | "expert";
+  at: string;
 }[] = [
   {
     key: "n-1c",
     change: "changed",
     title: "Обмен с 1С",
     path: ["Разработка", "Бэкенд"],
-    share: "0.55",
+    before: ["30", "40", "60"],
+    after: ["40", "60", "100"],
     fields: ["o", "r", "p"],
     by: "expert",
+    at: "2026-11-01T11:07:00Z",
   },
   {
     key: "n-1c-tests",
     change: "added",
     title: "Тесты обмена с 1С",
     path: ["Тестирование", "QA"],
-    share: "0.3",
+    before: null,
+    after: ["8", "12", "24"],
     fields: [],
     by: "orlova",
+    at: "2026-11-02T09:30:00Z",
+  },
+  {
+    key: "n-dashboard",
+    change: "changed",
+    title: "Дашборд",
+    path: ["Разработка", "Фронтенд"],
+    before: ["20", "28", "48"],
+    after: ["16", "24", "40"],
+    fields: ["o", "r", "p"],
+    by: "petrov",
+    at: "2026-11-02T12:15:00Z",
+  },
+  {
+    key: "n-prototypes",
+    change: "removed",
+    title: "Прототипы",
+    path: ["Анализ и проектирование", "Аналитика"],
+    before: ["4", "6", "10"],
+    after: null,
+    fields: [],
+    by: "kuznetsova",
+    at: "2026-11-01T17:40:00Z",
   },
 ];
 
+/** Оценка листа для строки сравнения: E = (O + 4R + P) / 6 × N. */
+function estimate(orp: Orp | null) {
+  if (!orp) return null;
+  const [o, r, p] = orp;
+  const e = new Decimal(o).plus(new Decimal(r).times(4)).plus(p).div(6);
+  return { o, r, p, multiplier: 1, e: hours(e.toFixed(2)) };
+}
+
 /** Итоги стороны сравнения: `current` — текущий проект, иначе снимок. */
 function totalsOf(p: DemoProject, side: string): Totals | null {
-  if (side === "current") return p.totals.total as unknown as Totals;
-  return snapshotsOf(p).find((s) => s.id === side)?.totals ?? null;
+  const t =
+    side === "current"
+      ? (p.totals.total as unknown as Totals)
+      : snapshotsOf(p).find((s) => s.id === side)?.totals;
+  if (!t) return null;
+  // HoursTotals: только E, σ, P80, P90 с двумя знаками
+  return {
+    e: hours(t.e),
+    sigma: hours(t.sigma),
+    p80: hours(t.p80),
+    p90: hours(t.p90),
+  };
 }
 
 function quoteOf(p: DemoProject, side: string): string | null {
@@ -197,13 +244,14 @@ const labelOf = (p: DemoProject, side: string) =>
     ? "Текущее состояние"
     : (snapshotsOf(p).find((s) => s.id === side)?.name ?? side);
 
-const minus = (a: string, b: string) => {
-  const d = new Decimal(a).minus(b);
-  return hours((d.isNegative() ? new Decimal(0) : d).toFixed(2));
-};
+/** Разница со знаком (SignedHoursString). */
+const minus = (a: string, b: string) => new Decimal(a).minus(b).toFixed(2);
 
-/** `GET /snapshots/{id}/diff?with=`: «было» — снимок `id`, «стало» — `with`. */
-export function diffOf(p: DemoProject, id: string, side: string) {
+/** Курс КП в снимках демо — 90 (макет: «курс 90,0 → 92,5»). */
+const SNAPSHOT_RATE = "90.0000";
+
+/** Сравнение снимка `id` со стороной `side`; `money` — роль видит деньги (BR-MONEY-01). */
+export function diffOf(p: DemoProject, id: string, side: string, money = true) {
   const base = totalsOf(p, id);
   const next = totalsOf(p, side);
   if (!base || !next) return undefined;
@@ -214,49 +262,110 @@ export function diffOf(p: DemoProject, id: string, side: string) {
     p90: minus(next.p90, base.p90),
   };
   const grows = new Decimal(delta.e).greaterThan(0);
-  const people = new Map<string, ReturnType<typeof userRef>>([
-    ["expert", userRef(PERSONAS.expert)],
-    ["orlova", userRef(PEOPLE.orlova)],
-  ]);
+  const personOf = (key: string) =>
+    key === "expert"
+      ? userRef(PERSONAS.expert)
+      : userRef(PEOPLE[key as keyof typeof PEOPLE]);
   const rows = grows
-    ? DIFF_ROWS.map((r) => ({
-        node_id: nodeKey(p, r.key),
-        change: r.change,
-        title: r.title,
-        path: r.path,
-        delta_e: hours(new Decimal(delta.e).times(r.share).toFixed(2)),
-        fields: r.fields,
-        last_changed_by: people.get(r.by) ?? userRef(PERSONAS.moderator),
-      }))
+    ? DIFF_ROWS.map((r) => {
+        const before = estimate(r.before);
+        const after = estimate(r.after);
+        return {
+          node_id: nodeKey(p, r.key),
+          change: r.change,
+          title: r.title,
+          path: r.path,
+          before,
+          after,
+          delta_e: minus(after?.e ?? "0", before?.e ?? "0"),
+          fields: r.fields,
+          last_changed_by: personOf(r.by),
+          last_changed_at: r.at,
+        };
+      })
     : [];
-  const quoteBase = quoteOf(p, id);
-  const quoteNext = quoteOf(p, side);
-  const rub = p.money.figures.p80.total_rub;
-  const rubDelta = new Decimal(rub)
-    .times(new Decimal(delta.p80).div(next.p80 === "0.00" ? 1 : next.p80))
-    .round();
+  const rowsE = rows.reduce((acc, r) => acc.plus(r.delta_e), new Decimal(0));
+  const pmE = new Decimal(delta.e).minus(rowsE);
+  const pct = p.key === "portal" ? "18" : "15";
+  const current = side === "current";
+  const rateNext = current
+    ? new Decimal(p.money.exchangeRate).toFixed(4)
+    : SNAPSHOT_RATE;
+  const params = current
+    ? [
+        {
+          key: "exchange_rate" as const,
+          label: `Курс ${p.money.currency}`,
+          discipline_id: null,
+          phase_id: null,
+          before: SNAPSHOT_RATE,
+          after: rateNext,
+          is_money: true,
+          last_changed_by: userRef(PERSONAS.moderator),
+          last_changed_at: "2026-11-02T10:00:00Z",
+        },
+      ].filter((r) => money || !r.is_money)
+    : [];
+  // деньги сторон: «стало» — цифра КП, «было» — та же цифра по доле P80 и курсу снимка
+  const curNext = quoteOf(p, side);
+  const curBase = quoteOf(p, id);
+  const rubNext =
+    curNext === null
+      ? null
+      : current
+        ? new Decimal(p.money.figures.p80.total_rub)
+        : new Decimal(curNext).times(rateNext).round();
+  const rubBase =
+    curBase === null ? null : new Decimal(curBase).times(SNAPSHOT_RATE).round();
+  const rubDelta =
+    rubNext !== null && rubBase !== null ? rubNext.minus(rubBase) : null;
+  const curDelta =
+    curNext !== null && curBase !== null
+      ? new Decimal(curNext).minus(curBase).round()
+      : null;
+  // вклад курса: рублёвая сумма «стало» по курсу «было» и по курсу «стало»
+  const exchangeEffect =
+    rubNext === null
+      ? null
+      : rubNext.div(rateNext).minus(rubNext.div(SNAPSHOT_RATE)).round();
   return {
-    base: { snapshot_id: id, label: labelOf(p, id) },
+    base: { snapshot_id: id, label: labelOf(p, id), totals: base },
     with: {
-      snapshot_id: side === "current" ? null : side,
+      snapshot_id: current ? null : side,
       label: labelOf(p, side),
+      totals: next,
     },
     rows,
+    params,
+    pm: pmE.isZero()
+      ? null
+      : { percent_before: pct, percent_after: pct, delta_e: pmE.toFixed(2) },
     totals_delta: delta,
     money: {
+      base: {
+        total_rub: rubBase?.toFixed(0) ?? null,
+        total_cur: curBase,
+        currency: p.money.currency,
+        exchange_rate: SNAPSHOT_RATE,
+      },
+      with: {
+        total_rub: rubNext?.toFixed(0) ?? null,
+        total_cur: curNext,
+        currency: p.money.currency,
+        exchange_rate: rateNext,
+      },
       rows: rows.map((r) => ({
         node_id: r.node_id,
-        delta_cost_rub: rubDelta
-          .times(new Decimal(r.delta_e).div(delta.e === "0.00" ? 1 : delta.e))
-          .round()
-          .toFixed(0),
+        delta_cost_rub:
+          rubDelta === null || delta.e === "0.00"
+            ? null
+            : rubDelta.times(r.delta_e).div(delta.e).round().toFixed(0),
       })),
+      rates_changed: false,
       rates_effect_rub: "0",
-      exchange_effect_cur:
-        side === "current" && quoteBase !== null && quoteNext !== null
-          ? new Decimal(quoteBase).times("-0.027").round().toFixed(0)
-          : "0",
-      total_delta_rub: rubDelta.toFixed(0),
+      exchange_effect_cur: exchangeEffect?.toFixed(0) ?? null,
+      total_delta_rub: rubDelta?.toFixed(0) ?? null,
+      total_delta_cur: curDelta?.toFixed(0) ?? null,
     },
   };
 }

@@ -7,11 +7,14 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import '../shared/i18n';
+import { resetDemoAuth } from '../shared/api/mocks/demoAuth';
 import { resetDemoDiscussions } from '../shared/api/mocks/demoDiscussions';
 import { resetDemoDocuments } from '../shared/api/mocks/demoDocuments';
 import { resetDemoOutcome } from '../shared/api/mocks/demoOutcome';
 import { resetDemoPortfolio } from '../shared/api/mocks/demoPortfolio';
 import { resetDemoSnapshots } from '../shared/api/mocks/demoSnapshots';
+import { resetDemoSetup } from '../shared/api/mocks/demoSetup';
+import { resetDemoSystem } from '../shared/api/mocks/demoSystem';
 import { resetDemoTree } from '../shared/api/mocks/demoTree';
 import { buildHandlers } from '../shared/api/mocks/handlers';
 import { PERSONAS, type Persona } from '../shared/api/mocks/personas';
@@ -55,6 +58,9 @@ if (browser) {
     resetDemoOutcome();
     resetDemoPortfolio();
     resetDemoSnapshots();
+    resetDemoSystem();
+    resetDemoAuth();
+    resetDemoSetup();
     window.history.replaceState(null, '', '/');
   });
   afterAll(() => server.close());

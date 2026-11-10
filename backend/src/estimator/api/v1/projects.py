@@ -13,12 +13,15 @@ import datetime as dt
 import uuid
 from typing import Any
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Query, Request
 from sqlalchemy import func, select
 
+from estimator.api.common.errors import ApiError
+from estimator.api.common.pagination import PageParams, encode_cursor
 from estimator.api.common.router import ApiRouter
 from estimator.api.v1 import core_schemas as s
 from estimator.auth.mfa_policy import ActivePrincipal
+from estimator.db.enums import ProjectRole, ProjectStatus
 from estimator.db.models.projects import Project, SupportSession
 from estimator.db.session import DbSession
 from estimator.security.authz import Access, Authorizer, AuthorizerDep, Target
@@ -26,7 +29,7 @@ from estimator.security.authz.catalog import PSEUDO
 from estimator.security.authz.engine import AccessDenied, decide
 from estimator.services import projects as service
 from estimator.services.projects import copy as project_copy
-from estimator.services.projects import lifecycle
+from estimator.services.projects import home, lifecycle
 
 router = ApiRouter(tags=["Проекты"])
 
@@ -80,6 +83,37 @@ async def _body(db: DbSession, authz: Authorizer, project: Project, access: Acce
         my_permissions=await my_permissions(authz, project),
         support_expires_at=expires,
     )
+
+
+HOME_SCOPE = "my-projects"
+
+
+@router.get(
+    "/projects",
+    permission="project.list_mine",
+    response_model=s.ProjectList,
+    response_model_exclude_unset=True,
+)
+async def list_projects(
+    principal: ActivePrincipal,
+    db: DbSession,
+    page: PageParams,
+    status: ProjectStatus | None = None,
+    role: ProjectRole | None = None,
+    q: str | None = Query(default=None, max_length=200),
+) -> dict[str, Any]:
+    """«Мои оценки» (FR-HOME-01/02/04): проекты, где пользователь участник."""
+    after = page.position(HOME_SCOPE)
+    key = None if after is None else after.get("k")
+    if after is not None and not (isinstance(key, list) and len(key) == 4):
+        raise ApiError("CURSOR_INVALID")
+    items, last = await home.my_projects(
+        db, principal, home.HomeFilter(status, role, q), after=key, limit=page.limit
+    )
+    return {
+        "items": items,
+        "next_cursor": encode_cursor(HOME_SCOPE, {"k": last}) if last else None,
+    }
 
 
 @router.post(

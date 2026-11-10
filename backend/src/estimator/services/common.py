@@ -68,8 +68,15 @@ async def app_today(db: AsyncSession, now: dt.datetime | None = None) -> dt.date
 
 
 async def bump_version(db: AsyncSession, project_id: uuid.UUID) -> int:
-    """``projects.version++`` атомарно (одной командой UPDATE … RETURNING), новая версия."""
-    return int((await db.execute(_BUMP, {"id": project_id})).scalar_one())
+    """``projects.version++`` атомарно (одной командой UPDATE … RETURNING), новая версия.
+
+    Новая версия — повод пересчитать кэш итогов проекта (CORE-026, ARCH-03).
+    """
+    from estimator.services.projects.totals import schedule
+
+    version = int((await db.execute(_BUMP, {"id": project_id})).scalar_one())
+    schedule(db, project_id)
+    return version
 
 
 def log_change(
