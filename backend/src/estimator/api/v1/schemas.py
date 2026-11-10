@@ -78,3 +78,20 @@ class SessionList(_Out):
 class NotificationSettings(_Out):
     notify_digest: bool
     notify_questions: bool
+
+
+class SystemUserItem(_Out):
+    """Учётка на экране «Анонимизация» (CR-010): без почты и проектных данных."""
+
+    id: uuid.UUID
+    login: str
+    full_name: str
+    roles: list[SystemRole]
+    status: Literal["blocked", "anonymized"]
+    blocked_at: datetime | None
+    last_login_at: datetime | None
+
+
+class SystemUserList(_Out):
+    items: list[SystemUserItem]
+    next_cursor: str | None

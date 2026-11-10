@@ -3,8 +3,8 @@
 Две проверки на одном описании контракта:
 
 * :func:`compare_operation` — статическая: OpenAPI, который строит FastAPI, против контракта
-  оператор за оператором (путь и метод, право, успешные коды, параметры, схема тела запроса и
-  успешного ответа). Её гоняет ``test_openapi_implementation.py``.
+  оператор за оператором (путь и метод, право, step-up, успешные коды, параметры, схема тела
+  запроса и успешного ответа). Её гоняет ``test_openapi_implementation.py``.
 * :func:`check_response` — по живому трафику: каждый ответ API-тестов сверяется с контрактом
   (код объявлен у операции, тело проходит схему, ошибки — ``application/problem+json``). Её
   подключает фикстура ``api`` (``tests/integration/auth/conftest.py``) хуком httpx.
@@ -178,6 +178,11 @@ def compare_operation(
         issues.append(
             f"право: реализация {gen_op.get('x-permission')!r}, "
             f"контракт {con_op.get('x-permission')!r}"
+        )
+    if bool(gen_op.get("x-step-up")) != bool(con_op.get("x-step-up")):
+        issues.append(
+            f"step-up: реализация {bool(gen_op.get('x-step-up'))}, "
+            f"контракт {bool(con_op.get('x-step-up'))}"
         )
     gen_codes = _declared_codes(gen_op)
     con_codes = set(con_op.get("responses", {}))

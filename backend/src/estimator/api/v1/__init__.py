@@ -19,6 +19,7 @@ from estimator.api.v1 import (
     nodes,
     notifications,
     projects,
+    system_users,
     trash,
     tree,
     view_state,
@@ -43,3 +44,4 @@ router.include_router(node_types.router)
 router.include_router(notifications.router)
 router.include_router(discussions.router)
 router.include_router(admin_calendar.router)
+router.include_router(system_users.router)

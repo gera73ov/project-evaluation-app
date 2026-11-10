@@ -53,7 +53,7 @@ def _app() -> tuple[FastAPI, TestClient]:
 
 
 def test_permission_in_openapi(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(router_module, "gate", lambda codes: Depends(lambda: None))
+    monkeypatch.setattr(router_module, "gate", lambda codes, step_up=True: Depends(lambda: None))
     app, _ = _app()
     paths = app.openapi()["paths"]
     assert paths["/v1/open"]["get"]["x-permission"] == "public"
@@ -74,7 +74,7 @@ def test_route_keeps_permission() -> None:
 def test_gate_of_sec005_is_used(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = []
 
-    def gate(codes: tuple[str, ...]):
+    def gate(codes: tuple[str, ...], step_up: bool = True):
         async def check() -> None:
             calls.append(codes)
             if "money.read" in codes:
@@ -90,3 +90,32 @@ def test_gate_of_sec005_is_used(monkeypatch: pytest.MonkeyPatch) -> None:
     r = client.get("/v1/any")
     assert (r.status_code, r.json()["code"]) == (403, "TOTP_REQUIRED")
     assert calls == [("project.read",), ("money.read", "money.write")]
+
+
+@pytest.mark.spec("SEC-AUTH-05")
+def test_step_up_is_per_operation(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, bool] = {}
+
+    def gate(codes: tuple[str, ...], step_up: bool = True):
+        seen[codes[0]] = step_up
+        return Depends(lambda: None)
+
+    monkeypatch.setattr(router_module, "gate", gate)
+    router = ApiRouter()
+
+    @router.post("/write", permission="system.settings.write")
+    async def write() -> None: ...
+
+    @router.get("/list", permission="system.users.anonymize", step_up=False)
+    async def list_() -> None: ...
+
+    app = FastAPI()
+    app.include_router(router)
+    paths = app.openapi()["paths"]
+    assert paths["/write"]["post"]["x-step-up"] is True
+    assert "x-step-up" not in paths["/list"]["get"]
+    assert seen == {"system.settings.write": True, "system.users.anonymize": False}
+    with pytest.raises(TypeError, match="step-up"):
+
+        @router.get("/read", permission="project.read", step_up=True)
+        async def read() -> None: ...

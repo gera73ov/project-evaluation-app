@@ -218,6 +218,15 @@ def test_step_up_required() -> None:
                    Target()) == "OK"  # fmt: skip
 
 
+@pytest.mark.spec("SEC-AUTH-05")
+def test_step_up_follows_operation() -> None:
+    """Операция без x-step-up (список «Анонимизация») не требует step-up, хотя у права он есть."""
+    decide(CAT, SUPER, "system.users.anonymize", Target(), step_up=False)
+    decide_any(CAT, SUPER, ("system.users.anonymize",), Target(), step_up=False)
+    with pytest.raises(AccessDenied, match="STEP_UP_REQUIRED"):
+        decide_any(CAT, SUPER, ("system.users.anonymize",), Target())
+
+
 @pytest.mark.spec("BR-ROLE-02")
 def test_unless_role_and_superadmin_has_no_user_role() -> None:
     assert code_of("dict.read", STRANGER, Target()) == "OK"
