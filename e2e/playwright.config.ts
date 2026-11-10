@@ -32,6 +32,9 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     ...devices['Desktop Chrome'],
+    // Chromium берёт кодировку имён файлов из локали процесса: без UTF-8 (LANG пуст в контейнерах)
+    // кириллическое имя выгрузки («Проект_дата_вопросы.docx») он заменяет на «download».
+    launchOptions: { env: { ...process.env, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } },
   },
   webServer: external
     ? undefined
