@@ -32,12 +32,14 @@ import {
 } from "./data";
 import * as demoAudit from "./demoAudit";
 import * as demoAuth from "./demoAuth";
+import * as demoCalendar from "./demoCalendar";
 import * as demoDictionaries from "./demoDictionaries";
 import * as demoDiscussions from "./demoDiscussions";
 import * as demoDocuments from "./demoDocuments";
 import * as demoExports from "./demoExports";
 import * as demoOutcome from "./demoOutcome";
 import * as demoPortfolio from "./demoPortfolio";
+import * as demoProposed from "./demoProposed";
 import * as demoSetup from "./demoSetup";
 import * as demoSnapshots from "./demoSnapshots";
 import * as demoStatsDetails from "./demoStatsDetails";
@@ -1338,6 +1340,54 @@ const DEMO: Record<string, Demo> = {
 
   // FE-071 · справочники (SPEC 7.5): список, создание, правка, удаление по правилам сервера
   ...dictionaryHandlers(),
+  // FE-072 · производственный календарь и предложенные типы (GAP-03, Q-43, FR-TREE-03)
+  listCalendar: (ctx, schema) =>
+    list(
+      schema,
+      demoCalendar.list(ctx.params.year ? Number(ctx.params.year) : undefined),
+    ),
+  uploadCalendar: (ctx) => {
+    const r = demoCalendar.upload(ctx.body);
+    if (!("error" in r)) return r;
+    return new MockProblem(
+      r.error === "UNSUPPORTED_MEDIA_TYPE"
+        ? problem(415, r.error, "Формат файла не поддерживается")
+        : problem(422, r.error, "Файл календаря не распознан"),
+    );
+  },
+  putCalendarYear: (ctx) => {
+    const r = demoCalendar.put(Number(ctx.params.year), ctx.body);
+    return "error" in r
+      ? new MockProblem(problem(422, r.error, "Ошибка в данных"))
+      : r;
+  },
+  deleteCalendarYear: (ctx) => {
+    demoCalendar.remove(Number(ctx.params.year));
+    return undefined;
+  },
+  listProposedTypes: (_ctx, schema) => list(schema, demoProposed.list()),
+  acceptProposedType: (ctx) => {
+    const p = demoProposed.take(ctx.params.id ?? "");
+    if (!p) return new MockProblem(problem(404, "NOT_FOUND", "Не найдено"));
+    const r = demoDictionaries.create("node_types", {
+      name: p.name,
+      icon: p.icon,
+    });
+    return r && demoDictionaries.isError(r) ? dictProblem(r) : r;
+  },
+  mergeProposedType: (ctx) => {
+    const target = demoDictionaries.find(
+      "node_types",
+      String(body(ctx).target_type_id ?? ""),
+    );
+    if (!target || !demoProposed.take(ctx.params.id ?? ""))
+      return new MockProblem(problem(404, "NOT_FOUND", "Не найдено"));
+    return target;
+  },
+  rejectProposedType: (ctx) =>
+    demoProposed.take(ctx.params.id ?? "")
+      ? undefined
+      : new MockProblem(problem(404, "NOT_FOUND", "Не найдено")),
   getMethodSettings: () => demoSystem.methodSettings(),
   putMethodSettings: (ctx) => {
     const v = body(ctx);

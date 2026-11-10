@@ -883,3 +883,23 @@ table.cq-table td{vertical-align:top}
 .adm-method h3{margin:10px 0 0;font-size:13px;font-weight:700}
 .adm-method h3:first-child{margin-top:0}
 .adm-method .sys-sub{margin:0}
+/* FE-072 · производственный календарь и предложенные типы */
+.cal-head{flex-wrap:wrap}
+.cal-legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:4px 0 10px}
+.cal-legend .cal-day{margin-left:10px;cursor:default}
+.cal-legend .cal-day:first-child{margin-left:0}
+.cal-year{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.cal-month{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface,#fff)}
+.cal-month h3{margin:0 0 6px;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline}
+.cal-month h3 .sub{font-weight:400;font-size:11px}
+.cal-month table{border-collapse:collapse;width:100%}
+.cal-month th{font-size:11px;color:var(--muted);font-weight:500;padding:0 0 2px}
+.cal-month td{padding:1px;text-align:center}
+.cal-day{display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;border-radius:4px;border:1px solid transparent;background:none;font:inherit;font-size:12px;color:var(--ink);cursor:pointer;padding:0}
+.cal-day:hover{border-color:var(--line)}
+.cal-day.off{background:var(--line2);color:var(--muted)}
+.cal-day.off.ex{background:var(--bad-soft);color:var(--bad-ink);font-weight:600}
+.cal-day.ex:not(.off){border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.cal-total td{font-weight:600}
+.adm-row-actions{white-space:nowrap;text-align:right}
+.adm-row-actions .mantine-Button-root+.mantine-Button-root{margin-left:6px}

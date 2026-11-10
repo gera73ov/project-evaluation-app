@@ -23,8 +23,10 @@ import { QuestionsPage } from '../features/stats/questions/QuestionsPage';
 import { TotalsPage } from '../features/stats/totals/TotalsPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
 import { AuditPage } from '../features/audit/AuditPage';
+import { CalendarPage } from '../features/admin/calendar/CalendarPage';
 import { DictionariesPage } from '../features/admin/dictionaries/DictionariesPage';
 import { dictPath, isDictKey, type DictKey } from '../features/admin/dictionaries/dictionaries';
+import { ProposedTypesPage } from '../features/admin/proposed-types/ProposedTypesPage';
 import { UsersPage } from '../features/admin/users/UsersPage';
 import { AccountsPage } from '../features/system/admins/AccountsPage';
 import { AnonymizePage, RegistryPage } from '../features/system/admins/AnonymizeRegistryPages';
@@ -169,14 +171,14 @@ export const ROUTES: readonly RouteDef[] = [
     access: 'private',
     nav: 'admin',
     roles: ['admin'],
-    render: stub('Производственный календарь', 'FE-072'),
+    render: () => <CalendarPage />,
   },
   {
     path: '/admin/proposed-types',
     access: 'private',
     nav: 'admin',
     roles: ['admin'],
-    render: stub('Предложенные типы', 'FE-072'),
+    render: () => <ProposedTypesPage />,
   },
   {
     path: '/admin/registry',

@@ -8,11 +8,13 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import '../shared/i18n';
 import { resetDemoAuth } from '../shared/api/mocks/demoAuth';
+import { resetDemoCalendar } from '../shared/api/mocks/demoCalendar';
 import { resetDemoDictionaries } from '../shared/api/mocks/demoDictionaries';
 import { resetDemoDiscussions } from '../shared/api/mocks/demoDiscussions';
 import { resetDemoDocuments } from '../shared/api/mocks/demoDocuments';
 import { resetDemoOutcome } from '../shared/api/mocks/demoOutcome';
 import { resetDemoPortfolio } from '../shared/api/mocks/demoPortfolio';
+import { resetDemoProposed } from '../shared/api/mocks/demoProposed';
 import { resetDemoSnapshots } from '../shared/api/mocks/demoSnapshots';
 import { resetDemoSetup } from '../shared/api/mocks/demoSetup';
 import { resetDemoSystem } from '../shared/api/mocks/demoSystem';
@@ -65,6 +67,8 @@ if (browser) {
     resetDemoSetup();
     resetDemoUsers();
     resetDemoDictionaries();
+    resetDemoCalendar();
+    resetDemoProposed();
     window.history.replaceState(null, '', '/');
   });
   afterAll(() => server.close());
