@@ -182,4 +182,5 @@ def test_app_factory_registers_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(main.REGISTRY, "register", registered.append)
     main.app_factory()
     main.register_metrics(Settings())
-    assert len(registered) == 1
+    # очереди Celery и очередь SIEM (SEC-012), по одному разу
+    assert [type(c).__name__ for c in registered] == ["QueueLengthCollector", "QueueCollector"]
