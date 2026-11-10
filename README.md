@@ -97,6 +97,10 @@ make traceability   # отчёт «требование → тест» в build/
 | `HEALTH_TIMEOUT_SECONDS` | Таймаут одной проверки `/health/ready`, секунды | `2.0` |
 | `BACKUP_MARKER_PATH` | Файл-метка последней успешной резервной копии (время ISO 8601 или время изменения файла) для «Состояния системы» (FR-SA-07); пишет скрипт бэкапа | `/var/lib/estimator/backup/last-success` |
 | `EXPORTS_DIR` | Каталог файлов выгрузок (том `exports`, файлы живут 24 часа, FR-EXP-05) | `/data/exports` |
+| `DOCUMENTS_DIR` | Каталог зашифрованных документов заказчика (том `documents`, SEC-CRYPT-06) | `/data/documents` |
+| `CLAMAV_HOST` | Адрес `clamd` для проверки документов заказчика (SEC-WEB-10) | `clamav` |
+| `CLAMAV_PORT` | TCP-порт `clamd` | `3310` |
+| `CLAMAV_TIMEOUT_SECONDS` | Таймаут проверки одного документа в `clamd`, секунды | `60.0` |
 | `TRUSTED_HOSTS` | Разрешённые значения заголовка Host через запятую; на stage и prod — имя сервера | `*` |
 <!-- env-table:end -->
 

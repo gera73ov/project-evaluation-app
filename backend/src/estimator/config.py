@@ -133,6 +133,18 @@ class Settings(BaseSettings):
         default="/data/exports",
         description="Каталог файлов выгрузок (том `exports`, файлы живут 24 часа, FR-EXP-05)",
     )
+    documents_dir: str = Field(
+        default="/data/documents",
+        description="Каталог зашифрованных документов заказчика (том `documents`, SEC-CRYPT-06)",
+    )
+    clamav_host: str = Field(
+        default="clamav",
+        description="Адрес `clamd` для проверки документов заказчика (SEC-WEB-10)",
+    )
+    clamav_port: int = Field(default=3310, ge=1, le=65535, description="TCP-порт `clamd`")
+    clamav_timeout_seconds: float = Field(
+        default=60.0, gt=0, description="Таймаут проверки одного документа в `clamd`, секунды"
+    )
     trusted_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["*"],
         description=(
