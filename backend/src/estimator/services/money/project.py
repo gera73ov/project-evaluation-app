@@ -344,3 +344,71 @@ async def update_money(
         schedule_totals(db, project.id)
         return view
     return await money_view(db, project)
+
+
+#: ``project_money.contract_amount NUMERIC(20,0)``
+CONTRACT_DIGITS = 20
+
+
+def parse_contract_amount(raw: str) -> Decimal:
+    """Сумма договора: целое ≥ 0 (``MoneyString``), не больше 20 цифр (BR-PRJ-05, CR-002)."""
+    digits = raw.lstrip("0") or "0"
+    if len(digits) > CONTRACT_DIGITS:
+        raise _out_of_range(
+            "contract_amount",
+            "0",
+            "9" * CONTRACT_DIGITS,
+            "Сумма договора не помещается в хранилище",
+        )
+    return Decimal(digits)
+
+
+async def contract_amount(db: AsyncSession, project_id: uuid.UUID) -> Decimal | None:
+    row = await db.get(ProjectMoney, project_id)
+    return None if row is None else row.contract_amount
+
+
+async def set_contract_amount(
+    db: AsyncSession, principal: Principal, project: Project, value: Decimal | None
+) -> bool:
+    """Записать сумму договора (CORE-029) через сервис денег: журнал с ``is_money``, аудит
+    ``project.money.changed`` без суммы, ``money.updated`` в ``:money``, пересчёт кэша итогов
+    (сводка по портфелю берёт сумму оттуда). ``False`` — значение не изменилось."""
+    row = await db.get(ProjectMoney, project.id, populate_existing=True)
+    if row is None:  # pragma: no cover — строка создаётся вместе с проектом
+        raise ApiError("NOT_FOUND")
+    if row.contract_amount == value:
+        return False
+    old = row.contract_amount
+    row.contract_amount = value
+    row.updated_by = principal.user_id
+    await db.flush()
+    journal.record(
+        db,
+        project.id,
+        principal.user_id,
+        "project.money.changed",
+        {"contract_amount": (old, value)},
+        is_money=True,
+    )
+    await audit.write(
+        db,
+        "project.money.changed",
+        user_id=principal.user_id,
+        login=principal.login,
+        session_id=principal.session_id,
+        object_type="project",
+        object_id=project.id,
+        project_id=project.id,
+        details={"fields": ["contract_amount"], "discipline_ids": []},
+    )
+    _view_body, result = await _view(db, project)
+    publish(
+        db,
+        f"project:{project.id}:money",
+        "money.updated",
+        {"contract_amount": _money(value), "totals": money_totals(result)},
+        project_version=project.version,
+    )
+    schedule_totals(db, project.id)
+    return True
