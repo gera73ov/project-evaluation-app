@@ -11,7 +11,7 @@ from typing import Annotated, Any
 
 from fastapi import Path, Query, Response
 
-from estimator.admin import users
+from estimator.admin import replace, users
 from estimator.api.common.pagination import PageParams, encode_cursor
 from estimator.api.common.router import ApiRouter
 from estimator.api.v1 import admin_schemas as s
@@ -97,3 +97,18 @@ async def block_user(
 @router.post("/admin/users/{id}/unblock", permission="users.manage", response_model=s.User)
 async def unblock_user(principal: ActivePrincipal, db: DbSession, user_id: UserId) -> Any:
     return await users.unblock_user(db, principal, user_id)
+
+
+@router.post(
+    "/admin/users/{id}/replace",
+    permission="users.replace_everywhere",
+    response_model=s.ReplaceReport,
+)
+async def replace_everywhere(
+    body: s.ReplaceRequest, principal: ActivePrincipal, db: DbSession, user_id: UserId
+) -> dict[str, Any]:
+    """ADM-012: «Заменить участника» во всех активных проектах (dry run и подтверждение)."""
+    return await replace.replace_everywhere(
+        db, principal, user_id, body.replacement_user_id,
+        dry_run=body.dry_run, project_ids=body.project_ids,
+    )  # fmt: skip

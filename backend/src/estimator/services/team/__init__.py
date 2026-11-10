@@ -39,6 +39,7 @@ from estimator.notifications import inapp
 from estimator.security import audit
 from estimator.security.authz import role_rules
 from estimator.services.common import emit, user_ref
+from estimator.services.discussions.events import redirect_questions
 from estimator.services.projects import disciplines, journal
 from estimator.services.projects.lifecycle import notify_assigned
 
@@ -391,8 +392,8 @@ async def replace_member(
     """Заменить заблокированного участника в проекте (FR-ADM-05, модератором проекта).
 
     Замена получает те же строки команды (роли, дисциплины, ревьюерство); исходный пользователь
-    исключается, авторство его правок не меняется. Переадресацию открытых вопросов подключит
-    ADM-012 после CORE-040 (``redirected_threads`` пока 0).
+    исключается, авторство его правок не меняется; открытые вопросы, адресованные ему,
+    переадресуются замене (:func:`transfer`).
     """
     rows = [r for r in await _rows(db, project.id) if r.user_id == user_id]
     if not rows:
@@ -410,15 +411,37 @@ async def replace_member(
     roles = (await _system_roles(db, [replacement_id]))[replacement_id]
     if roles & role_rules.NO_PROJECTS:
         raise _validation("/replacement_user_id", "Этого пользователя нельзя назначить в проект")
+    problem = replacement_problem(roles, rows)
+    if problem is not None:
+        raise ApiError("MEMBER_ROLE_REQUIRED", required_role=problem)
+    version, _ = await transfer(db, principal, project, user_id, replacement_id, rows, "replace")
+    return version
+
+
+def replacement_problem(roles: set[SystemRole], rows: Sequence[ProjectMember]) -> str | None:
+    """Какой системной роли не хватает замене для строк ``rows`` (FR-ADM-05), иначе ``None``."""
     needed = {ProjectRole(r.role) for r in rows}
     if ProjectRole.MODERATOR in needed and not roles & {
         SystemRole.MODERATOR,
         SystemRole.PRESALE_HEAD,
     }:
-        raise ApiError("MEMBER_ROLE_REQUIRED", required_role="moderator")
+        return "moderator"
     if ProjectRole.PRESALE in needed and SystemRole.PRESALE not in roles:
-        raise ApiError("MEMBER_ROLE_REQUIRED", required_role="presale")
+        return "presale"
+    return None
 
+
+async def transfer(
+    db: AsyncSession,
+    principal: Principal,
+    project: Project,
+    user_id: uuid.UUID,
+    replacement_id: uuid.UUID,
+    rows: Sequence[ProjectMember],
+    via: str,
+) -> tuple[int, int]:
+    """Перенести строки ``rows`` исходного пользователя на замену; новая ``project_version`` и
+    число переадресованных обсуждений. Проверки — у вызывающего."""
     existing = {_key(r) for r in await _rows(db, project.id) if r.user_id == replacement_id}
     admin = SystemRole.ADMIN in principal.roles
     changes: dict[str, tuple[Any, Any]] = {}
@@ -448,6 +471,18 @@ async def replace_member(
         await _audit_row(db, principal, project.id, row, "added", "replace")
     journal.record(db, project.id, principal.user_id, "project.team", changes)
 
+    redirected = list(
+        dict.fromkeys(
+            await redirect_questions(db, project.id, user_id, replacement_id, principal.user_id)
+        )
+    )
+    if redirected:
+        await inapp.notify(
+            db, "question_redirected", [replacement_id], project_id=project.id,
+            payload={"project_id": str(project.id), "from_user_id": str(user_id),
+                     "thread_ids": [str(t) for t in redirected]},
+            actor_id=principal.user_id,
+        )  # fmt: skip
     moderators = {
         r.user_id
         for r in await _rows(db, project.id)
@@ -463,18 +498,19 @@ async def replace_member(
             "replaced_user_id": str(user_id),
             "replacement_user_id": str(replacement_id),
             "actor_id": str(principal.user_id),
-            "redirected_threads": 0,
+            "redirected_threads": len(redirected),
         },
         actor_id=principal.user_id,
     )
     await refresh_no_moderator(db, project)
-    return await _announce(
+    version = await _announce(
         db,
         project,
         added=[replacement_id] if added else [],
         removed=[user_id],
         updated=[],
     )
+    return version, len(redirected)
 
 
 async def candidates(

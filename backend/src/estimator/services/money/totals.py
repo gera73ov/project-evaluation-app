@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from estimator.db.models.money import ProjectMoney, ProjectTotals
+from estimator.db.models.money import ProjectMoney, ProjectTotals, ProjectTotalsDaily
 from estimator.db.models.projects import Project
 from estimator.domain import calc
 from estimator.domain.calc.money import fits_hours_cache
@@ -137,3 +137,21 @@ async def portfolio_money(
             rates_missing=bool(totals and totals.rates_missing),
         )
     return out
+
+
+@dataclass(frozen=True)
+class DailyTotals:
+    date: dt.date
+    e: Decimal | None
+    p80: Decimal | None
+    quote_cur: Decimal | None  # только с money.read — решает вызывающий
+
+
+async def daily(db: AsyncSession, project_id: uuid.UUID) -> list[DailyTotals]:
+    """Ряд ``project_totals_daily`` проекта по дням (динамика, CORE-052)."""
+    rows = await db.scalars(
+        select(ProjectTotalsDaily)
+        .where(ProjectTotalsDaily.project_id == project_id)
+        .order_by(ProjectTotalsDaily.date)
+    )
+    return [DailyTotals(r.date, r.e, r.p80, r.quote_cur) for r in rows]

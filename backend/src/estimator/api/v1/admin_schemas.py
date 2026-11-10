@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from estimator.api.common.decimal import DecimalString
 from estimator.api.v1.core_schemas import NodeType, Norm, UserRef
-from estimator.db.enums import ProjectStatus
+from estimator.db.enums import ProjectRole, ProjectStatus
 from estimator.services.tree.local_types import NodeTypeIcon
 
 _COLOR = r"^#[0-9A-Fa-f]{6}$"
@@ -344,3 +344,32 @@ class ProposedTypeList(_Strict):
 
 class MergeRequest(_Strict):
     target_type_id: uuid.UUID
+
+
+# --- «Заменить участника» во всех проектах (ADM-012) -----------------------------------------
+
+
+class ReplaceRequest(_Strict):
+    replacement_user_id: uuid.UUID
+    dry_run: bool = True
+    project_ids: list[uuid.UUID] = Field(default=None)  # type: ignore[assignment]
+
+
+class ReplaceRole(_Strict):
+    role: ProjectRole
+    discipline_id: uuid.UUID | None
+    is_reviewer: bool
+
+
+class ReplaceProject(_Strict):
+    project_id: uuid.UUID
+    name: str
+    roles: list[ReplaceRole]
+    applicable: bool
+    problem: Literal["replacement_lacks_moderator_role", "replacement_lacks_presale_role"] | None
+    open_questions: int
+
+
+class ReplaceReport(_Strict):
+    projects: list[ReplaceProject]
+    applied: bool
