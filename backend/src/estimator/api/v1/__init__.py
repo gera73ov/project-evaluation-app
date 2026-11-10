@@ -22,6 +22,7 @@ from estimator.api.v1 import (
     money,
     node_types,
     nodes,
+    notes,
     notifications,
     portfolio,
     projects,
@@ -61,6 +62,7 @@ router.include_router(node_types.router)
 router.include_router(notifications.router)
 router.include_router(discussions.router)
 router.include_router(customer_questions.router)
+router.include_router(notes.router)
 router.include_router(admin_calendar.router)
 router.include_router(admin_dictionaries.router)
 router.include_router(admin_users.router)
