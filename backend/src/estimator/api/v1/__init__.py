@@ -13,6 +13,7 @@ from estimator.api.v1 import (
     disciplines,
     me,
     members,
+    money,
     node_types,
     nodes,
     notifications,
@@ -33,6 +34,7 @@ router.include_router(tree.router)
 router.include_router(changes.router)
 router.include_router(nodes.router)
 router.include_router(trash.router)
+router.include_router(money.router)
 router.include_router(branches.router)
 router.include_router(members.router)
 router.include_router(disciplines.router)
