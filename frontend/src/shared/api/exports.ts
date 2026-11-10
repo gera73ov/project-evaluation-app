@@ -5,6 +5,7 @@
  */
 import { api, type components } from './client';
 import { call } from './problem';
+import { saveBlob } from './saveBlob';
 
 type ExportJob = components['schemas']['ExportJob'];
 
@@ -29,10 +30,5 @@ export async function downloadExport(
   if (job.status !== 'ready') throw new ExportTimeout();
   const id = job.id;
   const blob = await call(() => api.GET('/exports/{id}/download', { params: { path: { id } }, parseAs: 'blob' }));
-  const url = URL.createObjectURL(blob as Blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = job.file_name ?? fallbackName;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveBlob(blob as Blob, job.file_name ?? fallbackName);
 }

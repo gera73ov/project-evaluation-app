@@ -16,6 +16,7 @@ import { Link } from '../../app/router';
 import { useSession } from '../../app/session';
 import { api, type components } from '../../shared/api/client';
 import { call, errorMessage } from '../../shared/api/problem';
+import { saveBlob } from '../../shared/api/saveBlob';
 import { formatDateTime } from '../../shared/format/date';
 import { formatNumber } from '../../shared/format/number';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
@@ -81,12 +82,7 @@ async function download(doc: Doc) {
   const blob = await call(() =>
     api.GET('/documents/{id}/download', { params: { path: { id: doc.id } }, parseAs: 'blob' }),
   );
-  const url = URL.createObjectURL(blob as Blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = doc.file_name;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveBlob(blob as Blob, doc.file_name);
 }
 
 export function DocumentsPage({ projectId }: { projectId: string }) {
