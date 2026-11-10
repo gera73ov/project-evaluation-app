@@ -70,7 +70,15 @@ interface Subscription {
   projectId: string;
   /** Последняя применённая версия проекта; null — ещё не известна. */
   version: number | null;
-  handlers: ProjectHandlers;
+  /**
+   * Слушатели проекта: экран проекта подписывается и на настройки, и на дерево (FE-091).
+   * Подписка на сервере одна, события получают все.
+   */
+  listeners: Set<ProjectHandlers>;
+}
+
+function each(sub: Subscription, call: (handlers: ProjectHandlers) => void): void {
+  for (const handlers of [...sub.listeners]) call(handlers);
 }
 
 interface Pending {
@@ -152,11 +160,18 @@ export class WsClient {
 
   /** Подписка на проект; возвращает отписку. `since` — версия уже загруженного дерева. */
   subscribe(projectId: string, since: number | null, handlers: ProjectHandlers): () => void {
-    const sub: Subscription = { projectId, version: since, handlers };
-    this.subscriptions.set(projectId, sub);
-    if (this.status === 'open') this.sendSubscribe(sub);
+    const existing = this.subscriptions.get(projectId);
+    const sub: Subscription = existing ?? { projectId, version: since, listeners: new Set() };
+    // второй слушатель того же проекта не шлёт subscribe повторно, а встаёт в общую подписку
+    sub.listeners.add(handlers);
+    if (!existing) {
+      this.subscriptions.set(projectId, sub);
+      if (this.status === 'open') this.sendSubscribe(sub);
+    } else if (sub.version === null && since !== null) sub.version = since;
     return () => {
       if (this.subscriptions.get(projectId) !== sub) return;
+      sub.listeners.delete(handlers);
+      if (sub.listeners.size > 0) return;
       this.subscriptions.delete(projectId);
       if (this.status === 'open') this.send({ op: 'unsubscribe', project_id: projectId });
     };
@@ -272,15 +287,15 @@ export class WsClient {
         if (this.subscriptions.get(sub.projectId) !== sub) return;
         const ack = result as unknown as SubscribeResult;
         if (sub.version === null) sub.version = ack.project_version;
-        sub.handlers.onSubscribed?.(ack);
-        if (ack.resync) sub.handlers.onResync?.();
+        each(sub, (h) => h.onSubscribed?.(ack));
+        if (ack.resync) each(sub, (h) => h.onResync?.());
       })
       .catch((error: unknown) => {
         // NOT_FOUND / FORBIDDEN: проекта нет или доступа нет — как отзыв доступа
         if (!(error instanceof WsCommandError) || error.code === 'OFFLINE') return;
         if (this.subscriptions.get(sub.projectId) !== sub) return;
         this.subscriptions.delete(sub.projectId);
-        sub.handlers.onRevoked?.(error.code);
+        each(sub, (h) => h.onRevoked?.(error.code));
       });
   }
 
@@ -327,11 +342,11 @@ export class WsClient {
     switch (event.event) {
       case 'access.revoked':
         this.subscriptions.delete(projectId);
-        sub.handlers.onRevoked?.(String(event.data.reason ?? ''));
+        each(sub, (h) => h.onRevoked?.(String(event.data.reason ?? '')));
         return;
       case 'resync.required':
         if (typeof event.data.project_version === 'number') sub.version = event.data.project_version;
-        sub.handlers.onResync?.();
+        each(sub, (h) => h.onResync?.());
         return;
       default:
         break;
@@ -341,7 +356,7 @@ export class WsClient {
       if (sub.version !== null && version < sub.version) return; // повтор уже применённого
       sub.version = version;
     }
-    sub.handlers.onEvent?.(event);
+    each(sub, (h) => h.onEvent?.(event));
   }
 
   private setStatus(status: WsStatus): void {

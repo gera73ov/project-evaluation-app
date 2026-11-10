@@ -95,14 +95,28 @@ export function visibleNodes(
   const searching = searchActive(q);
   if (!active.size && !searching) return null;
   const visible = new Set<string>();
-  for (const result of calc.nodes.values()) {
-    const node = nodes.get(result.node.id);
-    if (searching && !matchesSearch(result, node, q)) continue;
-    if ([...active].some((key) => !matchesFilter(key, result, node, input))) continue;
-    for (let id: string | null = result.node.id; id !== null && !visible.has(id); ) {
+  const show = (from: string) => {
+    for (let id: string | null = from; id !== null && !visible.has(id); ) {
       visible.add(id);
       id = calc.nodes.get(id)?.node.parentId ?? null;
     }
+  };
+  // только «Мои ветки»: свои ветки видны и пустыми — в новом проекте эксперту есть куда нажать «+»
+  const onlyMine = !searching && active.size === 1 && active.has('mine');
+  for (const result of calc.nodes.values()) {
+    const node = nodes.get(result.node.id);
+    const { kind, disciplineId } = result.node;
+    if (
+      onlyMine &&
+      kind === 'discipline' &&
+      (input.myDisciplines === null || (disciplineId !== null && input.myDisciplines.has(disciplineId)))
+    ) {
+      show(result.node.id);
+      continue;
+    }
+    if (searching && !matchesSearch(result, node, q)) continue;
+    if ([...active].some((key) => !matchesFilter(key, result, node, input))) continue;
+    show(result.node.id);
   }
   return visible;
 }

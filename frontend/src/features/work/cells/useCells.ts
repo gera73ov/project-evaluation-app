@@ -140,6 +140,12 @@ export function useCells({
   const [savingComments, setSavingComments] = useState<ReadonlySet<string>>(new Set());
   const [conflict, setConflict] = useState<(CellConflict & { retry: PendingSend }) | null>(null);
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  /**
+   * FE-091 · версия узла на момент начала ввода в ячейку: правку отправляем с ней, а не с версией,
+   * которую успели принести события, — иначе чужое изменение того же поля (перехват модератором)
+   * затиралось бы молча вместо конфликта FR-TREE-32.
+   */
+  const started = useRef(new Map<string, number>());
 
   const setError = (key: string, error: CellError | null) =>
     setErrors((prev) => {
@@ -175,6 +181,8 @@ export function useCells({
 
   const open = (cell: CellRef, force: boolean) => {
     setEditing(cell);
+    const version = store.getState().nodes.get(cell.nodeId)?.version;
+    if (version !== undefined) started.current.set(cellKey(cell.nodeId, cell.field), version);
     if (!lock) return;
     void lock(cell, force).then((result) => {
       if (result.ok) return;
@@ -213,6 +221,9 @@ export function useCells({
       return;
     }
     const fields = [...drafts.keys()];
+    const heldKey = held ? cellKey(held.nodeId, held.field) : null;
+    const base = baseVersion ?? (heldKey !== null ? started.current.get(heldKey) : undefined) ?? node.version;
+    if (heldKey !== null) started.current.delete(heldKey);
     const optimistic: NodeEdit = {};
     const values = new Map(Object.entries(changes));
     for (const field of ['title', 'o', 'r', 'p', 'multiplier'] as const) {
@@ -225,7 +236,7 @@ export function useCells({
       const result = await call(() =>
         api.PATCH('/nodes/{id}', {
           params: { path: { id: nodeId } },
-          body: { base_version: baseVersion ?? node.version, changes },
+          body: { base_version: base, changes },
         }),
       );
       confirm(result.node as unknown as ApiNode, result.project_version);

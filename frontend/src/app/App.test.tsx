@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { PERSONAS } from '../shared/api/mocks/personas';
 import { ApiError, errorMessage, showsErrorId } from '../shared/api/problem';
 import { readCsrfCookie } from '../shared/api/client';
-import { cspNonce } from '../shared/ui/theme';
+import { cspNonce, shareStyleNonce } from '../shared/ui/theme';
 import { persona, server } from '../test/setup';
 import { api, http, problem, renderApp } from '../test/render';
 import { initials, shortName } from './AppShell';
@@ -81,7 +81,8 @@ describe('гарды и меню', () => {
       const path = route.path.replace(':id', 'p1');
       const { unmount } = renderApp(path);
       await waitFor(() => expect(document.querySelector('.hdr')).not.toBeNull());
-      expect(screen.queryByText('Страница не найдена.'), path).toBeNull();
+      // страница 404 маршрутизатора; «Страница не найдена.» может быть и ошибкой загрузки данных экрана
+      expect(screen.queryByText('Проверьте адрес или вернитесь на «Мои оценки».'), path).toBeNull();
       unmount();
     }
   });
@@ -114,6 +115,12 @@ describe('API и безопасность', () => {
     expect(cspNonce()).toBeUndefined();
     meta.remove();
     expect(cspNonce()).toBeUndefined();
+    // блокировка прокрутки модальных окон берёт nonce из __webpack_nonce__ (get-nonce)
+    const scope: { __webpack_nonce__?: string } = {};
+    shareStyleNonce(undefined, scope);
+    expect(scope.__webpack_nonce__).toBeUndefined();
+    shareStyleNonce('n0nce', scope);
+    expect(scope.__webpack_nonce__).toBe('n0nce');
   });
 
   it('аватар и короткое имя', () => {

@@ -38,6 +38,7 @@ e2e/test-results/
 e2e/playwright-report/
 e2e/.tls/
 e2e/.e2e-data.json
+e2e/.e2e-work-data.json
 
 # Данные и дампы
 *.dump

@@ -41,3 +41,12 @@ export function cspNonce(doc: Document = document): string | undefined {
   const value = meta?.content;
   return value && value !== CSP_NONCE_PLACEHOLDER ? value : undefined;
 }
+
+/**
+ * FE-091 · тот же nonce для `<style>`, который вставляет блокировка прокрутки у модальных окон и
+ * выпадающих списков Mantine (react-remove-scroll → get-nonce). get-nonce без явной настройки читает
+ * глобальную `__webpack_nonce__`; задаём её, чтобы не тянуть пакет в зависимости напрямую.
+ */
+export function shareStyleNonce(nonce: string | undefined, scope: object = globalThis): void {
+  if (nonce) Object.assign(scope, { __webpack_nonce__: nonce });
+}

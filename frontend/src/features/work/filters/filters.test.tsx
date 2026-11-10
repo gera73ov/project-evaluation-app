@@ -115,6 +115,20 @@ describe('фильтры дерева', () => {
     expect([...collapseTo(calc, 'disciplines')].sort()).toEqual(['A/d1', 'A/d2']);
   });
 
+  it('только «Мои ветки»: своя пустая ветка видна, чужая — нет; с другим чипом — только подходящие (FE-091)', () => {
+    const { calc, nodes } = store();
+    const empty: FilterInput = { ...INPUT, myDisciplines: new Set(['d2', 'd3']) };
+    const tree = { ...store() };
+    // d2 без листьев: убираем f1 из расчёта, оставляя ветку пустой
+    tree.calc.nodes.delete('f1');
+    const mine = visibleNodes(tree.calc, tree.nodes, new Set<FilterKey>(['mine']), '', empty);
+    expect([...(mine ?? [])].sort()).toEqual(['A', 'A/d2']);
+    const all = visibleNodes(calc, nodes, new Set<FilterKey>(['mine']), '', { ...INPUT, myDisciplines: null });
+    expect(all?.has('A/d1') && all.has('A/d2')).toBe(true);
+    const withChip = visibleNodes(tree.calc, tree.nodes, new Set<FilterKey>(['mine', 'unestimated']), '', empty);
+    expect(withChip?.size).toBe(0);
+  });
+
   it('состояние вида: первый вход, разбор, обрезка до 64 КБ', () => {
     expect([...parseView({}, true).filters]).toEqual(['mine']);
     expect([...parseView({}, false).filters]).toEqual([]);

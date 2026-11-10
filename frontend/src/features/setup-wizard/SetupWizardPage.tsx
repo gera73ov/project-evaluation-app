@@ -146,7 +146,7 @@ function StepView({ step, steps, onNext }: { step: SetupStep; steps: readonly Se
         allowClean
       >
         {(f, set, shown) => (
-          <div className="set-grid">
+          <div className="sys-fields">
             <TextInput
               label={t('setupWizard.app.url')}
               description={t('setupWizard.app.urlHint')}
