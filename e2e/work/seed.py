@@ -5,9 +5,9 @@
     uv run --frozen python ../e2e/work/seed.py
 
 Создаёт с уникальными логинами модератора с подключённым TOTP (секрет печатается: сценарий
-считает коды сам) и двух экспертов без системных ролей, печатает id двух фаз и двух дисциплин
-из справочников. Мастер первичной настройки отмечается завершённым. Печатает JSON; его читает
-global-setup.ts. Только для dev и тестовых стендов.
+считает коды сам) и двух экспертов без системных ролей, печатает id двух фаз и id и названия двух
+дисциплин из справочников. Мастер первичной настройки отмечается завершённым. Печатает JSON;
+его читает global-setup.ts. Только для dev и тестовых стендов.
 """
 
 from __future__ import annotations
@@ -81,12 +81,13 @@ async def seed() -> dict[str, object]:
             ).scalars()
             disciplines = (
                 await db.execute(
-                    text("SELECT id FROM disciplines WHERE is_active ORDER BY name LIMIT 2")
+                    text("SELECT id, name FROM disciplines WHERE is_active ORDER BY name LIMIT 2")
                 )
-            ).scalars()
+            ).all()
             dictionaries = {
                 "phases": [str(x) for x in phases],
-                "disciplines": [str(x) for x in disciplines],
+                "disciplines": [str(row.id) for row in disciplines],
+                "discipline_names": [row.name for row in disciplines],
             }
     finally:
         await dispose_engine()

@@ -106,7 +106,7 @@ export function SmtpFields({
   const keeps = smtpKeepsPassword(f, initial);
   return (
     <div className="set-groups">
-      <div className="set-grid">
+      <div className="sys-fields">
         <TextInput
           label={t('system.smtp.host')}
           value={f.host}
@@ -138,7 +138,7 @@ export function SmtpFields({
           {t('system.smtp.noTls')}
         </p>
       ) : null}
-      <div className="set-grid">
+      <div className="sys-fields">
         <TextInput
           label={t('system.smtp.username')}
           value={f.username}
@@ -175,7 +175,7 @@ export function SmtpFields({
           invalid={shown('timeout')}
         />
       </div>
-      <div className="set-grid">
+      <div className="sys-fields">
         <TextInput
           label={t('system.smtp.fromAddress')}
           value={f.fromAddress}
@@ -319,7 +319,7 @@ export function RetentionPage() {
           hint={t('system.settings.stepUpHint')}
         >
           {(f, set, shown) => (
-            <div className="set-grid">
+            <div className="sys-fields">
               {RETENTION_FIELDS.map((k) => (
                 <IntField
                   key={k}

@@ -797,7 +797,7 @@ table.cq-table td{vertical-align:top}
 .set-groups{display:grid;gap:14px}
 .set-group{border:1px solid var(--line);border-radius:8px;padding:10px 14px 14px;margin:0;display:grid;gap:10px}
 .set-group legend{font-weight:600;padding:0 4px}
-.set-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;align-items:start}
+.sys-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;align-items:start}
 .set-checks{display:flex;flex-wrap:wrap;gap:10px 22px}
 .set-danger{background:var(--bad);color:#fff;border-radius:6px;padding:9px 12px;margin:0;font-weight:600}
 .set-secret{max-width:420px}

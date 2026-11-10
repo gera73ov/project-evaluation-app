@@ -1,12 +1,9 @@
 /**
- * FE-091 · совместная работа в дереве на настоящем API и WebSocket (SPEC FR-TREE-31…33, TC-CONC-04):
- * два эксперта одной дисциплины и модератор в отдельных браузерах. Новый узел и правка видны
- * другому, захват ячейки виден другому, после разрыва связи клиент догружает пропущенное, перехват
- * модератором даёт эксперту диалог конфликта, исключение из команды закрывает экран.
- *
- * Проект готовится через API (создание, дисциплины, команда, статус «Оценка»): экраны справочников
- * админки ещё не читают данные с сервера, поэтому создание проекта через UI — отдельный сценарий,
- * пока помеченный fixme.
+ * FE-091 · совместная работа в дереве на настоящем API и WebSocket (SPEC 8.2–8.5, FR-TREE-31…33,
+ * TC-CONC-04): модератор создаёт проект, добавляет дисциплину и двух экспертов, запускает оценку;
+ * эксперты и модератор — в отдельных браузерах. Новый узел и правка видны другому, захват ячейки
+ * виден другому, после разрыва связи клиент догружает пропущенное, перехват модератором даёт
+ * эксперту диалог конфликта, исключение из команды закрывает экран. Сценарии идут по порядку.
  */
 import { readFileSync } from 'node:fs';
 import {
@@ -34,6 +31,7 @@ interface Seed {
   expert2: Person;
   phases: string[];
   disciplines: string[];
+  discipline_names: string[];
   password: string;
   totp: string;
 }
@@ -53,10 +51,17 @@ let projectId = '';
 /** Разрыв связи второго эксперта: открытые сокеты закрываются, новые не пускаются. */
 const network = { offline: false, sockets: new Set<WebSocketRoute>() };
 
+/** CL-14: нарушений CSP в консоли быть не должно ни у кого из участников. */
+const cspErrors: string[] = [];
+
 async function open(browser: Browser): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   contexts.push(context);
-  return context.newPage();
+  const page = await context.newPage();
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /Content Security Policy/i.test(message.text())) cspErrors.push(message.text());
+  });
+  return page;
 }
 
 async function signIn(page: Page, who: Person, withTotp = false): Promise<void> {
@@ -72,22 +77,6 @@ async function signIn(page: Page, who: Person, withTotp = false): Promise<void> 
   }
   await expect(page).not.toHaveURL(/\/login/);
 }
-
-/** Вызов API из сессии страницы: CSRF-токен из cookie, как у SPA. */
-async function api<T>(page: Page, method: string, path: string, data?: unknown): Promise<T> {
-  const csrf = (await page.context().cookies()).find((c) => c.name === '__Host-csrf')?.value ?? '';
-  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: { 'X-CSRF-Token': csrf } });
-  const text = await response.text();
-  expect(response.ok(), `${method} ${path}: ${text}`).toBe(true);
-  return (text ? JSON.parse(text) : null) as T;
-}
-
-const members = (experts: Person[]) => ({
-  members: [
-    { user_id: seed.moderator.id, role: 'moderator' },
-    ...experts.map((e) => ({ user_id: e.id, role: 'expert', discipline_id: seed.disciplines[0] })),
-  ],
-});
 
 const tree = (page: Page) => page.getByRole('treegrid', { name: 'Дерево оценки' });
 const row = (page: Page, title: string): Locator =>
@@ -113,29 +102,60 @@ test.beforeAll(async ({ browser }) => {
   await signIn(moderator, seed.moderator, true);
   await signIn(first, seed.expert1);
   await signIn(second, seed.expert2);
+});
 
-  const { project } = await api<{ project: { id: string } }>(moderator, 'POST', '/projects', {
-    name: `E2E совместная ${Date.now()}`,
-    customer: 'ООО «Тест»',
-    phase_ids: seed.phases,
-  });
-  projectId = project.id;
-  for (const id of seed.disciplines) await api(moderator, 'POST', `/projects/${projectId}/disciplines`, { discipline_id: id });
-  await api(moderator, 'PUT', `/projects/${projectId}/members`, members([seed.expert1, seed.expert2]));
-  await api(moderator, 'POST', `/projects/${projectId}/status`, { to: 'estimation' });
-
-  await openProject(first);
-  await openProject(second);
+test.afterEach(() => {
+  expect(cspErrors).toEqual([]);
 });
 
 test.afterAll(async () => {
   for (const context of contexts) await context.close();
 });
 
+test('модератор создаёт проект, добавляет дисциплину и экспертов, запускает оценку', async () => {
+  const discipline = seed.discipline_names[0] ?? '';
+  await moderator.goto('/projects/new');
+  await expect(moderator.getByRole('heading', { name: 'Новый проект' })).toBeVisible();
+  await moderator.getByRole('textbox', { name: /Название/ }).fill(`E2E совместная ${Date.now()}`);
+  await moderator.getByRole('textbox', { name: /Заказчик/ }).fill('ООО «Тест»');
+  await moderator.getByRole('button', { name: 'Создать' }).click();
+  await expect(moderator).toHaveURL(/\/projects\/[^/]+\/settings$/);
+  projectId = new URL(moderator.url()).pathname.split('/')[2] ?? '';
+
+  const team = moderator.getByRole('region', { name: 'Команда' });
+  await team.getByRole('button', { name: '+ Добавить дисциплину' }).click();
+  const add = moderator.getByRole('dialog', { name: 'Добавить дисциплину' });
+  await add.getByRole('textbox', { name: 'Дисциплина' }).click();
+  await moderator.getByRole('option', { name: discipline, exact: true }).click();
+  await add.getByRole('button', { name: 'Добавить дисциплину' }).click();
+  await expect(add).toBeHidden();
+
+  for (const expert of [seed.expert1, seed.expert2]) {
+    await team.getByRole('button', { name: `Добавить эксперта: ${discipline}` }).click();
+    const pick = moderator.getByRole('dialog', { name: 'Добавить эксперта' });
+    await pick.getByRole('textbox', { name: 'ФИО' }).fill(expert.name);
+    await pick.getByRole('button', { name: new RegExp(expert.name) }).click();
+    await expect(team.getByText(expert.name)).toBeVisible();
+  }
+
+  await moderator.getByRole('button', { name: 'Статус проекта: Подготовка. Сменить' }).click();
+  await moderator.getByRole('menuitem', { name: 'Запустить оценку' }).click();
+  const start = moderator.getByRole('dialog', { name: 'Запустить оценку' });
+  await expect(start).toContainText('Эксперты (2) получат письмо');
+  await start.getByRole('button', { name: 'Запустить' }).click();
+  await expect(moderator.getByRole('button', { name: 'Статус проекта: Оценка. Сменить' })).toBeVisible();
+
+  await openProject(first);
+  await openProject(second);
+});
+
 test('новый лист эксперта сразу появляется у второго эксперта', async () => {
   const discipline = tree(first).getByRole('row').filter({ hasText: 'В ветке пока ничего нет' }).first();
   await discipline.getByRole('button', { name: /^Добавить рядом с/ }).click();
-  await first.getByRole('menu').getByRole('menuitem', { name: /Дочерний узел/ }).click();
+  await first
+    .getByRole('menu')
+    .getByRole('menuitem', { name: /Дочерний узел/ })
+    .click();
   const title = tree(first).getByRole('textbox', { name: 'Название' });
   await title.fill(LEAF);
   await title.press('Enter');
@@ -200,17 +220,14 @@ test('перехват модератором: эксперт получает �
 });
 
 test('исключение из команды закрывает экран у исключённого', async () => {
-  await api(moderator, 'PUT', `/projects/${projectId}/members`, members([seed.expert1]));
+  await moderator.goto(`/projects/${projectId}/settings`);
+  const team = moderator.getByRole('region', { name: 'Команда' });
+  await team.getByRole('button', { name: `Убрать ${seed.expert2.name}` }).click();
+  await expect(team.getByText(seed.expert2.name)).toHaveCount(0);
   const notice = second.getByRole('alert').filter({ hasText: 'Доступ к проекту закрыт' });
   await expect(notice).toBeVisible({ timeout: 15_000 });
   await expect(notice).toContainText('Модератор исключил вас из команды проекта');
   await expect(tree(second)).toHaveCount(0);
   await notice.getByRole('link', { name: '← К моим оценкам' }).click();
   await expect(second).toHaveURL('/');
-});
-
-// Справочники админки (фазы, дисциплины) пока не читаются с сервера — мастер создания проекта
-// и выбор дисциплин в команде на настоящем API не работают. Включить после серверной части админки.
-test.fixme('модератор создаёт проект и собирает команду через UI', async () => {
-  await moderator.goto('/projects/new');
 });

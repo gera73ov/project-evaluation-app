@@ -1,4 +1,4 @@
-# E2E (FE-090, QA-018)
+# E2E (FE-090, FE-091, QA-018)
 
 Playwright-сценарии UI против настоящего API.
 
@@ -8,6 +8,7 @@ Playwright-сценарии UI против настоящего API.
 cd e2e && npm ci
 E2E_BASE_URL=https://dev.example.local \
 E2E_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/auth/seed.py' \
+E2E_WORK_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/work/seed.py' \
 npx playwright test
 ```
 
@@ -26,3 +27,15 @@ cd e2e && npm ci && npx playwright test
 `global-setup.ts` запускает `auth/seed.py`: тот создаёт пользователя и администратора со случайными
 логинами, поэтому повторный прогон не мешает прошлому. Лимит входа с одного IP (20 в минуту) при
 частых локальных прогонах сбрасывается очисткой Redis.
+
+## Сценарии
+
+- `auth/` — вход, TOTP, резервные коды, профиль (FE-090).
+- `work/` — рабочий экран (FE-091): модератор создаёт проект, добавляет дисциплину и двух экспертов,
+  запускает оценку; эксперты в отдельных браузерах видят новые узлы и правки друг друга, захват ячейки,
+  полосу «Нет связи» и догрузку после восстановления; перехват ячейки модератором даёт эксперту диалог
+  конфликта; исключённый из команды видит «Доступ к проекту закрыт». Данные создаёт `work/seed.py`
+  (модератор с TOTP и два эксперта со случайными логинами). Разрыв связи имитируется через
+  `page.routeWebSocket`: `context.setOffline` уже открытый WebSocket не закрывает.
+
+`serve.mjs` проксирует и WebSocket `/api/v1/ws`. Все сценарии проверяют, что в консоли нет нарушений CSP.
