@@ -127,17 +127,29 @@ async def check_smtp(db: AsyncSession, redis: Redis) -> Component:
     return Component("smtp", True)
 
 
-async def check_ldap(db: AsyncSession) -> Component:
+async def check_ldap(db: AsyncSession, redis: Redis | None = None) -> Component:
     if await load_auth_mode(db) != "ad":
         return Component("ldap", True, "Режим «Приложение»: AD не используется")
     raw = (await read_settings(db, "auth.ad.connection")).get("auth.ad.connection") or {}
     controllers = raw.get("controllers") or []
     if not controllers:
         return Component("ldap", False, "Контроллеры AD не заданы")
+    reachable = False
     for item in controllers:
         if await tcp_reachable(item["host"], int(item["port"])):
-            return Component("ldap", True)
-    return Component("ldap", False, "Ни один контроллер AD не отвечает")
+            reachable = True
+            break
+    if not reachable:
+        return Component("ldap", False, "Ни один контроллер AD не отвечает")
+    if redis is not None:  # AUTH-016: проверка пользователей пропущена, потому что AD не ответил
+        from estimator.auth import ad_sync
+
+        for state in (await ad_sync.last_state(redis)).values():
+            if not state.get("ok"):
+                at = _parse_time(state.get("at"))
+                when = f" ({_fmt(at)})" if at else ""
+                return Component("ldap", False, f"Проверка пользователей в AD пропущена{when}", at)
+    return Component("ldap", True)
 
 
 async def check_siem(redis: Redis) -> Component:
@@ -234,7 +246,7 @@ async def report(db: AsyncSession, redis: Redis, settings: Settings) -> dict[str
     db_checks: list[tuple[str, Callable[[], Awaitable[Component]]]] = [
         ("db", lambda: check_db(db)),
         ("smtp", lambda: check_smtp(db, redis)),
-        ("ldap", lambda: check_ldap(db)),
+        ("ldap", lambda: check_ldap(db, redis)),
         ("audit_purge", lambda: check_audit_purge(db, now)),
     ]
     found = {name: await _guard(name, check) for name, check in db_checks}

@@ -31,6 +31,7 @@ TASK_MODULES: tuple[str, ...] = (
     "estimator.jobs.builtin",
     "estimator.db.tasks",
     "estimator.notifications.tasks",
+    "estimator.auth.ad_sync.tasks",
     "estimator.security.tasks",
     "estimator.security.alerts.tasks",
     "estimator.security.siem.tasks",
