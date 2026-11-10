@@ -65,7 +65,9 @@ async def join(db: AsyncSession, principal: Principal, project: Project) -> list
     )  # fmt: skip
     await team._audit_row(db, principal, project.id, row, "added", "join_as_moderator")
     key = team._journal_key(team._key(row))
-    journal.record(db, project.id, principal.user_id, "project.team", {key: (None, team._state(row))})
+    journal.record(
+        db, project.id, principal.user_id, "project.team", {key: (None, team._state(row))}
+    )
     await inapp.notify(
         db, "presale_head_joined", moderators, project_id=project.id,
         payload={"project_id": str(project.id), "actor_id": str(principal.user_id)},

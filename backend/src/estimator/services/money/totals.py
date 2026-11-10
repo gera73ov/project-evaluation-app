@@ -99,3 +99,41 @@ async def cached(
         )
         for r, currency in rows
     }
+
+
+@dataclass(frozen=True)
+class PortfolioMoney:
+    """Деньги строки портфеля (``PortfolioItemMoney``, CORE-070): «в КП» и стоимость без НДС,
+    сумма договора в валюте КП."""
+
+    currency: str
+    quote_cur: Decimal | None
+    quote_rub: Decimal | None
+    cost_rub: Decimal | None
+    contract_amount: Decimal | None
+    rates_missing: bool
+
+
+async def portfolio_money(
+    db: AsyncSession, project_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, PortfolioMoney]:
+    """Деньги проектов для портфеля руководителя пресейла (право ``portfolio.read`` — у
+    вызывающего)."""
+    if not project_ids:
+        return {}
+    rows = await db.execute(
+        select(ProjectMoney, ProjectTotals)
+        .outerjoin(ProjectTotals, ProjectTotals.project_id == ProjectMoney.project_id)
+        .where(ProjectMoney.project_id.in_(project_ids))
+    )
+    out: dict[uuid.UUID, PortfolioMoney] = {}
+    for money, totals in rows.all():
+        out[money.project_id] = PortfolioMoney(
+            currency=money.currency,
+            quote_cur=None if totals is None else totals.quote_cur,
+            quote_rub=None if totals is None else totals.quote_rub,
+            cost_rub=None if totals is None else totals.cost_rub,
+            contract_amount=money.contract_amount,
+            rates_missing=bool(totals and totals.rates_missing),
+        )
+    return out
