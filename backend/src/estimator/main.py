@@ -30,6 +30,7 @@ from estimator.realtime.runtime import Realtime
 from estimator.redis_client import make_redis
 from estimator.security.alerts import notify as alerts
 from estimator.security.authz.routes import assert_routes_protected
+from estimator.security.siem import shipper as siem
 from estimator.security.web.headers import SecurityHeadersMiddleware
 from estimator.security.web.limits import BodySizeLimitMiddleware
 
@@ -91,6 +92,8 @@ def register_metrics(settings: Settings) -> None:
     global _metrics_registered
     if not _metrics_registered:
         REGISTRY.register(QueueLengthCollector(lambda: queue_lengths(settings)))
+        redis_url = settings.redis_url.get_secret_value()
+        REGISTRY.register(siem.QueueCollector(lambda: siem.read_state_sync(redis_url)))  # type: ignore[arg-type]
         _metrics_registered = True
 
 
