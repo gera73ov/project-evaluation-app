@@ -190,6 +190,10 @@ class LoginService:
             result = await authenticate(db, method_mode, credentials)
         except ProviderNotAvailableError:
             raise AuthError(503, "AUTH_SERVICE_UNAVAILABLE") from None
+        if result.reason == "ad_unavailable":  # FR-AUTH-AD-09: AD недоступен — не попытка входа
+            await self._failed(db, login, result.user_id, "ad_unavailable", method_mode, ip,
+                               user_agent)  # fmt: skip
+            raise AuthError(503, "AUTH_SERVICE_UNAVAILABLE")
         if not result.ok or result.identity is None or result.identity.user_id is None:
             failure = await guard.record_failure(login, ip, superadmin=superadmin)
             await self._failed(

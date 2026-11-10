@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from estimator.auth.policy import load_auth_mode
 from estimator.auth.providers import (
     Credentials,
-    ProviderNotAvailableError,
     authenticate,
 )
 from estimator.auth.providers.local import needs_rehash, verify_password
@@ -80,14 +79,14 @@ async def test_outdated_hash_is_rehashed_on_login(db_session: AsyncSession) -> N
 
 @pytest.mark.spec("ARCH-06")
 async def test_superadmin_always_local(db_session: AsyncSession) -> None:
-    """В режиме AD суперадминистратор входит через local; провайдер ad появится в AUTH-013."""
+    """В режиме AD суперадминистратор входит через local, остальные — через провайдер ad."""
     await as_app(db_session)
     superadmin = await make_user(db_session, SystemRole.SUPERADMIN)
     result = await authenticate(db_session, "ad", Credentials(superadmin.login, PASSWORD))
     assert result.ok
     other = await make_user(db_session, SystemRole.ADMIN)
-    with pytest.raises(ProviderNotAvailableError):
-        await authenticate(db_session, "ad", Credentials(other.login, PASSWORD))
+    in_ad = await authenticate(db_session, "ad", Credentials(other.login, PASSWORD))
+    assert in_ad.reason == "ad_unavailable", "AD не настроен — вход через AD недоступен"
 
 
 async def test_auth_mode_default_is_local(db_session: AsyncSession) -> None:
