@@ -81,8 +81,8 @@ class MonthOutcomes(_Strict):
 
 class PortfolioSummary(_Strict):
     period: Period
-    by_status: dict[str, int]
-    by_outcome: dict[str, int]
+    by_status: dict[str, Any]
+    by_outcome: dict[str, Any]
     won_share_count_pct: str | None
     won_share_money_pct: str | None
     sum_won_cur: str | None
