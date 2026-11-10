@@ -674,6 +674,32 @@ class ThreadList(_Strict):
     next_cursor: str | None
 
 
+# --- закрытые заметки (CORE-031) ---------------------------------------------------------------
+
+
+class Note(_Strict):
+    id: uuid.UUID
+    node_id: uuid.UUID | None
+    author: UserRef
+    body: str = Field(max_length=4000)
+    created_at: dt.datetime
+    edited_at: dt.datetime | None
+
+
+class NoteCreate(_Strict):
+    node_id: uuid.UUID | None = None
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class NotePatch(_Strict):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class NoteList(_Strict):
+    items: list[Note]
+    next_cursor: str | None
+
+
 class NodeFeed(_Strict):
     items: list[Message]
     threads: list[Thread]
