@@ -23,8 +23,14 @@ export function useProject(id: string, onEvent?: (event: { event: string; data?:
     queryKey: projectKey(id),
     queryFn: () => call(() => api.GET('/projects/{id}', { params: { path: { id } } })),
   });
+  const [revoked, setRevoked] = useState<string | null>(null);
   // правки других модераторов приходят событиями; перечитываем настройки и команду
   useProjectChannel(id, query.data?.version ?? null, {
+    // FE-091: доступ отозван (исключили из команды, кончилась сессия поддержки) — экран закрывается
+    onRevoked: (reason) => {
+      setRevoked(reason || 'rights_changed');
+      void client.cancelQueries({ queryKey: projectKey(id) });
+    },
     onEvent: (event) => {
       if (event.event === 'project.updated' || event.event === 'member.updated') {
         void client.invalidateQueries({ queryKey: projectKey(id) });
@@ -33,7 +39,7 @@ export function useProject(id: string, onEvent?: (event: { event: string; data?:
     },
     onResync: () => void client.invalidateQueries({ queryKey: projectKey(id) }),
   });
-  return { ...query, data: query.data as Project | undefined };
+  return { ...query, data: query.data as Project | undefined, revoked };
 }
 
 /** Итоги дерева: часы E/P80/P90 проекта для подсказки «сейчас 425,5 ч». */

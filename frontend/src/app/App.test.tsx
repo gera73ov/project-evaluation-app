@@ -81,7 +81,8 @@ describe('гарды и меню', () => {
       const path = route.path.replace(':id', 'p1');
       const { unmount } = renderApp(path);
       await waitFor(() => expect(document.querySelector('.hdr')).not.toBeNull());
-      expect(screen.queryByText('Страница не найдена.'), path).toBeNull();
+      // страница 404 маршрутизатора; «Страница не найдена.» может быть и ошибкой загрузки данных экрана
+      expect(screen.queryByText('Проверьте адрес или вернитесь на «Мои оценки».'), path).toBeNull();
       unmount();
     }
   });

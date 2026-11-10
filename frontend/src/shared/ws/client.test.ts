@@ -137,6 +137,48 @@ describe('WsClient (FR-TREE-33, ARCH-02)', () => {
     expect(onOther).toHaveBeenCalledWith('NOT_FOUND');
   });
 
+  it('две подписки на проект (дерево и настройки) — одна команда subscribe, события обеим (FE-091)', async () => {
+    const { client } = setup();
+    const tree = vi.fn();
+    const settings = vi.fn();
+    const revoked = vi.fn();
+    client.start();
+    FakeSocket.last().open();
+    const offTree = client.subscribe(P, 5, { onEvent: tree, onRevoked: revoked });
+    const offSettings = client.subscribe(P, null, { onEvent: settings, onRevoked: revoked });
+    const subscribes = () => FakeSocket.last().sent.filter((c) => c.op === 'subscribe');
+    const unsubscribes = () => FakeSocket.last().sent.filter((c) => c.op === 'unsubscribe');
+    expect(subscribes()).toHaveLength(1);
+    FakeSocket.last().ack('subscribe', { project_version: 5, channels: [`project:${P}`], resync: false });
+    await flush();
+    FakeSocket.last().push(event('node.updated', 6));
+    expect(tree).toHaveBeenCalledTimes(1);
+    expect(settings).toHaveBeenCalledTimes(1);
+
+    offSettings();
+    expect(unsubscribes()).toHaveLength(0);
+    FakeSocket.last().push(event('node.updated', 7));
+    expect(tree).toHaveBeenCalledTimes(2);
+    expect(settings).toHaveBeenCalledTimes(1);
+
+    client.subscribe(P, null, { onEvent: settings, onRevoked: revoked });
+    FakeSocket.last().push(event('access.revoked', undefined, { project_id: P, reason: 'removed_from_team' }));
+    expect(revoked).toHaveBeenCalledTimes(2);
+    offTree();
+  });
+
+  it('последний отписавшийся снимает подписку на сервере', () => {
+    const { client } = setup();
+    client.start();
+    FakeSocket.last().open();
+    const a = client.subscribe(P, 1, {});
+    const b = client.subscribe(P, 1, {});
+    a();
+    expect(FakeSocket.last().sent.filter((c) => c.op === 'unsubscribe')).toHaveLength(0);
+    b();
+    expect(FakeSocket.last().sent.filter((c) => c.op === 'unsubscribe')).toHaveLength(1);
+  });
+
   it('session.ended и закрытие 4401 — конец сессии без переподключения (FR-SESS-02)', () => {
     const onSessionEnded = vi.fn();
     const { client } = setup({ onSessionEnded });
