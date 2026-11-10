@@ -260,6 +260,21 @@ async def _notify_new(
         await notify_assigned(db, principal, project.id, list(due))
 
 
+def check_presale_head_limits(principal: Principal, current: set[Key], wanted: set[Key]) -> None:
+    """Руководитель пресейла без системной роли «Модератор», ставший модератором проекта сам
+    (CORE-071), не добавляет и не снимает других модераторов (SEC-AUTHZ-05, 403 ``FORBIDDEN``);
+    выйти из команды сам может, если остаётся другой модератор."""
+    roles = principal.roles
+    if SystemRole.PRESALE_HEAD not in roles or roles & {SystemRole.MODERATOR, SystemRole.ADMIN}:
+        return
+    touched = {k for k in current ^ wanted if k[1] is ProjectRole.MODERATOR}
+    if any(k[0] != principal.user_id for k in touched):
+        raise ApiError(
+            "FORBIDDEN",
+            detail="Руководитель пресейла не назначает и не снимает других модераторов",
+        )
+
+
 async def put_members(
     db: AsyncSession,
     principal: Principal,
@@ -276,6 +291,7 @@ async def put_members(
     wanted = {s.key: s for s in specs}
     if not any(k[1] is ProjectRole.MODERATOR for k in wanted):
         raise ApiError("LAST_MODERATOR")
+    check_presale_head_limits(principal, set(current), set(wanted))
     await _check_new(db, project, specs, set(current))
     presale = {k[0] for k in wanted if k[1] is ProjectRole.PRESALE}
     if len(presale) > PRESALE_LIMIT:

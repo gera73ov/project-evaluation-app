@@ -2,7 +2,8 @@
 ``POST /projects/{id}/members/{user_id}/replace``).
 
 Права — ``ApiRouter``: ``project.read``, ``team.write``, ``team.replace_member`` (модератор
-проекта); бизнес-проверки состава — :mod:`estimator.services.team`.
+проекта), ``project.join_as_moderator`` (руководитель пресейла, CORE-071); бизнес-проверки
+состава — :mod:`estimator.services.team`.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from estimator.db.enums import ProjectRole
 from estimator.db.models.projects import Project
 from estimator.db.session import DbSession
 from estimator.services import team
+from estimator.services.team import join_as_moderator
 
 router = ApiRouter(tags=["Проекты"])
 
@@ -81,6 +83,24 @@ async def replace_member(
     await team.replace_member(db, principal, project, user_id, body.replacement_user_id)
     await db.flush()
     return {"items": await team.members_out(db, id)}
+
+
+@router.post(
+    "/projects/{id}/join-as-moderator",
+    permission="project.join_as_moderator",
+    response_model=s.MemberList,
+    response_model_exclude_unset=True,
+)
+async def join_project_as_moderator(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    principal: ActivePrincipal,
+    db: DbSession,
+) -> dict[str, Any]:
+    """CORE-071: руководитель пресейла становится модератором проекта (только себя)."""
+    project = await _load(db, id)
+    items = await join_as_moderator.join(db, principal, project)
+    await db.flush()
+    return {"items": items}
 
 
 @router.get(
