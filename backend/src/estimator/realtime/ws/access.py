@@ -26,7 +26,7 @@ from estimator.auth.setup_gate import ensure_setup_allows
 from estimator.db.enums import ProjectStatus
 from estimator.db.models.projects import Project, ProjectMember
 from estimator.realtime.ws.hub import ProjectAccess
-from estimator.security import audit
+from estimator.security.audit import security_events
 from estimator.security.authz import deps as authz_deps
 from estimator.security.authz.engine import AccessDenied, Target, decide_any
 from estimator.security.networks import address_allowed, load_admin_networks
@@ -59,10 +59,9 @@ async def handshake(ws: WebSocket, db: AsyncSession, service: SessionService) ->
     if principal.is_superadmin:
         ip = client_ip(ws)  # type: ignore[arg-type]
         if not address_allowed(ip, await load_admin_networks(db)):
-            await audit.write_detached(
-                db, "security.network_denied", "denied",
-                user_id=principal.user_id, login=principal.login, ip=ip,
-                session_id=principal.session_id, details={"route": ws.url.path},
+            await security_events.network_denied(
+                db, ws.app.state.redis, user_id=principal.user_id, login=principal.login, ip=ip,
+                session_id=principal.session_id, route=ws.url.path,
             )  # fmt: skip
             raise HandshakeDenied("NOT_FOUND")
     return principal

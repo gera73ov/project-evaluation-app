@@ -37,7 +37,8 @@ from estimator.auth.setup_gate import ensure_setup_allows
 from estimator.db.enums import SystemRole
 from estimator.db.session import DbSession
 from estimator.redis_client import get_redis
-from estimator.security.ratelimit.limiter import LIMITS, RateLimiter
+from estimator.security.audit import security_events
+from estimator.security.ratelimit.limiter import LIMITS, RateLimitedError, RateLimiter, client_ip
 from estimator.security.web.csrf import SAFE_METHODS, check_csrf
 
 #: Ключ ``user`` — пользователь без системных ролей (contracts/settings.schema.json).
@@ -84,11 +85,27 @@ class ForbiddenError(HTTPException):
 RedisDep = Annotated[Redis, Depends(get_redis)]
 
 
-async def _guard_mutation(request: Request, principal: Principal, redis: Redis) -> None:
-    """CSRF и лимит 300 изменяющих запросов в минуту на пользователя (SEC-WEB-04, SEC-WEB-07)."""
+async def _guard_mutation(
+    request: Request, principal: Principal, db: AsyncSession, redis: Redis
+) -> None:
+    """CSRF и лимит 300 изменяющих запросов в минуту на пользователя (SEC-WEB-04, SEC-WEB-07).
+
+    Превышение — 429 и событие ``security.rate_limited`` (не чаще раза в минуту, SEC-010).
+    """
     check_csrf(request, principal.session.csrf)
-    if request.method.upper() not in SAFE_METHODS:
-        await RateLimiter(redis).check(LIMITS["mutations"], str(principal.user_id))
+    if request.method.upper() in SAFE_METHODS:
+        return
+    limit = LIMITS["mutations"]
+    who = str(principal.user_id)
+    try:
+        await RateLimiter(redis).check(limit, who)
+    except RateLimitedError as exc:
+        await security_events.rate_limited(
+            db, redis, limit.name, who, exc.retry_after,
+            user_id=principal.user_id, login=principal.login, ip=client_ip(request),
+            session_id=principal.session_id,
+        )  # fmt: skip
+        raise
 
 
 async def active_principal(
@@ -104,16 +121,19 @@ async def active_principal(
         raise ForbiddenError("PASSWORD_CHANGE_REQUIRED")
     if principal.enrollment_required:
         raise ForbiddenError("TOTP_ENROLL_REQUIRED")
-    await _guard_mutation(request, principal, redis)
+    await _guard_mutation(request, principal, db, redis)
     return principal
 
 
 async def pre_mfa_principal(
-    request: Request, principal: Annotated[Principal, Depends(current_principal)], redis: RedisDep
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+    db: DbSession,
+    redis: RedisDep,
 ) -> Principal:
     if principal.password_change_required:
         raise ForbiddenError("PASSWORD_CHANGE_REQUIRED")
-    await _guard_mutation(request, principal, redis)
+    await _guard_mutation(request, principal, db, redis)
     return principal
 
 
@@ -126,7 +146,7 @@ async def password_change_principal(
     """``session.password_change``: сессия с истёкшим паролем; иначе — как полная сессия."""
     if not principal.password_change_required:
         return await active_principal(request, principal, db, redis)
-    await _guard_mutation(request, principal, redis)
+    await _guard_mutation(request, principal, db, redis)
     return principal
 
 

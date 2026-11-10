@@ -7,7 +7,8 @@
   «Напомнить не начавшим» — раз в сутки на проект;
 * :class:`RateLimiter` — универсальный API для доменных лимитов: ``await limiter.hit(limit, id)``;
 * :func:`rate_limit` — зависимость FastAPI: превышение → 429 с ``Retry-After``;
-* :func:`add_listener` — подписка на превышения (аудит ``security.rate_limited``, SEC-004/SEC-010).
+* :func:`add_listener` — подписка на превышения. Аудит ``security.rate_limited`` пишут места
+  проверки (``rate_limit``, сессии, вход) через ``security/audit/security_events`` (SEC-010).
 """
 
 from __future__ import annotations

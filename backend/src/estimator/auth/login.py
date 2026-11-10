@@ -55,6 +55,7 @@ from estimator.db.models.users import User, UserRole
 from estimator.logging import get_logger
 from estimator.metrics import LOGIN_FAILURES
 from estimator.security import audit
+from estimator.security.audit import security_events
 from estimator.security.crypto import get_cipher
 
 log = get_logger(__name__)
@@ -173,6 +174,10 @@ class LoginService:
         if gate.code is not None:
             reason = "rate_limited" if gate.code == "RATE_LIMITED" else "locked_out"
             await self._failed(db, login, None, reason, method_mode, ip, user_agent)
+            if gate.code == "RATE_LIMITED":  # SEC-010: 429 по IP — и в категорию «Безопасность»
+                await security_events.rate_limited(
+                    db, self._redis, "login_ip", ip, gate.retry_after or 1, login=login, ip=ip
+                )
             raise throttled(gate.code, gate.retry_after)
         if gate.delay_seconds:
             await asyncio.sleep(gate.delay_seconds)

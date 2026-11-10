@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from fastapi import Depends, HTTPException, Request
 from redis.asyncio import Redis
 
+from estimator.db.session import DbSession
 from estimator.logging import get_logger
 from estimator.redis_client import get_redis
 
@@ -89,7 +90,7 @@ _listeners: list[Listener] = []
 
 
 def add_listener(listener: Listener) -> None:
-    """Подписаться на превышения (аудит ``security.rate_limited`` подключают SEC-004/SEC-010)."""
+    """Подписаться на превышения (метрики, тесты; аудит — security_events, SEC-010)."""
     _listeners.append(listener)
 
 
@@ -114,6 +115,7 @@ class RateLimiter:
     """Скользящее окно в Redis; ``clock`` подменяется в тестах."""
 
     def __init__(self, redis: Redis, clock: Callable[[], float] = time.time) -> None:
+        self.redis = redis
         self._redis = redis
         self._clock = clock
         self._script = redis.register_script(_SCRIPT)
@@ -180,10 +182,20 @@ def rate_limit(
 
     async def dependency(
         request: Request,
+        db: DbSession,
         limiter: RateLimiter = Depends(get_rate_limiter),  # noqa: B008
     ) -> None:
         who = identity(request)
-        if who is not None:
+        if who is None:
+            return
+        try:
             await limiter.check(limit, who)
+        except RateLimitedError as exc:
+            from estimator.security.audit import security_events  # цикл: audit → … → limiter
+
+            await security_events.rate_limited(
+                db, limiter.redis, limit.name, who, exc.retry_after, ip=client_ip(request)
+            )
+            raise
 
     return dependency
