@@ -85,7 +85,8 @@ async def send_due(db: AsyncSession, now: dt.datetime | None = None) -> int:
         lambda: defaultdict(dict)
     )
     for user_id, project_id, kind, count in rows:
-        assert project_id is not None  # noqa: S101 — отобрано условием запроса
+        if project_id is None:  # отобрано условием запроса, проверка для типов
+            continue
         counters[user_id][project_id][kind] = int(count)
     users = {u.id: u for u in (await db.scalars(
         select(User).where(User.id.in_(counters)).with_for_update(skip_locked=True)

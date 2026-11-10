@@ -92,7 +92,8 @@ async def flush_due(db: AsyncSession, now: dt.datetime | None = None) -> int:
     root = await base_url(db)
     counts: dict[uuid.UUID, dict[uuid.UUID, dict[str, int]]] = defaultdict(dict)
     for note in notes:
-        assert note.project_id is not None  # noqa: S101 — отобрано условием _pending
+        if note.project_id is None:  # отобрано условием _pending, проверка для типов
+            continue
         per = counts[note.user_id].setdefault(note.project_id, {QUESTION: 0, ANSWER: 0})
         per[note.kind] += 1
         note.emailed_at = now
