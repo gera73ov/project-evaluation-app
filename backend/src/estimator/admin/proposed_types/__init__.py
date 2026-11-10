@@ -70,7 +70,8 @@ async def list_proposed(db: AsyncSession) -> list[dict[str, Any]]:
     ]
 
 
-async def _proposed(db: AsyncSession, type_id: uuid.UUID, to: str) -> NodeType:
+async def _proposed(db: AsyncSession, type_id: uuid.UUID, to: str) -> tuple[NodeType, uuid.UUID]:
+    """Предложенный тип под блокировкой и его проект (у предложенного типа он всегда есть)."""
     row = await db.get(NodeType, type_id, with_for_update=True)
     if row is None or (row.project_id is None and row.proposal_status == NodeTypeProposal.NONE):
         raise ApiError("NOT_FOUND")
@@ -80,7 +81,9 @@ async def _proposed(db: AsyncSession, type_id: uuid.UUID, to: str) -> NodeType:
             detail="По этому типу уже есть решение",
             **{"from": row.proposal_status.value, "to": to},
         )
-    return row
+    if row.project_id is None:
+        raise ApiError("NOT_FOUND")
+    return row, row.project_id
 
 
 async def _audit(
@@ -105,9 +108,7 @@ async def _audit(
 
 
 async def accept(db: AsyncSession, actor: Principal, type_id: uuid.UUID) -> dict[str, Any]:
-    row = await _proposed(db, type_id, "accepted")
-    project_id = row.project_id
-    assert project_id is not None  # noqa: S101 — предложенный тип всегда принадлежит проекту
+    row, project_id = await _proposed(db, type_id, "accepted")
     clash = await db.scalar(
         select(NodeType.id).where(
             NodeType.project_id.is_(None),
@@ -131,9 +132,7 @@ async def accept(db: AsyncSession, actor: Principal, type_id: uuid.UUID) -> dict
 async def merge(
     db: AsyncSession, actor: Principal, type_id: uuid.UUID, target_id: uuid.UUID
 ) -> dict[str, Any]:
-    row = await _proposed(db, type_id, "merged")
-    project_id = row.project_id
-    assert project_id is not None  # noqa: S101
+    row, project_id = await _proposed(db, type_id, "merged")
     target = await db.get(NodeType, target_id)
     if target is None or target.project_id is not None or not target.is_active:
         raise ApiError(
@@ -166,9 +165,7 @@ async def merge(
 
 
 async def reject(db: AsyncSession, actor: Principal, type_id: uuid.UUID) -> None:
-    row = await _proposed(db, type_id, "rejected")
-    project_id = row.project_id
-    assert project_id is not None  # noqa: S101
+    row, project_id = await _proposed(db, type_id, "rejected")
     row.proposal_status = NodeTypeProposal.REJECTED
     row.updated_by = actor.user_id
     await db.flush()
