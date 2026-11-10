@@ -46,10 +46,11 @@ def test_message_and_frame() -> None:
 
 def test_config_from_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     assert shipper.SiemConfig.from_settings(None) == shipper.SiemConfig()
-    plain = shipper.SiemConfig.from_settings({"enabled": True, "host": "siem", "port": None},
-                                             "-----BEGIN PRIVATE KEY-----")  # fmt: skip
+    plain = shipper.SiemConfig.from_settings(
+        {"enabled": True, "host": "siem", "port": None}, "фиктивный ключ в открытом виде"
+    )
     assert (plain.enabled, plain.port, plain.client_key_pem) == (
-        True, 6514, "-----BEGIN PRIVATE KEY-----")  # fmt: skip
+        True, 6514, "фиктивный ключ в открытом виде")  # fmt: skip
 
     class FakeCipher:
         def decrypt_setting(self, key: str, value: dict[str, str]) -> str:
