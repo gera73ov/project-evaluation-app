@@ -17,6 +17,7 @@ from estimator.api.v1 import (
     customer_questions,
     disciplines,
     discussions,
+    documents,
     exports,
     me,
     members,
@@ -65,6 +66,7 @@ router.include_router(discussions.router)
 router.include_router(customer_questions.router)
 router.include_router(notes.router)
 router.include_router(exports.router)
+router.include_router(documents.router)
 router.include_router(admin_calendar.router)
 router.include_router(admin_dictionaries.router)
 router.include_router(admin_users.router)

@@ -479,6 +479,12 @@ class DocumentOut(_Strict):
     deleted_at: str | None
 
 
+class DocumentList(_Strict):
+    items: list[DocumentOut]
+    used_bytes: int
+    limit_bytes: int
+
+
 class TrashBatch(_Strict):
     batch_id: uuid.UUID
     kind: Literal["nodes", "document"]

@@ -59,6 +59,38 @@ def export_queue(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[Any]:
     return jobs
 
 
+#: Тестовая строка EICAR: антивирусы считают её вирусом (SEC-WEB-10, TC-SEC-10).
+EICAR = rb"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+
+
+@pytest.fixture(autouse=True)
+def document_scans(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[uuid.UUID]:
+    """Проверка документов (EXP-011) без брокера и ``clamd``: id документов по порядку; файлы —
+    во временном каталоге теста; сканер находит EICAR. Тест проверяет сам:
+    ``await tasks.check(db, document_id)``."""
+    import io
+
+    from estimator.db.enums import ScanStatus
+    from estimator.documents import scan, tasks
+
+    queued: list[uuid.UUID] = []
+
+    async def record(document_id: uuid.UUID) -> None:
+        queued.append(document_id)
+
+    def fake_clamd(feed: Any) -> scan.Verdict:
+        sink = io.BytesIO()
+        feed(sink)
+        if EICAR in sink.getvalue():
+            return scan.Verdict(ScanStatus.INFECTED, "Eicar-Test-Signature")
+        return scan.Verdict(ScanStatus.CLEAN)
+
+    monkeypatch.setattr(tasks, "dispatch", record)
+    monkeypatch.setattr(scan, "scanner", fake_clamd)
+    monkeypatch.setenv("DOCUMENTS_DIR", str(tmp_path / "documents"))
+    return queued
+
+
 @pytest.fixture
 async def redis_client() -> AsyncIterator[Redis]:
     """Клиент тестового Redis (``TEST_REDIS_URL``)."""

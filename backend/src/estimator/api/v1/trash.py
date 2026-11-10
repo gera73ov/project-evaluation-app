@@ -22,6 +22,7 @@ from estimator.db.enums import NodeKind, ProjectRole
 from estimator.db.models.projects import Project, ProjectMember
 from estimator.db.models.tree import Node
 from estimator.db.session import DbSession
+from estimator.documents import service as documents
 from estimator.security.authz import Target
 from estimator.security.authz.deps import register_resolver
 from estimator.services.trash import listing
@@ -82,15 +83,19 @@ async def get_trash(
     principal: ActivePrincipal,
     db: DbSession,
 ) -> dict[str, Any]:
-    """Модератор видит всё, эксперт — удалённое из своих веток (FR-TREE-24); пресейл — только
-    документы (GAP-06), их добавит трек DOC."""
+    """Модератор видит всё, эксперт — удалённое из своих веток (FR-TREE-24); удалённые
+    документы заказчика — только модератор и пресейл проекта, пресейл — только их (GAP-06)."""
     restricted = request.state.access.restricted
     disciplines: set[uuid.UUID] | None = None
     if "own_discipline" in restricted:
         disciplines = await _expert_disciplines(db, id, principal.user_id)
     elif restricted:
         disciplines = set()
-    return {"items": await listing.list_trash(db, id, disciplines)}
+    items = await listing.list_trash(db, id, disciplines)
+    if not restricted or "documents_only" in restricted:
+        items += await documents.trash_items(db, id)
+        items.sort(key=lambda item: item["deleted_at"], reverse=True)
+    return {"items": items}
 
 
 @router.post(
