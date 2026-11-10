@@ -25,6 +25,7 @@ from estimator.api.v1 import (
     notifications,
     portfolio,
     projects,
+    snapshots,
     system_admins,
     system_health,
     system_projects,
@@ -51,6 +52,7 @@ router.include_router(money.router)
 router.include_router(branches.router)
 router.include_router(members.router)
 router.include_router(portfolio.router)
+router.include_router(snapshots.router)
 router.include_router(disciplines.router)
 router.include_router(node_types.router)
 router.include_router(notifications.router)
