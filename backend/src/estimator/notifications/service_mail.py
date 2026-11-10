@@ -16,7 +16,8 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +33,8 @@ log = get_logger(__name__)
 
 #: Виды уведомлений с немедленным служебным письмом того же имени (notifications.yaml → email).
 IMMEDIATE = frozenset({"assigned_to_project"})
+#: Письмо: вид (шаблон), получатель, поля шаблона.
+Letter = tuple[str, Recipient, Mapping[str, Any]]
 
 
 async def on_created(db: AsyncSession, notes: Sequence[Notification]) -> int:
@@ -52,7 +55,7 @@ async def on_created(db: AsyncSession, notes: Sequence[Notification]) -> int:
     )).all()}  # fmt: skip
     root = await base_url(db)
     now = dt.datetime.now(dt.UTC)
-    letters: list[tuple[str, Recipient, dict[str, str]]] = []
+    letters: list[Letter] = []
     for note in wanted:
         user = users.get(note.user_id)
         if user is None or not user.email:
@@ -64,6 +67,12 @@ async def on_created(db: AsyncSession, notes: Sequence[Notification]) -> int:
     if not letters:
         return 0
     await db.flush()
+    queue_after_commit(db, letters)
+    return len(letters)
+
+
+def queue_after_commit(db: AsyncSession, letters: Sequence[Letter]) -> None:
+    """Поставить письма в очередь после commit; сбой очереди пишется в лог и не роняет запрос."""
 
     async def send() -> None:
         from estimator.notifications.tasks import enqueue_email
@@ -71,8 +80,8 @@ async def on_created(db: AsyncSession, notes: Sequence[Notification]) -> int:
         for kind, recipient, fields in letters:
             try:
                 enqueue_email(kind, [recipient], fields)
-            except Exception as exc:  # noqa: BLE001 — сбой очереди не роняет назначение
+            except Exception as exc:  # noqa: BLE001 — сбой очереди не роняет основное действие
                 log.warning("service_mail_enqueue_failed", kind=kind, error=type(exc).__name__)
 
-    after_commit(db, send)
-    return len(letters)
+    if letters:
+        after_commit(db, send)

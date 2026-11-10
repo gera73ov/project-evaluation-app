@@ -167,7 +167,7 @@ async def purge_old(db: Any, now: Any = None) -> int:
     return deleted
 
 
-async def _purge_in_own_session() -> int:  # pragma: no cover — запуск в worker
+async def _in_own_session(job: Any) -> int:  # pragma: no cover — запуск в worker
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
     from estimator.config import get_settings
@@ -176,14 +176,34 @@ async def _purge_in_own_session() -> int:  # pragma: no cover — запуск �
     engine = create_engine(get_settings())
     try:
         async with transaction(async_sessionmaker(engine)) as db:
-            return await purge_old(db)
+            return int(await job(db))
     finally:
         await engine.dispose()
 
 
 @shared_task(name=PURGE_TASK)
 def purge_notifications() -> int:  # pragma: no cover — запуск в worker
-    return int(asyncio.run(_purge_in_own_session()))
+    return asyncio.run(_in_own_session(purge_old))
+
+
+# --- пачки о вопросах (NTF-004) и ежедневная сводка (NTF-005) ---------------------------------
+
+BATCH_TASK = "estimator.notifications.questions_batch"
+DIGEST_TASK = "estimator.notifications.digest"
+
+
+@shared_task(name=BATCH_TASK)
+def send_question_batches() -> int:  # pragma: no cover — запуск в worker
+    from estimator.notifications.batches import flush_due
+
+    return asyncio.run(_in_own_session(flush_due))
+
+
+@shared_task(name=DIGEST_TASK)
+def send_digests() -> int:  # pragma: no cover — запуск в worker
+    from estimator.notifications.digest import send_due
+
+    return asyncio.run(_in_own_session(send_due))
 
 
 def _register() -> None:
@@ -192,6 +212,8 @@ def _register() -> None:
     from estimator.jobs.schedule import PeriodicTask, register_periodic
 
     register_periodic(PeriodicTask("notifications_purge", PURGE_TASK, crontab(hour=3, minute=40)))
+    register_periodic(PeriodicTask("notifications_questions_batch", BATCH_TASK, crontab()))
+    register_periodic(PeriodicTask("notifications_digest", DIGEST_TASK, crontab(minute="*/5")))
 
 
 _register()
