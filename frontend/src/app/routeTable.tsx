@@ -23,6 +23,8 @@ import { QuestionsPage } from '../features/stats/questions/QuestionsPage';
 import { TotalsPage } from '../features/stats/totals/TotalsPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
 import { AuditPage } from '../features/audit/AuditPage';
+import { DictionariesPage } from '../features/admin/dictionaries/DictionariesPage';
+import { dictPath, isDictKey, type DictKey } from '../features/admin/dictionaries/dictionaries';
 import { UsersPage } from '../features/admin/users/UsersPage';
 import { AccountsPage } from '../features/system/admins/AccountsPage';
 import { AnonymizePage, RegistryPage } from '../features/system/admins/AnonymizeRegistryPages';
@@ -152,7 +154,15 @@ export const ROUTES: readonly RouteDef[] = [
     access: 'private',
     nav: 'admin',
     roles: ['admin'],
-    render: stub('Справочники', 'FE-071'),
+    render: () => <Redirect to={dictPath('phases')} />,
+  },
+  {
+    path: '/admin/dictionaries/:kind',
+    access: 'private',
+    nav: 'admin',
+    roles: ['admin'],
+    render: (p) =>
+      isDictKey(p.kind ?? '') ? <DictionariesPage kind={p.kind as DictKey} /> : <Redirect to={dictPath('phases')} />,
   },
   {
     path: '/admin/calendar',

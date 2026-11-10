@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import '../shared/i18n';
 import { resetDemoAuth } from '../shared/api/mocks/demoAuth';
+import { resetDemoDictionaries } from '../shared/api/mocks/demoDictionaries';
 import { resetDemoDiscussions } from '../shared/api/mocks/demoDiscussions';
 import { resetDemoDocuments } from '../shared/api/mocks/demoDocuments';
 import { resetDemoOutcome } from '../shared/api/mocks/demoOutcome';
@@ -63,6 +64,7 @@ if (browser) {
     resetDemoAuth();
     resetDemoSetup();
     resetDemoUsers();
+    resetDemoDictionaries();
     window.history.replaceState(null, '', '/');
   });
   afterAll(() => server.close());

@@ -32,6 +32,7 @@ import {
 } from "./data";
 import * as demoAudit from "./demoAudit";
 import * as demoAuth from "./demoAuth";
+import * as demoDictionaries from "./demoDictionaries";
 import * as demoDiscussions from "./demoDiscussions";
 import * as demoDocuments from "./demoDocuments";
 import * as demoExports from "./demoExports";
@@ -628,11 +629,6 @@ const DEMO: Record<string, Demo> = {
     }
     return result;
   },
-  listLossReasons: (ctx, schema) =>
-    list(
-      schema,
-      demoOutcome.lossReasons(ctx.params.include_inactive === "true"),
-    ),
   // FE-060 · раздел «Система» (FR-SA-07, BR-ROLE-03, FR-SA-04)
   getHealth: () => demoSystem.health(),
   listAdmins: (_ctx, schema) => list(schema, demoSystem.admins()),
@@ -948,26 +944,6 @@ const DEMO: Record<string, Demo> = {
       has_expert: true,
     };
   },
-  listProfiles: (_ctx, schema) =>
-    list(
-      schema,
-      DISCIPLINES.flatMap((d) => [
-        {
-          id: profileId(d.key),
-          discipline_id: disciplineId(d.key),
-          name: d.profile,
-          type_chain: profileChain(d.profile),
-          is_active: true,
-        },
-        {
-          id: profileId(`${d.key}-alt`),
-          discipline_id: disciplineId(d.key),
-          name: "Модуль → Работа",
-          type_chain: profileChain("Модуль → Работа"),
-          is_active: true,
-        },
-      ]),
-    ),
 
   getMe: (ctx) => ({
     id: personaId(ctx.persona),
@@ -1360,40 +1336,26 @@ const DEMO: Record<string, Demo> = {
     return { items, unread: items.length, next_cursor: null };
   },
 
-  listRatios: (_ctx, schema) => list(schema, [DEMO_RATIO]),
+  // FE-071 · справочники (SPEC 7.5): список, создание, правка, удаление по правилам сервера
+  ...dictionaryHandlers(),
   getMethodSettings: () => demoSystem.methodSettings(),
-  listPhases: (_ctx, schema) =>
-    list(
-      schema,
-      PHASES.map((p, i) => ({
-        id: phaseId(p.key),
-        name: p.name,
-        sort_order: i + 1,
-        is_cross_cutting: p.cross,
-        is_active: true,
-      })),
-    ),
-
-  listDisciplines: (_ctx, schema) =>
-    list(
-      schema,
-      DISCIPLINES.map((d) => ({
-        id: disciplineId(d.key),
-        name: d.name,
-        short_name: d.short,
-        color: d.color,
-        default_profile_id: profileId(d.key),
-        is_active: true,
-      })),
-    ),
-
-  listNodeTypes: (_ctx, schema) => list(schema, dictionaryNodeTypes()),
+  putMethodSettings: (ctx) => {
+    const v = body(ctx);
+    if (Object.keys(v).length === 0) return demoSystem.methodSettings();
+    demoSystem.saveSettings(
+      "method",
+      Object.fromEntries(
+        Object.entries(v).map(([k, value]) => [`method.${k}`, value]),
+      ),
+    );
+    return demoSystem.methodSettings();
+  },
 
   // CR-006: типы словаря и локальные типы проекта (в «Портале дилеров» — «Шлюз оплаты»)
   listProjectNodeTypes: (ctx, schema) =>
     ctx.project
       ? list(schema, [
-          ...dictionaryNodeTypes(),
+          ...demoDictionaries.list("node_types", false),
           ...(ctx.project.key === "portal"
             ? [
                 {
@@ -1411,6 +1373,162 @@ const DEMO: Record<string, Demo> = {
         ])
       : undefined,
 };
+
+const DICT_STATUS = new Map([
+  ["NOT_FOUND", [404, "Не найдено"]],
+  ["DICTIONARY_IN_USE", [409, "Запись справочника используется"]],
+  ["ALREADY_EXISTS", [409, "Такая запись уже есть"]],
+  ["VALIDATION_FAILED", [422, "Ошибка в данных"]],
+] as const);
+
+function dictProblem(err: demoDictionaries.DictError) {
+  const [status, title] = DICT_STATUS.get(err.error) ?? [409, err.error];
+  const base = problem(status, err.error, title);
+  return new MockProblem(
+    "field" in err
+      ? {
+          status,
+          body: {
+            ...(base.body as object),
+            errors: [
+              {
+                field: `/${err.field}`,
+                code: "invalid",
+                message: "Неверное значение",
+              },
+            ],
+          },
+        }
+      : base,
+  );
+}
+
+function dictionaryHandlers(): Record<string, Demo> {
+  const ops: [string, demoDictionaries.Kind, string][] = [
+    ["Phases", "phases", "id"],
+    ["Disciplines", "disciplines", "id"],
+    ["NodeTypes", "node_types", "id"],
+    ["Profiles", "profiles", "id"],
+    ["Ratios", "ratios", "id"],
+    ["Tags", "tags", "id"],
+    ["Currencies", "currencies", "code"],
+    ["VatRates", "vat_rates", "id"],
+    ["LossReasons", "loss_reasons", "id"],
+  ];
+  const out: Record<string, Demo> = {};
+  for (const [op, kind, key] of ops) {
+    out[`list${op}`] = (ctx, schema) =>
+      list(
+        schema,
+        demoDictionaries.list(kind, ctx.params.include_inactive === "true"),
+      );
+    out[`create${op}`] = (ctx) => {
+      const r = demoDictionaries.create(kind, ctx.body);
+      return r && demoDictionaries.isError(r) ? dictProblem(r) : r;
+    };
+    out[`update${op}`] = (ctx) => {
+      const r = demoDictionaries.update(kind, ctx.params[key] ?? "", ctx.body);
+      return demoDictionaries.isError(r) ? dictProblem(r) : r;
+    };
+    out[`delete${op}`] = (ctx) => {
+      const err = demoDictionaries.remove(kind, ctx.params[key] ?? "");
+      return err ? dictProblem(err) : undefined;
+    };
+  }
+  return out;
+}
+
+demoDictionaries.setSeeds({
+  phases: () =>
+    PHASES.map((p, i) => ({
+      id: phaseId(p.key),
+      name: p.name,
+      sort_order: i + 1,
+      is_cross_cutting: p.cross,
+      is_active: true,
+    })),
+  disciplines: () =>
+    DISCIPLINES.map((d) => ({
+      id: disciplineId(d.key),
+      name: d.name,
+      short_name: d.short,
+      color: d.color,
+      default_profile_id: profileId(d.key),
+      is_active: true,
+    })),
+  node_types: dictionaryNodeTypes,
+  profiles: () =>
+    DISCIPLINES.flatMap((d) => [
+      {
+        id: profileId(d.key),
+        discipline_id: disciplineId(d.key),
+        name: d.profile,
+        type_chain: profileChain(d.profile),
+        is_active: true,
+      },
+      {
+        id: profileId(`${d.key}-alt`),
+        discipline_id: disciplineId(d.key),
+        name: "Модуль → Работа",
+        type_chain: profileChain("Модуль → Работа"),
+        is_active: true,
+      },
+    ]),
+  ratios: () => [{ ...DEMO_RATIO }],
+  tags: () =>
+    (
+      [
+        ["assumption", "Допущение", "Доп.", "#57702c"],
+        ["constraint", "Ограничение", "Огр.", "#8a5a1f"],
+        ["risk", "Риск", "Риск", "#c92a2a"],
+        ["tech", "Технология", "Тех.", "#2f5aa8"],
+      ] as const
+    ).map(([category, name, short_name, color]) => ({
+      id: uuidFrom("tag", category),
+      name,
+      short_name,
+      color,
+      category,
+      is_active: true,
+    })),
+  currencies: () => [
+    { code: "RUB", symbol: "₽", is_active: true },
+    { code: "USD", symbol: "$", is_active: true },
+    { code: "EUR", symbol: "€", is_active: true },
+    { code: "KZT", symbol: "₸", is_active: false },
+  ],
+  vat_rates: () => [
+    {
+      id: uuidFrom("vat", "22"),
+      name: "НДС 22%",
+      percent: "22",
+      is_default: true,
+      is_active: true,
+    },
+    {
+      id: uuidFrom("vat", "20"),
+      name: "НДС 20%",
+      percent: "20",
+      is_default: false,
+      is_active: true,
+    },
+    {
+      id: uuidFrom("vat", "10"),
+      name: "НДС 10%",
+      percent: "10",
+      is_default: false,
+      is_active: true,
+    },
+    {
+      id: uuidFrom("vat", "none"),
+      name: "Без НДС",
+      percent: null,
+      is_default: false,
+      is_active: true,
+    },
+  ],
+  loss_reasons: () => demoOutcome.LOSS_REASONS.map((r) => ({ ...r })),
+});
 
 function dictionaryNodeTypes() {
   return NODE_TYPES.map((name) => ({
