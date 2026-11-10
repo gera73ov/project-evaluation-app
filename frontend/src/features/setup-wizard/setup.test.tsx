@@ -105,8 +105,19 @@ describe('мастер первичной настройки', () => {
     await heading('Политики безопасности');
     fireEvent.click(button(NEXT));
     await heading('Первый администратор');
-    expect(screen.getByText(/Укажите учётку AD будущего администратора/)).toBeTruthy();
-    expect(await screen.findByText(/сервер найдёт её в каталоге/)).toBeTruthy();
+    expect(screen.getByText(/Найдите учётку AD будущего администратора/)).toBeTruthy();
+    // CR-011: поиск по каталогу из раздела «Система», учётка без группы доступа не выбирается
+    expect(screen.queryByLabelText(/^Логин/)).toBeNull();
+    fireEvent.change(await screen.findByLabelText(/Найти в AD/), { target: { value: 'волк' } });
+    const list = await screen.findByRole('list', { name: 'Учётки каталога' });
+    const row = within(list).getByText('Волкова Анна Сергеевна').closest('li') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'Выбрать' }));
+    expect(screen.getByText(/a\.volkova · a\.volkova@corp\.ru/)).toBeTruthy();
+    fireEvent.click(button('Создать…'));
+    await stepUp();
+    expect(await screen.findByText('Учётка создана')).toBeTruthy();
+    await waitFor(() => expect(button('Завершить настройку').disabled).toBe(false));
+    expect(screen.getByText('Волкова Анна Сергеевна')).toBeTruthy();
   });
 
   it('прерванная настройка продолжается с того же шага, пройденный шаг можно открыть', async () => {

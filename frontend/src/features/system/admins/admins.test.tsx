@@ -2,6 +2,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { setSetting } from '../../../shared/api/mocks/demoSystem';
 import { PERSONAS } from '../../../shared/api/mocks/personas';
 import { persona } from '../../../test/setup';
 import { renderApp } from '../../../test/render';
@@ -86,6 +87,27 @@ describe('«Суперадминистраторы и администратор
     expect(screen.getByText(/Суперадминистраторов уже три/)).toBeTruthy();
   });
 
+  it('режим AD: учётка выбирается поиском по каталогу (CR-011)', async () => {
+    setSetting('auth.mode', 'ad');
+    await open('/system/auditors', PERSONAS.auditor.fullName);
+    fireEvent.click(screen.getByRole('button', { name: '+ Добавить' }));
+    const create = screen.getByRole('button', { name: 'Создать…' }) as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+    expect(screen.queryByLabelText(/^Логин/)).toBeNull();
+    fireEvent.change(screen.getByLabelText(/Найти в AD/), { target: { value: 'иван' } });
+    const list = await screen.findByRole('list', { name: 'Учётки каталога' });
+    // уже заведённый пользователь приложения — только отметка
+    expect(within(list).getByText('уже заведён в приложении')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Найти в AD/), { target: { value: 'волков' } });
+    const row = (await screen.findByText('Волков Алексей Игоревич')).closest('li') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'Выбрать' }));
+    expect(screen.queryByLabelText(/Email/)).toBeNull(); // почта есть в каталоге
+    expect(create.disabled).toBe(false);
+    fireEvent.click(create);
+    await stepUp();
+    expect(await screen.findByText('Учётка создана')).toBeTruthy();
+  });
+
   it('«Аудиторы ИБ» — только аудиторы, роль при создании не выбирается', async () => {
     const table = await open('/system/auditors', PERSONAS.auditor.fullName);
     expect(within(table).getByText(PERSONAS.auditor.fullName)).toBeTruthy();
@@ -97,14 +119,25 @@ describe('«Суперадминистраторы и администратор
 });
 
 describe('«Анонимизация» и «Реестр проектов»', () => {
-  it('только заблокированные; необратимо, со step-up', async () => {
+  it('все заблокированные, и обычные пользователи; новые блокировки сверху; необратимо, со step-up', async () => {
     const table = await open('/system/anonymize', 'В. Блинов');
-    expect(within(table).getAllByRole('row')).toHaveLength(2);
-    fireEvent.click(within(table).getByRole('button', { name: 'Анонимизировать В. Блинов' }));
-    await confirm(/^Анонимизировать В\. Блинов/, 'Анонимизировать…');
+    const rows = within(table).getAllByRole('row');
+    expect(rows).toHaveLength(3);
+    expect(rows[1]?.textContent).toContain('Н. Новиков'); // обычный пользователь, заблокирован позже
+    expect(rows[1]?.textContent).toContain('Пользователь');
+    expect(rows[2]?.textContent).toContain('Администратор');
+    fireEvent.click(within(table).getByRole('button', { name: 'Анонимизировать Н. Новиков' }));
+    await confirm(/^Анонимизировать Н\. Новиков/, 'Анонимизировать…');
     await stepUp();
-    expect(await screen.findByText('✓ В. Блинов анонимизирован(а)')).toBeTruthy();
+    expect(await screen.findByText('✓ Н. Новиков анонимизирован(а)')).toBeTruthy();
+    await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2));
+
+    fireEvent.change(screen.getByLabelText('Поиск по ФИО или логину'), { target: { value: 'нет такого' } });
     expect(await screen.findByText('Заблокированных учёток нет')).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Анонимизированные' }));
+    fireEvent.change(screen.getByLabelText('Поиск по ФИО или логину'), { target: { value: '' } });
+    expect(await screen.findByText('Удалённый пользователь #1')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Анонимизировать / })).toBeNull();
   });
 
   it('реестр без денег, «без модератора N дней»', async () => {

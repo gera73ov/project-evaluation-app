@@ -3,7 +3,8 @@
  * BR-ROLE-02/03, FR-2FA-03): список слева, форма справа. Создать (ссылка активации — письмом или на
  * экране), заблокировать / разблокировать, разжаловать, сбросить пароль и TOTP — всё со step-up.
  * Последнего активного суперадминистратора заблокировать и разжаловать нельзя (кнопки неактивны,
- * подсказка); четвёртого суперадминистратора создать нельзя.
+ * подсказка); четвёртого суперадминистратора создать нельзя. В режиме AD учётка выбирается поиском
+ * по каталогу (CR-011, `GET /system/auth/ad/search`), её object_guid уходит в ad_object_guid.
  */
 import { Button, Radio, Stack, TextInput } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,13 +16,25 @@ import { call } from '../../../shared/api/problem';
 import { formatDateTime } from '../../../shared/format/date';
 import { ConfirmDialog } from '../../../shared/ui/ConfirmDialog';
 import { ErrorText } from '../../../shared/ui/ErrorText';
-import { ListWithForm, SystemLayout, adminsKey } from '../layout/SystemLayout';
+import { AdSearch } from '../../admin/users/CreateUser';
+import { authMode } from '../auth/auth';
+import { ListWithForm, SystemLayout, adminsKey, settingsKey } from '../layout/SystemLayout';
 import { StepUpCancelled, useStepUp } from '../layout/useStepUp';
 import { isEmail } from '../settings/settings';
 import { SUPERADMIN_MAX, accountsOf, isLastSuperadmin, type AccountKind, type AdminRole } from './accounts';
 
 type Account = components['schemas']['AdminAccount'];
 type Activation = components['schemas']['ActivationLink'];
+type AdItem = components['schemas']['AdSearchItem'];
+
+/** Режим входа «Active Directory»: учётки заводятся из каталога. */
+export function useAdMode(): boolean {
+  const auth = useQuery({
+    queryKey: settingsKey('auth'),
+    queryFn: () => call(() => api.GET('/system/settings/{section}', { params: { path: { section: 'auth' } } })),
+  });
+  return auth.data ? authMode(auth.data.values) === 'ad' : false;
+}
 
 export function useAdmins() {
   return useQuery({ queryKey: adminsKey, queryFn: () => call(() => api.GET('/system/admins')) });
@@ -30,6 +43,7 @@ export function useAdmins() {
 export function AccountsPage({ kind }: { kind: AccountKind }) {
   const { t } = useTranslation();
   const admins = useAdmins();
+  const adMode = useAdMode();
   const [selected, setSelected] = useState<string | 'new' | null>(null);
   const all = admins.data?.items ?? [];
   const items = accountsOf(all, kind);
@@ -83,7 +97,7 @@ export function AccountsPage({ kind }: { kind: AccountKind }) {
         }
         form={
           selected === 'new' ? (
-            <CreateForm key="new" kind={kind} all={all} onDone={() => setSelected(null)} />
+            <CreateForm key="new" kind={kind} all={all} ad={adMode} onDone={() => setSelected(null)} />
           ) : current ? (
             <AccountForm key={current.id} account={current} all={all} kind={kind} />
           ) : null
@@ -95,21 +109,21 @@ export function AccountsPage({ kind }: { kind: AccountKind }) {
 
 /**
  * Новая учётка. Мастер первичной настройки (FE-064, шаг 5) создаёт только администратора
- * (`adminOnly`); в режиме AD логин — учётка каталога (`adHint`).
+ * (`adminOnly`); в режиме AD (`ad`) учётка выбирается поиском по каталогу (CR-011).
  */
 export function CreateForm({
   kind,
   all,
   onDone,
   adminOnly,
-  adHint,
+  ad,
   doneLabel,
 }: {
   kind: AccountKind;
   all: readonly Account[];
   onDone: () => void;
   adminOnly?: boolean;
-  adHint?: boolean;
+  ad?: boolean;
   doneLabel?: string;
 }) {
   const { t } = useTranslation();
@@ -120,19 +134,33 @@ export function CreateForm({
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<AdminRole>(kind === 'auditors' ? 'security_auditor' : 'admin');
   const [link, setLink] = useState<Activation | null>(null);
+  const [picked, setPicked] = useState<AdItem | null>(null);
   const saFull = all.filter((a) => a.status !== 'blocked' && a.roles.includes('superadmin')).length >= SUPERADMIN_MAX;
   const errors = {
     login: login.trim().length < 3,
     name: !name.trim(),
     email: !isEmail(email.trim()),
   };
-  const valid = !errors.login && !errors.name && !errors.email && !(role === 'superadmin' && saFull);
+  const valid =
+    !errors.login && !errors.name && !errors.email && !(role === 'superadmin' && saFull) && (!ad || picked !== null);
+  const pick = (item: AdItem | null) => {
+    setPicked(item);
+    setLogin(item?.login ?? '');
+    setName(item?.full_name ?? '');
+    setEmail(item?.email ?? '');
+  };
   const create = useMutation({
     mutationFn: () =>
       run(() =>
         call(() =>
           api.POST('/system/admins', {
-            body: { login: login.trim(), full_name: name.trim(), email: email.trim(), role },
+            body: {
+              login: login.trim(),
+              full_name: name.trim(),
+              email: email.trim(),
+              role,
+              ...(picked ? { ad_object_guid: picked.object_guid } : {}),
+            },
           }),
         ),
       ),
@@ -154,30 +182,51 @@ export function CreateForm({
   return (
     <Stack gap="sm">
       {adminOnly ? null : <h3>{t(`system.accounts.new.${kind}`)}</h3>}
-      <TextInput
-        label={t('system.accounts.login')}
-        required
-        value={login}
-        maxLength={64}
-        description={adHint ? t('system.accounts.adLoginHint') : undefined}
-        error={login && errors.login ? t('system.accounts.loginError') : null}
-        onChange={(e) => setLogin(e.currentTarget.value)}
-      />
-      <TextInput
-        label={t('system.accounts.fullName')}
-        required
-        value={name}
-        maxLength={200}
-        onChange={(e) => setName(e.currentTarget.value)}
-      />
-      <TextInput
-        label="Email"
-        required
-        value={email}
-        maxLength={254}
-        error={email && errors.email ? t('system.settings.emailError') : null}
-        onChange={(e) => setEmail(e.currentTarget.value)}
-      />
+      {ad ? (
+        picked ? (
+          <div className="adm-picked">
+            <b>{picked.full_name}</b>
+            <div className="sub mono">
+              {picked.login}
+              {picked.email ? ` · ${picked.email}` : ''}
+            </div>
+            <button type="button" className="btn-link" onClick={() => pick(null)}>
+              {t('admin.users.ad.other')}
+            </button>
+          </div>
+        ) : (
+          <AdSearch system onPick={pick} />
+        )
+      ) : (
+        <>
+          <TextInput
+            label={t('system.accounts.login')}
+            required
+            value={login}
+            maxLength={64}
+            error={login && errors.login ? t('system.accounts.loginError') : null}
+            onChange={(e) => setLogin(e.currentTarget.value)}
+          />
+          <TextInput
+            label={t('system.accounts.fullName')}
+            required
+            value={name}
+            maxLength={200}
+            onChange={(e) => setName(e.currentTarget.value)}
+          />
+        </>
+      )}
+      {!ad || (picked && !picked.email) ? (
+        <TextInput
+          label="Email"
+          required
+          description={ad ? t('system.accounts.adNoEmail') : undefined}
+          value={email}
+          maxLength={254}
+          error={email && errors.email ? t('system.settings.emailError') : null}
+          onChange={(e) => setEmail(e.currentTarget.value)}
+        />
+      ) : null}
       {kind === 'admins' && !adminOnly ? (
         <Radio.Group
           label={t('system.accounts.role')}

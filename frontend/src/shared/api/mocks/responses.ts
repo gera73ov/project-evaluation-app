@@ -51,7 +51,13 @@ import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
 import { sample, stripMoney } from "./sample";
 
-export type MockResult = { status: number; body: unknown; binary?: boolean };
+/** `empty` — ответ без тела (204); иначе `body: null` уходит как JSON `null` (getLastSwitch). */
+export type MockResult = {
+  status: number;
+  body: unknown;
+  binary?: boolean;
+  empty?: boolean;
+};
 
 /** Ответ демо с ошибкой (Problem) вместо успеха: например, 409 при восстановлении из корзины. */
 class MockProblem {
@@ -117,6 +123,17 @@ const USER_STATUS = new Map<demoUsers.UserError, [number, string]>([
 function userProblem(code: demoUsers.UserError) {
   const [status, title] = USER_STATUS.get(code) ?? [409, code];
   return new MockProblem(problem(status, code, title));
+}
+
+/** CR-009: сохранённый пароль не уходит на другой сервер или с другой учёткой bind. */
+function bindPasswordRequired() {
+  return new MockProblem(
+    problem(
+      422,
+      "VALIDATION_FAILED",
+      "Сервер или сервисная учётка изменились — введите пароль",
+    ),
+  );
 }
 
 function accountProblem(code: demoSystem.AccountError) {
@@ -193,7 +210,7 @@ export function mockResponse(
     // ответ без тела (204), но демо может отказать или запомнить действие (удаление документа)
     const done = DEMO[op.operationId]?.(ctx, {} as Schema);
     if (done instanceof MockProblem) return done.result;
-    return { status, body: null };
+    return { status, body: null, empty: true };
   }
   const custom = DEMO[op.operationId]?.(ctx, schema);
   if (custom instanceof MockProblem) return custom.result;
@@ -666,9 +683,44 @@ const DEMO: Record<string, Demo> = {
   },
   anonymizeUser: (ctx) => {
     if (!demoSystem.stepUpFresh()) return stepUpRequired();
-    const err = demoSystem.anonymize(ctx.params.id ?? "");
+    const id = ctx.params.id ?? "";
+    // CR-010: обычные пользователи — тоже; учётки «Системы» ищем первыми
+    let err = demoSystem.anonymize(id);
+    if (err === "NOT_FOUND") err = demoUsers.anonymize(id);
     return err ? accountProblem(err) : undefined;
   },
+  // CR-010 · список для «Анонимизации»: новые блокировки сверху, затем по id
+  systemListUsers: (ctx) => {
+    const status =
+      ctx.params.status === "anonymized" ? "anonymized" : "blocked";
+    const needle = (ctx.params.q ?? "").trim().toLowerCase();
+    const rows = [
+      ...demoSystem.blockedOrAnonymized(status),
+      ...demoUsers.blockedOrAnonymized(status),
+    ]
+      .filter(
+        (u) =>
+          !needle ||
+          u.login.toLowerCase().includes(needle) ||
+          u.full_name.toLowerCase().includes(needle),
+      )
+      .sort(
+        (a, b) =>
+          (b.blocked_at ?? "").localeCompare(a.blocked_at ?? "") ||
+          a.id.localeCompare(b.id),
+      );
+    const offset = Number(ctx.params.cursor ?? 0) || 0;
+    const limit = Math.min(
+      Math.max(Number(ctx.params.limit ?? 50) || 50, 1),
+      200,
+    );
+    return {
+      items: rows.slice(offset, offset + limit),
+      next_cursor: offset + limit < rows.length ? String(offset + limit) : null,
+    };
+  },
+  // CR-011 · поиск в AD для раздела «Система» — тот же каталог, что у adSearch
+  systemAdSearch: (ctx) => demoUsers.adSearch(ctx.params.q ?? ""),
   // FE-070 · пользователи админки администратора (7.5, FR-AUTH-AD-10, FR-ADM-05)
   listUsers: (ctx) => demoUsers.list(ctx.params),
   getUser: (ctx) => demoUsers.get(ctx.params.id ?? "") ?? undefined,
@@ -772,15 +824,47 @@ const DEMO: Record<string, Demo> = {
       }
     }
     const result = demoSystem.saveSettings(section, values);
-    if (section === "auth") demoAuth.afterSave();
+    if (section === "auth") {
+      demoAuth.afterSave();
+      // FR-AUTH-AD-07: после подтверждения роли «Модератор» и «Пресейл» пересчитываются по группам
+      const mapping = new Map(Object.entries(values as object)).get(
+        "auth.ad.role_mapping",
+      );
+      if (mapping && typeof mapping === "object")
+        demoUsers.applyMapping(mapping as demoAuth.RoleMapping);
+    }
     return result;
   },
-  adTestConnection: (ctx) => demoAuth.testConnection(ctx.body),
-  adTestLogin: (ctx) => demoAuth.testLogin(ctx.body),
+  adTestConnection: (ctx) =>
+    demoAuth.needsBindPassword(ctx.body)
+      ? bindPasswordRequired()
+      : demoAuth.testConnection(ctx.body),
+  adTestLogin: (ctx) =>
+    demoAuth.needsBindPassword(ctx.body)
+      ? bindPasswordRequired()
+      : demoAuth.testLogin(ctx.body),
+  // CR-009 · отчёт о ролях перед включением сопоставления, итог перехода, тестовое письмо
+  roleMappingPreview: (ctx) => demoUsers.mappingPreview(ctx.body),
+  getLastSwitch: () => demoAuth.lastSwitch(),
+  smtpTest: (ctx) => {
+    const out = demoSystem.smtpTest(ctx.body);
+    return "error" in out
+      ? new MockProblem(
+          problem(
+            422,
+            out.error,
+            "Укажите адрес получателя и пароль, если сервер или учётка изменились",
+          ),
+        )
+      : out;
+  },
   switchMode: (ctx) => {
     const dryRun = new Map(Object.entries(body(ctx))).get("dry_run") !== false;
     if (!dryRun && !demoSystem.stepUpFresh()) return stepUpRequired();
-    const out = demoAuth.switchMode(ctx.body);
+    const out = demoAuth.switchMode(
+      ctx.body,
+      refOf({ id: personaId(ctx.persona), full_name: ctx.persona.fullName }),
+    );
     if ("report" in out) return out.report;
     const err =
       out.error === "MODE_SWITCH_NOT_ALLOWED"

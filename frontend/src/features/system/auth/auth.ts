@@ -167,8 +167,22 @@ export type FieldError =
   | 'mapping'
   | 'timeout';
 
+/**
+ * CR-009 · сервер (контроллеры) или сервисная учётка не те, что сохранены: сохранённый пароль
+ * сервер не подставит — его нужно ввести заново.
+ */
+export function serverChanged(form: AuthForm, initial: AuthForm): boolean {
+  const servers = (f: AuthForm) => JSON.stringify(f.controllers.filter(filled).map((c) => c.trim()));
+  return servers(form) !== servers(initial) || form.bindDn.trim() !== initial.bindDn.trim();
+}
+
+/** Пароль задан на сервере и его можно не вводить. */
+export function keepsPassword(form: AuthForm, initial: AuthForm = form): boolean {
+  return form.bindPassword === null && form.passwordSet && !serverChanged(form, initial);
+}
+
 /** Ошибки полей; пустой список — форму можно проверять и сохранять. */
-export function validate(form: AuthForm): FieldError[] {
+export function validate(form: AuthForm, initial: AuthForm = form): FieldError[] {
   const errors: FieldError[] = [];
   const controllers = form.controllers.filter(filled);
   if (controllers.length === 0) errors.push('controllers');
@@ -176,7 +190,8 @@ export function validate(form: AuthForm): FieldError[] {
   if (!filled(form.baseDn)) errors.push('baseDn');
   if (!form.userFilter.includes('{login}')) errors.push('userFilter');
   if (!filled(form.bindDn)) errors.push('bindDn');
-  if (form.bindPassword !== null ? form.bindPassword === '' : !form.passwordSet) errors.push('bindPassword');
+  if (form.bindPassword !== null ? form.bindPassword === '' : !keepsPassword(form, initial))
+    errors.push('bindPassword');
   if (!form.accessGroups.some(filled)) errors.push('accessGroups');
   if (form.mappingEnabled && !filled(form.moderatorGroup) && !filled(form.presaleGroup)) errors.push('mapping');
   if (!Number.isInteger(form.timeout) || form.timeout < 1 || form.timeout > 60) errors.push('timeout');
