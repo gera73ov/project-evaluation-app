@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import secrets
 import uuid
 from collections.abc import Iterator, Sequence
@@ -143,5 +144,11 @@ async def configure(
     await set_setting(db, ldap.ROLE_MAPPING, {
         "enabled": mapping is not None,
         "mappings": [{"group_dn": g, "role": r} for g, r in mapping or []],
+    })  # fmt: skip
+    now = dt.datetime.now(dt.UTC).isoformat()
+    values = {ldap.CONNECTION: connection(), ldap.ACCESS_GROUPS: list(access)}
+    await set_setting(db, "auth.ad.verification", {  # обе проверки прошли с этими параметрами
+        "params_sha256": ldap.fingerprint(values, password),
+        "connection_ok_at": now, "login_ok_at": now,
     })  # fmt: skip
     return password

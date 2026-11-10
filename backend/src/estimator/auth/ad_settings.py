@@ -92,7 +92,7 @@ async def candidate(
     return merged, saved_password if _target(saved) == _target(merged) else None
 
 
-async def _verification(db: AsyncSession) -> dict[str, Any]:
+async def verification(db: AsyncSession) -> dict[str, Any]:
     from estimator.admin.settings import schema
     from estimator.auth.policy import read_settings
 
@@ -101,7 +101,7 @@ async def _verification(db: AsyncSession) -> dict[str, Any]:
 
 
 async def _mark(db: AsyncSession, actor: Principal, fp: str, check: str) -> None:
-    current = await _verification(db)
+    current = await verification(db)
     if current.get("params_sha256") != fp:
         current = {"params_sha256": fp, "connection_ok_at": None, "login_ok_at": None}
     current[f"{check}_ok_at"] = dt.datetime.now(dt.UTC).isoformat()
@@ -261,7 +261,7 @@ async def save(
     if any(key in changed for key in CHECKED):
         merged, password = await candidate(db, values)
         fp = ldap.fingerprint(merged, password)
-        ver = await _verification(db)
+        ver = await verification(db)
         same = ver.get("params_sha256") == fp
         missing = [name for name in ("connection", "login")
                    if not same or not ver.get(f"{name}_ok_at")]  # fmt: skip

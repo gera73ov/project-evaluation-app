@@ -214,3 +214,47 @@ class ProjectAdCreate(_Strict):
     object_guid: uuid.UUID
     discipline_id: uuid.UUID
     is_reviewer: bool = False
+
+
+# --- переход «Приложение → AD» (AUTH-018) -------------------------------------------------------
+
+
+class SwitchModeRequest(_Strict):
+    mode: Literal["ad", "local"]
+    dry_run: bool = True
+
+
+class SwitchDecision(_Strict):
+    user_id: uuid.UUID
+    object_guid: uuid.UUID | None
+
+
+class SwitchResolve(_Strict):
+    decisions: list[SwitchDecision] = Field(min_length=1)
+
+
+class SwitchAdCandidate(_Strict):
+    object_guid: uuid.UUID
+    login: str
+    full_name: str
+
+
+class SwitchCandidate(_Strict):
+    user_id: uuid.UUID
+    login: str
+    full_name: str
+    ad_candidates: list[SwitchAdCandidate]
+
+
+class SwitchReport(_Strict):
+    matched: list[SwitchCandidate]
+    ambiguous: list[SwitchCandidate]
+    not_found: list[SwitchCandidate]
+    applied: bool
+
+
+class LastSwitch(_Strict):
+    at: dt.datetime
+    by: core.UserRef
+    resolved: int = Field(ge=0)
+    report: SwitchReport
