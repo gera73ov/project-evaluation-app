@@ -102,6 +102,11 @@ async def create_superadmin(
         details={"source": "cli", "roles": [SystemRole.SUPERADMIN.value]},
         actor="cli", os_user=os_user,
     )  # fmt: skip
+    await audit.write(
+        db, "system.privileged_account.changed", login=user.login, object_type="user",
+        object_id=user.id, details={"role": SystemRole.SUPERADMIN.value, "op": "created"},
+        actor="cli", os_user=os_user,
+    )  # fmt: skip  # оповещение ИБ (SEC-AUTH-07)
     return await _link(db, user, AuthTokenKind.ACTIVATION, base_url)
 
 

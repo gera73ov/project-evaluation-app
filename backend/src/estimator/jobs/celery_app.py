@@ -32,6 +32,7 @@ TASK_MODULES: tuple[str, ...] = (
     "estimator.db.tasks",
     "estimator.notifications.tasks",
     "estimator.security.tasks",
+    "estimator.security.alerts.tasks",
     "estimator.realtime.tasks",
     "estimator.services.trash.tasks",
     "estimator.services.projects.totals",
@@ -69,6 +70,9 @@ def make_celery(settings: Settings | None = None) -> Celery:
     for module in TASK_MODULES:
         importlib.import_module(module)
     app.conf.beat_schedule = build_beat_schedule()
+    from estimator.security.alerts import notify as alerts
+
+    alerts.install()  # события аудита в задачах (проверка цепочки) оповещают ИБ (SEC-011)
     return app
 
 

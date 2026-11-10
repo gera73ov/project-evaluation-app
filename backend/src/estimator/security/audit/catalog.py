@@ -17,7 +17,7 @@ class EventSpec:
     object_type: str | None
     details: frozenset[str]
     #: Оповещение ИБ (SEC-AUTH-07): None, "always" или "conditional" — условие из контракта
-    #: проверяет вызывающий код и передаёт ``alert=True`` в :func:`estimator.security.audit.write`.
+    #: проверяет :func:`estimator.security.alerts.rules.triggered` при записи события.
     alert: str | None = None
 
 

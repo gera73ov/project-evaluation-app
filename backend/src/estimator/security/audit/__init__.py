@@ -5,7 +5,9 @@
 * :func:`write_standalone` — событие в **отдельной** транзакции: отказы (403/404, неудачный
   вход, превышение лимита), у которых своей транзакции нет или она откатывается.
 * :func:`add_alert_listener` — подписка на события с оповещением ИБ (SEC-AUTH-07); письма
-  подключит SEC-011. Слушатели вызываются после commit, сбой слушателя записи не отменяет.
+  шлёт :mod:`estimator.security.alerts` (SEC-011). Условия ``alert: when …`` проверяет
+  :func:`estimator.security.alerts.rules.triggered`, ``alert=True`` включает оповещение
+  принудительно. Слушатели вызываются после commit, сбой слушателя записи не отменяет.
 
 Проверки перед записью: тип события есть в каталоге; ``details`` содержат только ключи схемы
 события и общие (``actor``, ``os_user``, ``project_id``); запрещённых ключей
@@ -26,6 +28,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from estimator.logging import get_logger
+from estimator.security.alerts import rules as alert_rules
 from estimator.security.audit.catalog import (
     ACTORS,
     COMMON_DETAILS,
@@ -146,8 +149,8 @@ async def write(
 ) -> int:
     """Записать событие в транзакции ``session``. Возвращает ``audit_log.id``.
 
-    ``alert=True`` — сработало условие оповещения из контракта (``alert: when …``); для событий
-    с ``alert: always`` оповещение отправляется всегда.
+    Оповещение ИБ уходит для событий с ``alert: always``, при сработавшем условии ``alert: when …``
+    (:func:`~estimator.security.alerts.rules.triggered`) и при ``alert=True``.
     """
     if result not in RESULTS:
         raise AuditError(f"неизвестный результат: {result}")
@@ -170,7 +173,7 @@ async def write(
         },
     )
     audit_id = int(row.scalar_one())
-    if alert or EVENTS[event_type].alert == "always":
+    if alert or EVENTS[event_type].alert == "always" or alert_rules.triggered(event_type, data):
         _schedule_alert(session, Alert(event_type, audit_id, login, ip, data))
     return audit_id
 
