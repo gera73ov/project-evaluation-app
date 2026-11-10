@@ -34,7 +34,7 @@ export function ExportMenu({ projectId, perms }: { projectId: string; perms: rea
   };
   return (
     <>
-      <Popover opened={open} onChange={setOpen} position="bottom-end" withinPortal shadow="md">
+      <Popover opened={open} onChange={setOpen} position="bottom-end" withinPortal shadow="md" trapFocus returnFocus>
         <Popover.Target>
           <button
             type="button"

@@ -168,7 +168,11 @@ span.person-name{cursor:default}
   --ok-ink:#277a40; --warn-ink:#8b5e14; --muted-ink:#5f6a76;
 }
 .work{background:var(--panel);margin:12px 18px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.tree{min-width:1000px}
+/* FR-UI-03, DESIGN 9.10: уже 1366 px строки прокручиваются по горизонтали внутри .tree-scroll, шапка
+   сдвигается следом (scrollLeft), столбец «Узел» закреплён слева */
+.tree-head{overflow:hidden}
+.tree-head>.tr,.tree-body,.tree-sticky>.tr{min-width:1000px}
+.tree .td.node{position:sticky;left:0;z-index:1;background:inherit}
 .tree .tr{display:grid;grid-template-columns:minmax(260px,1fr) 52px minmax(240px,1.15fr) 56px 56px 56px 72px 32px;align-items:center;min-height:38px;border-bottom:1px solid var(--line2);background:var(--panel)}
 /* FE-091: виртуальный список ставит строки с шагом ROW_HEIGHT — высота строки не должна расти от содержимого */
 .tree .vrow>.tr{height:38px}
@@ -216,7 +220,6 @@ span.person-name{cursor:default}
 .tree-sticky{position:sticky;top:0;height:0;z-index:2;overflow:visible}
 .tree-sticky .tr{box-shadow:0 1px 0 var(--line)}
 .tree .pill{font-weight:600}
-@media (max-width:1365px){.work{overflow-x:auto}}
 
 /* FE-023 · верхняя полоса рабочего экрана (DESIGN.md 9.2) */
 .work-page{display:flex;flex-direction:column}
@@ -229,6 +232,10 @@ span.person-name{cursor:default}
 .top .tot{display:flex;align-items:baseline;gap:14px;background:var(--line2);border-radius:6px;padding:4px 12px;white-space:nowrap}
 .top .tot .k{color:var(--muted-ink);font-size:12px}
 .top .tot b{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+/* DESIGN 9.10: уже 1366 px у кнопок с иконкой подпись остаётся только для скринридера, затем P90 уходит
+   в подсказку у P80; итог «в КП» и деньги не прячутся */
+@media (max-width:1365px){.top .lbl{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}}
+@media (max-width:1199px){.top .fig-p90:not(.quote){display:none}}
 .top .tot.money{background:var(--money-soft);color:var(--money);text-decoration:none}
 .top .tot.money .k{color:var(--money)}
 .top .money-missing{font-size:12px;font-weight:600}
@@ -394,8 +401,9 @@ button.type-opt.sel{background:var(--accent-soft);border-color:#b8d8e4}
 
 /* FE-030 · обсуждение под строкой (DESIGN.md 7.4, 11.4 №13–14) */
 .tree .disc{cursor:pointer;font:inherit;font-size:11px;line-height:16px;background:#fff}
-.tree .disc.ghost{visibility:hidden;color:var(--faint)}
-.tree .tr:hover .disc.ghost,.tree .disc.ghost:focus-visible,.tree .disc.ghost.on{visibility:visible}
+/* FE-080: прозрачность вместо visibility — иначе «Начать обсуждение» выпадает из обхода клавиатурой */
+.tree .disc.ghost{opacity:0}
+.tree .tr:hover .disc.ghost,.tree .tr:focus-within .disc.ghost,.tree .disc.ghost.on{opacity:1}
 .tree .disc.on{border-color:var(--accent);color:var(--accent-ink)}
 .disc-wrap{padding:4px 14px 10px 40px;background:#fff;border-bottom:1px solid var(--line2)}
 .disc-panel{border:1px solid var(--line);border-radius:8px;padding:10px 14px;background:#fff;font-size:13px}
