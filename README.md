@@ -96,6 +96,7 @@ make traceability   # отчёт «требование → тест» в build/
 | `APP_TIMEZONE` | Часовой пояс приложения IANA до первичной настройки: по нему считаются ночные задачи (FR-UI-02). После мастера настройки действует `app.timezone` | `Europe/Moscow` |
 | `HEALTH_TIMEOUT_SECONDS` | Таймаут одной проверки `/health/ready`, секунды | `2.0` |
 | `BACKUP_MARKER_PATH` | Файл-метка последней успешной резервной копии (время ISO 8601 или время изменения файла) для «Состояния системы» (FR-SA-07); пишет скрипт бэкапа | `/var/lib/estimator/backup/last-success` |
+| `EXPORTS_DIR` | Каталог файлов выгрузок (том `exports`, файлы живут 24 часа, FR-EXP-05) | `/data/exports` |
 | `TRUSTED_HOSTS` | Разрешённые значения заголовка Host через запятую; на stage и prod — имя сервера | `*` |
 <!-- env-table:end -->
 

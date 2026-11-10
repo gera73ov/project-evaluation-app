@@ -764,3 +764,44 @@ class CustomerQuestion(_Strict):
 class CustomerQuestionList(_Strict):
     items: list[CustomerQuestion]
     next_cursor: str | None
+
+
+# --- выгрузки (EXP-003) -----------------------------------------------------------------------
+
+
+class ExportCreate(_Strict):
+    kind: Literal["hours_xlsx", "money_xlsx"]
+    snapshot_id: uuid.UUID | None = None
+
+
+class CqExportRequest(_Strict):
+    thread_ids: list[uuid.UUID] = Field(min_length=1)
+    format: Literal["xlsx", "docx"]
+
+
+class DiffExportRequest(_Strict):
+    with_: str = Field(alias="with")
+
+
+class PortfolioExport(_Strict):
+    from_: dt.date = Field(alias="from")
+    to: dt.date
+
+
+class ExportJob(_Strict):
+    id: uuid.UUID
+    kind: Literal[
+        "hours_xlsx",
+        "money_xlsx",
+        "cq_xlsx",
+        "cq_docx",
+        "snapshot_diff_xlsx",
+        "stats_tab_xlsx",
+        "assumptions_docx",
+        "portfolio_xlsx",
+        "audit_csv",
+    ]
+    status: Literal["pending", "ready"]
+    file_name: str | None
+    download_url: str | None
+    expires_at: dt.datetime
