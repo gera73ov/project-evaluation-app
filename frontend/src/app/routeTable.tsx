@@ -22,9 +22,15 @@ import { DiscussionsPage } from '../features/stats/questions/DiscussionsPage';
 import { QuestionsPage } from '../features/stats/questions/QuestionsPage';
 import { TotalsPage } from '../features/stats/totals/TotalsPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
+import { AuditPage } from '../features/audit/AuditPage';
+import { AccountsPage } from '../features/system/admins/AccountsPage';
+import { AnonymizePage, RegistryPage } from '../features/system/admins/AnonymizeRegistryPages';
+import { AuthPage } from '../features/system/auth/AuthPage';
 import { HealthPage } from '../features/system/health/HealthPage';
-import { SystemStub } from '../features/system/layout/SystemLayout';
+import { RetentionPage, SmtpPage } from '../features/system/settings/MailRetentionPages';
+import { SecurityPage } from '../features/system/settings/SecurityPage';
 import { SystemRoute } from '../features/system/SystemRoute';
+import { SetupWizardPage } from '../features/setup-wizard/SetupWizardPage';
 import { OutcomePage } from '../features/settings/outcome/OutcomePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
 import { TrashPage } from '../features/trash/TrashPage';
@@ -63,16 +69,6 @@ export const NAV: readonly NavItem[] = [
 ];
 
 /** Пункты меню «Системы», экраны которых делают следующие задачи плана. */
-const SYSTEM_STUBS = [
-  ['auth', 'FE-061'],
-  ['security', 'FE-062'],
-  ['smtp', 'FE-062'],
-  ['retention', 'FE-062'],
-  ['admins', 'FE-063'],
-  ['auditors', 'FE-063'],
-  ['anonymize', 'FE-063'],
-  ['projects', 'FE-063'],
-] as const;
 
 function stub(title: string, task: string) {
   return function StubPage() {
@@ -171,27 +167,81 @@ export const ROUTES: readonly RouteDef[] = [
     render: () => <PortfolioRoute />,
   },
   {
+    path: '/setup',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SetupWizardPage />,
+  },
+  {
     path: '/system',
     access: 'private',
     nav: 'system',
     roles: ['superadmin'],
     render: () => <SystemRoute render={(me) => <HealthPage me={me} />} />,
   },
-  ...SYSTEM_STUBS.map(
-    ([section, task]): RouteDef => ({
-      path: `/system/${section}`,
-      access: 'private',
-      nav: 'system',
-      roles: ['superadmin'],
-      render: () => <SystemStub active={section} task={task} />,
-    }),
-  ),
+  {
+    path: '/system/auth',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={(me) => <AuthPage me={me} />} />,
+  },
+  {
+    path: '/system/security',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={() => <SecurityPage />} />,
+  },
+  {
+    path: '/system/smtp',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={() => <SmtpPage />} />,
+  },
+  {
+    path: '/system/retention',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={() => <RetentionPage />} />,
+  },
+  {
+    path: '/system/admins',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={() => <AccountsPage kind="admins" />} />,
+  },
+  {
+    path: '/system/auditors',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={() => <AccountsPage kind="auditors" />} />,
+  },
+  {
+    path: '/system/anonymize',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={() => <AnonymizePage />} />,
+  },
+  {
+    path: '/system/projects',
+    access: 'private',
+    nav: 'system',
+    roles: ['superadmin'],
+    render: () => <SystemRoute render={() => <RegistryPage />} />,
+  },
   {
     path: '/audit',
     access: 'private',
     nav: 'audit',
-    roles: ['security_auditor', 'superadmin'],
-    render: stub('Журнал аудита', 'FE-065'),
+    roles: ['security_auditor', 'superadmin', 'admin'],
+    render: () => <AuditPage />,
   },
 ];
 

@@ -447,3 +447,35 @@ export function joinAsModerator(
     joined.set(r.id, [...(joined.get(r.id) ?? []), me]);
   return [...r.moderators.filter((m) => m.id !== me.id), me];
 }
+
+/**
+ * FE-063, FE-073 · реестр проектов без денег (FR-ADM-06, 7.5): проекты портфеля и проект,
+ * у которого 12 дней нет модератора (модератор заблокирован).
+ */
+export function registry() {
+  const orphan = {
+    id: uuidFrom("project", "orphan"),
+    name: "Миграция CRM",
+    customer: "ООО «Северный ветер»",
+    moderators: [],
+    status: "estimation" as const,
+    created_at: daysAgo(40),
+    updated_at: daysAgo(12),
+    no_moderator_since: daysAgo(12),
+    days_without_moderator: 12,
+  };
+  return [
+    orphan,
+    ...rows().map((r) => ({
+      id: r.id,
+      name: r.name,
+      customer: r.customer,
+      moderators: r.moderators,
+      status: r.status,
+      created_at: daysAgo(r.createdDaysAgo),
+      updated_at: daysAgo(r.updatedDaysAgo),
+      no_moderator_since: null,
+      days_without_moderator: null,
+    })),
+  ];
+}
