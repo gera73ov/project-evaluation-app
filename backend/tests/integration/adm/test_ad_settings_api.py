@@ -68,12 +68,13 @@ async def test_save_only_after_both_checks(
     half = await root.put(PATH, json={"values": form})
     assert half.json()["missing"] == ["login"]
 
-    wrong = await root.post("/system/auth/ad/test-login",
-                            json={"values": form, "login": "tester", "password": "nope-nope"})  # fmt: skip
+    login_path = "/system/auth/ad/test-login"
+    wrong = await root.post(login_path, json={"values": form, "login": "tester",
+                                              "password": "nope-nope"})  # fmt: skip
     assert (wrong.json()["ok"], wrong.json()["detail"]) == (False, "Неверный пароль")
     assert wrong.json()["user"] is None
-    logged = await root.post("/system/auth/ad/test-login",
-                             json={"values": form, "login": "tester", "password": tester.password})  # fmt: skip
+    logged = await root.post(login_path, json={"values": form, "login": "tester",
+                                               "password": tester.password})  # fmt: skip
     assert logged.status_code == 200, logged.text
     body = logged.json()
     assert body["ok"] is True

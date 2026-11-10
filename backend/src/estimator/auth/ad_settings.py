@@ -56,7 +56,7 @@ KEEP = {"set": True}
 REASON_TEXT = {
     "user_not_found": "Пользователь не найден в AD",
     "ad_ambiguous": "По логину найдено несколько записей",
-    "wrong_password": "Неверный пароль",
+    "wrong_password": "Неверный пароль",  # nosec B105 — текст ответа, не пароль
     "ad_account_disabled": "Учётная запись в AD отключена",
     "ad_not_in_group": "Пользователь не состоит в группе доступа",
 }
