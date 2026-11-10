@@ -52,7 +52,6 @@ async def _local(db: AsyncSession, login: str, full_name: str) -> User:
     return user
 
 
-@pytest.mark.spec("G-10")
 @pytest.mark.spec("C-13")
 async def test_switch_report_resolve_apply(
     world: World, db_session: AsyncSession, directory: FakeDirectory
@@ -125,7 +124,6 @@ async def test_switch_report_resolve_apply(
     assert last.json()["by"]["id"] == str(root.id)
 
 
-@pytest.mark.spec("G-11")
 async def test_switch_not_allowed(
     world: World, db_session: AsyncSession, directory: FakeDirectory
 ) -> None:

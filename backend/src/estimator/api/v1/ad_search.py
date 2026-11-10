@@ -35,7 +35,7 @@ async def admin_ad_search(db: DbSession, q: Q) -> dict[str, Any]:
     return {"items": await ad_search.search(db, q)}
 
 
-@router.get("/system/auth/ad/search", permission="system.admins.manage",
+@router.get("/system/auth/ad/search", permission="system.admins.manage", step_up=False,
             response_model=s.AdSearchList, tags=["Система"])  # fmt: skip
 async def system_ad_search(db: DbSession, q: Q) -> dict[str, Any]:
     return {"items": await ad_search.search(db, q)}

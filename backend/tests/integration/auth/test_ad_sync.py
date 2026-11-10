@@ -120,7 +120,6 @@ async def test_sessions_check_blocks_and_daily_unblocks(
     }  # fmt: skip
 
 
-@pytest.mark.spec("G-26")
 async def test_ad_unavailable_changes_nothing(
     db_session: AsyncSession, redis_client: Redis, ad: FakeDirectory
 ) -> None:
