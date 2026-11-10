@@ -4,7 +4,7 @@
  * Чистые функции над состоянием дерева: какой тип предложить новому узлу, какие пункты меню
  * доступны и почему нет, куда можно переместить узел. Окончательно всё проверяет сервер.
  */
-import type { TreeNode, TreeState } from '../store/treeStore';
+import { extraOf, type TreeNode, type TreeState } from '../store/treeStore';
 
 type Tree = Pick<TreeState, 'nodes' | 'children'>;
 
@@ -121,7 +121,7 @@ export function moveTargets(
 export function needsDeleteConfirm(tree: Tree, id: string): boolean {
   const node = tree.nodes.get(id);
   if (!node) return false;
-  const messages = Number(new Map(Object.entries(node.extra)).get('messages_count') ?? 0);
+  const messages = Number(extraOf(node).messages_count ?? 0);
   return !isLeaf(tree, id) || messages > 0;
 }
 

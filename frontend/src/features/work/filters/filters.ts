@@ -6,7 +6,7 @@
  * в верхней полосе считаются по всему дереву и от фильтров не зависят.
  */
 import { candidate, type CalcTree, type Dec, type NodeResult } from '../../../shared/calc';
-import type { TreeNode } from '../store/treeStore';
+import { extraOf, type TreeNode } from '../store/treeStore';
 
 export type FilterKey = 'mine' | 'unestimated' | 'large' | 'unreviewed' | 'questions' | 'selfReview' | 'risk';
 
@@ -22,19 +22,6 @@ export interface FilterInput {
   myDisciplines: ReadonlySet<string> | null;
   largeThreshold: Dec | null;
   riskTags: ReadonlySet<string>;
-}
-
-interface CommentLine {
-  tag_id: string | null;
-  text: string;
-}
-
-function extraOf(node: TreeNode | undefined): Map<string, unknown> {
-  return new Map(Object.entries(node?.extra ?? {}));
-}
-
-function commentLines(node: TreeNode | undefined): CommentLine[] {
-  return (extraOf(node).get('comment_lines') as CommentLine[] | null | undefined) ?? [];
 }
 
 /** Узел подходит под один фильтр. Фильтры по оценке смотрят только на листья. */
@@ -58,13 +45,13 @@ export function matchesFilter(
     case 'large':
       return leaf !== null && input.largeThreshold !== null && candidate(result.node, leaf, input.largeThreshold).large;
     case 'unreviewed':
-      return leaf !== null && !extra.get('reviewed_by');
+      return leaf !== null && !extra.reviewed_by;
     case 'selfReview':
-      return leaf !== null && Boolean(extra.get('reviewed_by')) && extra.get('self_review') === true;
+      return leaf !== null && Boolean(extra.reviewed_by) && extra.self_review === true;
     case 'questions':
-      return Number(extra.get('open_questions') ?? 0) > 0;
+      return Number(extra.open_questions ?? 0) > 0;
     case 'risk':
-      return commentLines(node).some((l) => l.tag_id !== null && input.riskTags.has(l.tag_id));
+      return (extra.comment_lines ?? []).some((l) => l.tag_id !== null && input.riskTags.has(l.tag_id));
   }
 }
 
@@ -73,7 +60,7 @@ export function matchesSearch(result: NodeResult, node: TreeNode | undefined, qu
   if (result.node.kind !== 'item') return false;
   const q = query.toLocaleLowerCase('ru');
   if (result.node.title.toLocaleLowerCase('ru').includes(q)) return true;
-  return commentLines(node).some((l) => l.text.toLocaleLowerCase('ru').includes(q));
+  return (extraOf(node).comment_lines ?? []).some((l) => l.text.toLocaleLowerCase('ru').includes(q));
 }
 
 export function searchActive(query: string): boolean {

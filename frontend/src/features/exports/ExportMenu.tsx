@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { api, type components } from '../../shared/api/client';
 import { call } from '../../shared/api/problem';
-import { snapshotsKey } from '../stats/details/SnapshotsPage';
+import { snapshotsKey } from '../snapshots/keys';
 import { ExportToast, useProjectExport, type ExportKind } from './useProjectExport';
 
 type Snapshot = components['schemas']['Snapshot'];

@@ -5,6 +5,7 @@
  * завершён → «Приложение настраивается»; системная роль не подходит → «Страница не найдена».
  */
 import { Loader } from '@mantine/core';
+import { Suspense } from 'react';
 
 import { ErrorText } from '../shared/ui/ErrorText';
 import { AppShell } from './AppShell';
@@ -64,7 +65,7 @@ export function AppRoutes() {
   }
   return (
     <AppShell me={me} active={found.route.nav}>
-      {found.route.render(found.params)}
+      <Suspense fallback={<Loading />}>{found.route.render(found.params)}</Suspense>
     </AppShell>
   );
 }

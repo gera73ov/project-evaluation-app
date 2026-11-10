@@ -13,35 +13,42 @@ import { SetupInProgressPage } from '../features/auth/SetupInProgressPage';
 import { HomeRoute } from '../features/home/HomeRoute';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { ProjectCreatePage } from '../features/project-create/ProjectCreatePage';
-import { DocumentsPage } from '../features/documents/DocumentsPage';
-import { ReadinessPage } from '../features/stats/grid/ReadinessPage';
-import { CandidatesPage, SharesPage, TagsPage, VolumesPage } from '../features/stats/details/DetailsPages';
-import { SnapshotsPage } from '../features/stats/details/SnapshotsPage';
-import { ComparePage } from '../features/compare/ComparePage';
-import { DiscussionsPage } from '../features/stats/questions/DiscussionsPage';
-import { QuestionsPage } from '../features/stats/questions/QuestionsPage';
-import { TotalsPage } from '../features/stats/totals/TotalsPage';
-import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
-import { AuditPage } from '../features/audit/AuditPage';
-import { CalendarPage } from '../features/admin/calendar/CalendarPage';
-import { DictionariesPage } from '../features/admin/dictionaries/DictionariesPage';
 import { dictPath, isDictKey, type DictKey } from '../features/admin/dictionaries/dictionaries';
-import { ProposedTypesPage } from '../features/admin/proposed-types/ProposedTypesPage';
-import { RegistryPage as AdminRegistryPage } from '../features/admin/registry/RegistryPage';
-import { UsersPage } from '../features/admin/users/UsersPage';
-import { AccountsPage } from '../features/system/admins/AccountsPage';
-import { AnonymizePage, RegistryPage } from '../features/system/admins/AnonymizeRegistryPages';
-import { AuthPage } from '../features/system/auth/AuthPage';
-import { HealthPage } from '../features/system/health/HealthPage';
-import { RetentionPage, SmtpPage } from '../features/system/settings/MailRetentionPages';
-import { SecurityPage } from '../features/system/settings/SecurityPage';
-import { SystemRoute } from '../features/system/SystemRoute';
-import { SetupWizardPage } from '../features/setup-wizard/SetupWizardPage';
-import { OutcomePage } from '../features/settings/outcome/OutcomePage';
 import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute';
-import { TrashPage } from '../features/trash/TrashPage';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
 import { WorkRoute } from '../features/work/WorkRoute';
+import {
+  AccountsPage,
+  AdminRegistryPage,
+  AnonymizePage,
+  AuditPage,
+  AuthPage,
+  CalendarPage,
+  CandidatesPage,
+  ComparePage,
+  DictionariesPage,
+  DiscussionsPage,
+  DocumentsPage,
+  HealthPage,
+  OutcomePage,
+  PortfolioRoute,
+  ProposedTypesPage,
+  QuestionsPage,
+  ReadinessPage,
+  RegistryPage,
+  RetentionPage,
+  SecurityPage,
+  SetupWizardPage,
+  SharesPage,
+  SmtpPage,
+  SnapshotsPage,
+  SystemRoute,
+  TagsPage,
+  TotalsPage,
+  TrashPage,
+  UsersPage,
+  VolumesPage,
+} from './lazyPages';
 import { Redirect, type Params } from './router';
 import type { SystemRole } from './session';
 
