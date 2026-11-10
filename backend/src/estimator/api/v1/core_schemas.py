@@ -15,13 +15,17 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from estimator.api.common.decimal import DecimalString
 from estimator.db.enums import (
+    AddresseeType,
     BranchStatusValue,
+    CustomerQuestionStatus,
     DetailLevel,
+    MessageKind,
     ProjectOutcome,
     ProjectRole,
     ProjectStatus,
     QuoteFigure,
     SystemRole,
+    ThreadStatus,
 )
 from estimator.services.tree.local_types import NodeTypeIcon
 
@@ -605,3 +609,78 @@ class ProjectListItem(_Strict):
 class ProjectList(_Strict):
     items: list[ProjectListItem]
     next_cursor: str | None
+
+
+# --- обсуждения (CORE-040) --------------------------------------------------------------------
+
+
+class Addressee(_Strict):
+    target_type: AddresseeType
+    target_id: uuid.UUID | None
+
+
+class MessageCreate(_Strict):
+    body: str = Field(min_length=1, max_length=4000)
+    needs_answer: bool = False
+    addressees: list[Addressee] = Field(default_factory=list, max_length=50)
+
+
+class ThreadCreate(_Strict):
+    node_id: uuid.UUID | None
+    body: str = Field(min_length=1, max_length=4000)
+    addressees: list[Addressee] = Field(default_factory=list, max_length=50)
+
+
+class Message(_Strict):
+    id: uuid.UUID
+    thread_id: uuid.UUID | None
+    node_id: uuid.UUID | None
+    author: UserRef | None
+    kind: MessageKind
+    body: str = Field(max_length=10000)
+    event: dict[str, Any] | None
+    needs_answer: bool
+    addressees: list[Addressee]
+    created_at: dt.datetime
+    edited_at: dt.datetime | None
+    revoked: bool
+
+
+class Thread(_Strict):
+    id: uuid.UUID
+    node_id: uuid.UUID | None
+    opened_by: UserRef
+    status: ThreadStatus
+    resolved_by: UserRef | None
+    resolved_at: dt.datetime | None
+    is_customer: bool
+    customer_question_no: int | None
+    customer_status: CustomerQuestionStatus | None
+    sent_at: dt.datetime | None
+    answered_at: dt.datetime | None
+    closed_at: dt.datetime | None
+    withdraw_reason: str | None
+    edited_after_sent: bool
+    first_message: Message
+    replies_count: int
+
+
+class ThreadList(_Strict):
+    items: list[Thread]
+    next_cursor: str | None
+
+
+class NodeFeed(_Strict):
+    items: list[Message]
+    threads: list[Thread]
+    next_cursor: str | None
+
+
+class SuggestItem(_Strict):
+    target_type: AddresseeType
+    target_id: uuid.UUID | None
+    label: str
+
+
+class SuggestList(_Strict):
+    items: list[SuggestItem]

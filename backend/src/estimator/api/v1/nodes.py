@@ -80,11 +80,12 @@ async def _response(
     node_id: uuid.UUID,
     branch: dict[str, Any] | None,
     rounded: list[str],
+    viewer: uuid.UUID,
 ) -> dict[str, Any]:
     """Ответ 15.3: узел, предки с новыми E и σ, итог проекта, статус ветки."""
     await db.flush()
     project = await _project(db, project_id)
-    node, ancestors, totals = await mutation_view(db, project, node_id)
+    node, ancestors, totals = await mutation_view(db, project, node_id, viewer)
     return {
         "node": node,
         "project_version": project.version,
@@ -122,7 +123,7 @@ async def create_node(
         db, principal, project, parent, body.model_dump(exclude_unset=True)
     )
     await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
-    return await _response(db, project.id, node.id, branch, rounded)
+    return await _response(db, project.id, node.id, branch, rounded, principal.user_id)
 
 
 @router.patch(
@@ -161,7 +162,7 @@ async def patch_node(
     if node.version != was:  # FR-TREE-34: какие поля правка действительно изменила
         fields = [k for k, v in node.field_versions.items() if v == node.version]
         await notify_experts(db, principal, project.id, node.id, node.discipline_id, fields)
-    return await _response(db, project.id, node.id, branch, rounded)
+    return await _response(db, project.id, node.id, branch, rounded, principal.user_id)
 
 
 @router.post(
@@ -181,16 +182,18 @@ async def review_node(
     if node is None:  # pragma: no cover — gate уже ответил 404
         raise HTTPException(404, detail={"code": "NOT_FOUND"})
     changed = await marks.mark(db, principal, node, body.reviewed)
-    return await _nodes_response(db, node.project_id, structure.Outcome(node_ids=changed))
+    return await _nodes_response(
+        db, node.project_id, structure.Outcome(node_ids=changed), principal.user_id
+    )
 
 
 async def _nodes_response(
-    db: AsyncSession, project_id: uuid.UUID, out: structure.Outcome
+    db: AsyncSession, project_id: uuid.UUID, out: structure.Outcome, viewer: uuid.UUID
 ) -> dict[str, Any]:
     """``NodesMutation``: изменённые и созданные узлы (с новыми E и σ), удалённые, итог проекта."""
     await db.flush()
     project = await _project(db, project_id)
-    tree = await load_tree(db, project)
+    tree = await load_tree(db, project, viewer)
     ids = {str(i) for i in out.node_ids}
     body: dict[str, Any] = {
         "nodes": [n for n in tree["nodes"] if n["id"] in ids],
@@ -244,7 +247,7 @@ async def move_node(
     if out.node_ids:
         for discipline in {from_discipline, node.discipline_id}:
             await notify_experts(db, principal, project.id, node.id, discipline, ["move"])
-    return await _nodes_response(db, project.id, out)
+    return await _nodes_response(db, project.id, out, principal.user_id)
 
 
 @router.post(
@@ -263,7 +266,7 @@ async def split_node(
     node, project = await _live(db, id)
     out = await structure.split_node(db, principal, project, node, body.base_version)
     await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
-    return await _nodes_response(db, project.id, out)
+    return await _nodes_response(db, project.id, out, principal.user_id)
 
 
 @router.get(
@@ -297,7 +300,7 @@ async def collapse_node(
     values = body.model_dump(exclude={"base_version"})
     out = await structure.collapse_node(db, principal, project, node, body.base_version, values)
     await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
-    return await _nodes_response(db, project.id, out)
+    return await _nodes_response(db, project.id, out, principal.user_id)
 
 
 @router.post(
@@ -316,7 +319,7 @@ async def duplicate_node(
     node, project = await _live(db, id)
     out = await structure.duplicate_node(db, principal, project, node)
     await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
-    return await _nodes_response(db, project.id, out)
+    return await _nodes_response(db, project.id, out, principal.user_id)
 
 
 @router.delete(
@@ -334,7 +337,7 @@ async def delete_node(
     node, project = await _live(db, id)
     out = await trash_nodes.delete_node(db, principal, project, node)
     await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
-    return await _nodes_response(db, project.id, out)
+    return await _nodes_response(db, project.id, out, principal.user_id)
 
 
 HISTORY_SCOPE = "node-history"
@@ -394,4 +397,4 @@ async def copy_branch_from(
     )
     out = await copy_branch.copy_from(db, principal, project, node, source_project, source)
     await notify_experts(db, principal, project.id, node.id, node.discipline_id, ["structure"])
-    return await _nodes_response(db, project.id, out)
+    return await _nodes_response(db, project.id, out, principal.user_id)

@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from estimator.api.common.router import ApiRouter
 from estimator.api.v1 import core_schemas as s
+from estimator.auth.mfa_policy import ActivePrincipal
 from estimator.db.models.projects import Project
 from estimator.db.session import DbSession
 from estimator.services.tree.load import load_tree
@@ -27,9 +28,10 @@ router = ApiRouter(tags=["Дерево"])
 )
 async def get_tree(
     id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    principal: ActivePrincipal,
     db: DbSession,
 ) -> dict[str, Any]:
     project = await db.get(Project, id)
     if project is None:  # pragma: no cover — gate уже ответил 404
         raise HTTPException(404, detail={"code": "NOT_FOUND"})
-    return await load_tree(db, project)
+    return await load_tree(db, project, principal.user_id)

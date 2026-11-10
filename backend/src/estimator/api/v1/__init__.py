@@ -11,6 +11,7 @@ from estimator.api.v1 import (
     branches,
     changes,
     disciplines,
+    discussions,
     me,
     members,
     money,
@@ -40,4 +41,5 @@ router.include_router(members.router)
 router.include_router(disciplines.router)
 router.include_router(node_types.router)
 router.include_router(notifications.router)
+router.include_router(discussions.router)
 router.include_router(admin_calendar.router)

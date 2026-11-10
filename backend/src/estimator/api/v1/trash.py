@@ -113,4 +113,4 @@ async def restore_trash(
     out = await trash_nodes.restore_batch(db, principal, project, batch, body.target_parent_id)
     root = batch[0]
     await notify_experts(db, principal, project.id, root.id, root.discipline_id, ["structure"])
-    return await _nodes_response(db, project.id, out)
+    return await _nodes_response(db, project.id, out, principal.user_id)
