@@ -4,7 +4,7 @@
  * Результат: не известен / выигран / проигран / отменён заказчиком. Заполняют модератор, пресейл
  * проекта и руководитель пресейла (`outcome.write`) в любом статусе; остальные смотрят.
  * - «Сумма договора» — только при «выигран» и только у ролей с деньгами: у эксперта поля нет в
- *   разметке, сервер ему сумму не отдаёт. Правит её `money.write` (модератор), сохранение требует
+ *   разметке, сервер ему сумму не отдаёт. Правят её те, кто правит результат и видит деньги (CR-015), сохранение требует
  *   TOTP в сессии — на 403 TOTP_REQUIRED открывается ввод кода и запрос повторяется.
  * - «Причина проигрыша» — из справочника администратора, обязательна при «проигран»; при
  *   «Другое» нужен текст до 500 символов.
@@ -65,7 +65,7 @@ export function validateDraft(draft: Draft, reasons: readonly LossReason[], with
   return errors;
 }
 
-/** Тело PUT: причина — только при «проигран», текст — только при «Другое», сумма — только с `money.write`. */
+/** Тело PUT: причина — только при «проигран», текст — только при «Другое», сумма — только с `money.read` (CR-015). */
 export function outcomeBody(draft: Draft, reasons: readonly LossReason[], moneyWrite: boolean): OutcomePut {
   const reason = draft.outcome === 'lost' ? reasons.find((r) => r.id === draft.reasonId) : undefined;
   const body: OutcomePut = {
@@ -308,7 +308,7 @@ export function OutcomePage({ projectId }: { projectId: string }) {
             reasons={reasons.data ?? []}
             canWrite={canWrite}
             money={perms.includes('money.read')}
-            moneyWrite={perms.includes('money.write')}
+            moneyWrite={perms.includes('money.read')}
           />
         ) : null}
       </section>

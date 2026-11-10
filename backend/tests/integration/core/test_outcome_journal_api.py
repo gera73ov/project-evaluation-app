@@ -75,15 +75,17 @@ async def test_outcome_read_and_write(
     [money_event] = events.on(f"project:{s.pid}:money")
     assert money_event["data"]["contract_amount"] == "1500000"
 
-    # пресейл проекта меняет результат, сумму не трогает (у него нет money.write)
+    # пресейл проекта меняет результат; смена результата сумму не трогает
     presale = await _with_presale(world, s)
     price = await _reason(db_session, "Цена")
     lost = await presale.put(url, json={"outcome": "lost", "loss_reason_id": str(price)})
     assert lost.status_code == 200, lost.text
     assert lost.json()["loss_reason_id"] == str(price)
     assert lost.json()["money"] == {"contract_amount": "1500000"}
-    no_money = await presale.put(url, json={"outcome": "won", "contract_amount": "1"})
-    assert (no_money.status_code, no_money.json()["code"]) == (403, "FORBIDDEN")
+    # сумму договора вводит и пресейл (CR-015)
+    by_presale = await presale.put(url, json={"outcome": "won", "contract_amount": "1600000"})
+    assert by_presale.status_code == 200, by_presale.text
+    assert by_presale.json()["money"] == {"contract_amount": "1600000"}
 
     # руководитель пресейла правит результат любого проекта
     head = await world.actor(SystemRole.PRESALE_HEAD)
@@ -146,6 +148,21 @@ async def test_outcome_in_completed_project(world: World, db_session: AsyncSessi
         assert moved.status_code == 200, moved.text
     won = await s.moderator.put(f"/projects/{s.pid}/outcome", json={"outcome": "won"})
     assert won.status_code == 200, won.text
+    # сумма договора — в любом статусе, в том числе у руководителя пресейла (CR-015)
+    head = await world.actor(SystemRole.PRESALE_HEAD)
+    amount = await head.put(
+        f"/projects/{s.pid}/outcome", json={"outcome": "won", "contract_amount": "700000"}
+    )
+    assert amount.status_code == 200, amount.text
+    assert amount.json()["money"] == {"contract_amount": "700000"}
+    assert (await s.moderator.get(f"/projects/{s.pid}/outcome")).json()["money"] == {
+        "contract_amount": "700000"
+    }
+    no_totp = await world.session_for(head.id, SystemRole.PRESALE_HEAD, mfa=False)
+    blocked = await no_totp.put(
+        f"/projects/{s.pid}/outcome", json={"outcome": "won", "contract_amount": "1"}
+    )
+    assert (blocked.status_code, blocked.json()["code"]) == (403, "TOTP_REQUIRED")
 
 
 @pytest.mark.spec("11.6")

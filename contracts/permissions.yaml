@@ -399,7 +399,7 @@ permissions:
     endpoints:
       - "POST /projects/{id}/remind"
   outcome.write:
-    title: Заполнить «Результат пресейла»
+    title: Заполнить «Результат пресейла»; сумму договора — вместе с money.read и TOTP (CR-015)
     spec: [BR-PRJ-05]
     endpoints:
       - "PUT /projects/{id}/outcome"

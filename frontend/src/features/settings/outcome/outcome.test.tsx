@@ -133,17 +133,21 @@ describe('вкладка «Результат пресейла»', () => {
     });
   });
 
-  it('руководитель пресейла: результат меняет, сумму только видит', async () => {
+  it('руководитель пресейла меняет и результат, и сумму договора (CR-015)', async () => {
     putOutcome(portal, { outcome: 'won', contract_amount: '1500000' }, true);
     const section = await openOutcome('presale_head');
     const amount = await within(section).findByLabelText('Сумма договора');
     expect(plain(amount)).toBe('1 500 000');
-    expect((amount as HTMLInputElement).readOnly).toBe(true);
-    expect(section.textContent).toContain('Сумму договора меняет модератор проекта');
-    pick(section, 'отменён заказчиком');
+    expect((amount as HTMLInputElement).readOnly).toBe(false);
+    fireEvent.change(amount, { target: { value: '1600000' } });
     fireEvent.click(within(section).getByRole('button', { name: 'Сохранить' }));
     await within(section).findByText('✓ сохранено');
-    expect(calls.at(-1)?.body).toEqual({ outcome: 'cancelled', loss_reason_id: null, loss_reason_text: null });
+    expect(calls.at(-1)?.body).toEqual({
+      outcome: 'won',
+      loss_reason_id: null,
+      loss_reason_text: null,
+      contract_amount: '1600000',
+    });
   });
 
   it('сумма без TOTP в сессии — ввод кода вместо ошибки', async () => {

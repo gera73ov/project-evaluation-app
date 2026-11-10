@@ -11895,7 +11895,7 @@ components:
       required:
       - outcome
       additionalProperties: false
-      description: contract_amount — только с money.write и TOTP
+      description: 'CR-015. contract_amount — с outcome.write и money.read (TOTP в сессии) в любом статусе проекта: модератор, пресейл проекта, руководитель пресейла (BR-PRJ-05). Без money.read — 403 FORBIDDEN, без TOTP — 403 TOTP_REQUIRED; непустая сумма при результате, отличном от won, — 422'
     Document:
       type: object
       properties:
