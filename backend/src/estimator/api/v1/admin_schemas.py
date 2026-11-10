@@ -11,7 +11,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from estimator.api.common.decimal import DecimalString
-from estimator.api.v1.core_schemas import NodeType
+from estimator.api.v1.core_schemas import NodeType, Norm
+from estimator.services.tree.local_types import NodeTypeIcon
 
 _COLOR = r"^#[0-9A-Fa-f]{6}$"
 #: ``HoursString``: расчётные часы, 2 знака
@@ -130,6 +131,11 @@ class LargeLeafHours(_Strict):
     detailed: str = Field(pattern=_HOURS)
 
 
+class LargeLeafHoursWrite(_Strict):
+    medium: DecimalString
+    detailed: DecimalString
+
+
 class ExpectedUnits(_Strict):
     min: int = Field(ge=1, le=1000)
     max: int = Field(ge=1, le=1000)
@@ -137,6 +143,84 @@ class ExpectedUnits(_Strict):
 
 class MethodSettings(_Strict):
     large_leaf_hours: LargeLeafHours
+    medium_expected_units: ExpectedUnits
+    pm_percent_default: DecimalString
+    autoarchive_days: int = Field(ge=0, le=3650)
+
+
+# --- справочники: запись (ADM-007). Схема общая для POST и PATCH; обязательные поля POST
+# проверяет admin.dictionaries.write.
+
+
+class PhaseWrite(_Strict):
+    name: str = Field(default=None, min_length=1, max_length=100)  # type: ignore[assignment]
+    sort_order: int = Field(default=None)  # type: ignore[assignment]
+    is_cross_cutting: bool = Field(default=None)  # type: ignore[assignment]
+    is_active: bool = Field(default=None)  # type: ignore[assignment]
+
+
+class DisciplineWrite(_Strict):
+    name: str = Field(default=None, min_length=1, max_length=100)  # type: ignore[assignment]
+    short_name: str = Field(default=None, min_length=1, max_length=12)  # type: ignore[assignment]
+    color: str = Field(default=None, pattern=_COLOR)  # type: ignore[assignment]
+    default_profile_id: uuid.UUID | None = None
+    is_active: bool = Field(default=None)  # type: ignore[assignment]
+
+
+class NodeTypeWrite(_Strict):
+    name: str = Field(default=None, min_length=1, max_length=50)  # type: ignore[assignment]
+    icon: NodeTypeIcon = Field(default=None)  # type: ignore[assignment]
+    norms: list[Norm] = Field(default=None, max_length=20)  # type: ignore[assignment]
+    is_system: bool = Field(default=None)  # type: ignore[assignment]
+    is_active: bool = Field(default=None)  # type: ignore[assignment]
+
+
+class ProfileWrite(_Strict):
+    discipline_id: uuid.UUID = Field(default=None)  # type: ignore[assignment]
+    name: str = Field(default=None, min_length=1, max_length=100)  # type: ignore[assignment]
+    type_chain: list[uuid.UUID] = Field(default=None, min_length=1, max_length=8)  # type: ignore[assignment]
+    is_active: bool = Field(default=None)  # type: ignore[assignment]
+
+
+class RatioWrite(_Strict):
+    discipline_a_id: uuid.UUID = Field(default=None)  # type: ignore[assignment]
+    disciplines_b: list[uuid.UUID] = Field(default=None, min_length=1)  # type: ignore[assignment]
+    min_pct: DecimalString = Field(default=None)  # type: ignore[assignment]
+    max_pct: DecimalString = Field(default=None)  # type: ignore[assignment]
+    is_active: bool = Field(default=None)  # type: ignore[assignment]
+
+
+class TagWrite(_Strict):
+    name: str = Field(default=None, min_length=1, max_length=50)  # type: ignore[assignment]
+    short_name: str = Field(default=None, min_length=1, max_length=12)  # type: ignore[assignment]
+    color: str = Field(default=None, pattern=_COLOR)  # type: ignore[assignment]
+    category: Literal["assumption", "constraint", "risk", "tech"] = Field(default=None)  # type: ignore[assignment]
+    is_active: bool = Field(default=None)  # type: ignore[assignment]
+
+
+class CurrencyWrite(_Strict):
+    code: str = Field(default=None, pattern=r"^[A-Z]{3}$")  # type: ignore[assignment]
+    symbol: str = Field(default=None, max_length=8)  # type: ignore[assignment]
+    is_active: bool = Field(default=None)  # type: ignore[assignment]
+
+
+class VatRateWrite(_Strict):
+    name: str = Field(default=None, min_length=1, max_length=50)  # type: ignore[assignment]
+    percent: DecimalString | None = None
+    is_default: bool = Field(default=None)  # type: ignore[assignment]
+    is_active: bool = Field(default=None)  # type: ignore[assignment]
+
+
+class LossReasonWrite(_Strict):
+    name: str = Field(default=None, min_length=1, max_length=100)  # type: ignore[assignment]
+    is_other: bool = Field(default=None)  # type: ignore[assignment]
+    is_active: bool = Field(default=None)  # type: ignore[assignment]
+
+
+class MethodSettingsWrite(_Strict):
+    """``MethodSettings`` на вход: часы — строкой с точкой или запятой."""
+
+    large_leaf_hours: LargeLeafHoursWrite
     medium_expected_units: ExpectedUnits
     pm_percent_default: DecimalString
     autoarchive_days: int = Field(ge=0, le=3650)
