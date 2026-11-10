@@ -107,8 +107,8 @@ async def test_switch_report_resolve_apply(
         await db_session.refresh(user)
         assert (user.status, user.block_reason) == (UserStatus.BLOCKED,
                                                     UserBlockReason.NOT_MATCHED)  # fmt: skip
-    open_ = (await db_session.scalars(select(UserSession.user_id).where(
-        UserSession.revoked_at.is_(None)).execution_options(populate_existing=True))).all()  # fmt: skip
+    alive = select(UserSession.user_id).where(UserSession.revoked_at.is_(None))
+    open_ = (await db_session.scalars(alive.execution_options(populate_existing=True))).all()
     assert root.id in open_, "сессия суперадминистратора остаётся"
     assert colleague.id not in open_, "остальные сессии завершены"
     rows = await db_session.execute(text(
@@ -146,7 +146,7 @@ async def test_switch_requires_checked_settings(
 
     root = await world.actor(SystemRole.SUPERADMIN)
     await step_up(world, root)
-    await set_setting(db_session, "auth.ad.verification",
-                      {"params_sha256": None, "connection_ok_at": None, "login_ok_at": None})  # fmt: skip
+    empty = {"params_sha256": None, "connection_ok_at": None, "login_ok_at": None}
+    await set_setting(db_session, "auth.ad.verification", empty)
     response = await root.post(PATH, json={"mode": "ad", "dry_run": True})
     assert (response.status_code, response.json()["code"]) == (409, "AD_CHECKS_REQUIRED")
