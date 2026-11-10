@@ -129,3 +129,13 @@ class AuditEntry(_Strict):
 class AuditPage(_Strict):
     items: list[AuditEntry]
     next_cursor: str | None
+
+
+class AuditExport(_Strict):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    from_: dt.datetime = Field(alias="from")
+    to: dt.datetime
+    user_id: uuid.UUID | None = None
+    event_type: str | None = Field(default=None, max_length=200)
+    result: Literal["success", "failure", "denied"] | None = None

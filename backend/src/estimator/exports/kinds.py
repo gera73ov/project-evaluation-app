@@ -4,5 +4,6 @@
 """
 
 from estimator.exports import cq, diff, portfolio, stats, xlsx_hours, xlsx_money
+from estimator.security.audit import export as audit_csv  # SEC-015
 
-__all__ = ["cq", "diff", "portfolio", "stats", "xlsx_hours", "xlsx_money"]
+__all__ = ["audit_csv", "cq", "diff", "portfolio", "stats", "xlsx_hours", "xlsx_money"]
