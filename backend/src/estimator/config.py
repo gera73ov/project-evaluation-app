@@ -122,6 +122,13 @@ class Settings(BaseSettings):
         gt=0,
         description="Таймаут одной проверки `/health/ready`, секунды",
     )
+    backup_marker_path: str = Field(
+        default="/var/lib/estimator/backup/last-success",
+        description=(
+            "Файл-метка последней успешной резервной копии (время ISO 8601 или время изменения "
+            "файла) для «Состояния системы» (FR-SA-07); пишет скрипт бэкапа"
+        ),
+    )
     trusted_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["*"],
         description=(

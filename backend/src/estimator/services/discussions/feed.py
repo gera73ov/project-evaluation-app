@@ -21,7 +21,7 @@ from typing import Any
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from estimator.db.enums import ThreadStatus, UserStatus
+from estimator.db.enums import MessageKind, ThreadStatus, UserStatus
 from estimator.db.models.discussions import Message, MessageAddressee, Thread
 from estimator.db.models.tree import Node
 from estimator.db.models.users import User
@@ -115,7 +115,7 @@ async def threads_out(db: AsyncSession, rows: Sequence[Thread]) -> list[dict[str
         (
             await db.execute(
                 select(Message.thread_id, func.count())
-                .where(Message.thread_id.in_(ids))
+                .where(Message.thread_id.in_(ids), Message.kind != MessageKind.EVENT)
                 .group_by(Message.thread_id)
             )
         ).all()
@@ -282,3 +282,22 @@ async def list_threads(
     page = list(rows[:limit])
     last = position({"id": str(page[-1].id)}, page[-1].created_at) if page else None
     return await threads_out(db, page), len(rows) > limit, last
+
+
+async def thread_addressees(db: AsyncSession, thread_id: uuid.UUID) -> list[dict[str, str | None]]:
+    """Адресаты вопроса — адресаты его первого сообщения (с флагом «нужен ответ»)."""
+    mid = await db.scalar(
+        select(Message.id)
+        .where(Message.thread_id == thread_id, Message.needs_answer)
+        .order_by(Message.created_at, Message.id)
+        .limit(1)
+    )
+    return (await _addressees(db, [mid]))[mid] if mid else []
+
+
+async def author_ref(db: AsyncSession, user_id: uuid.UUID) -> dict[str, Any]:
+    return (await _users(db, [user_id]))[user_id]
+
+
+async def user_refs(db: AsyncSession, ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, dict]:
+    return await _users(db, ids)

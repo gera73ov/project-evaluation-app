@@ -8118,6 +8118,54 @@ paths:
           $ref: '#/components/responses/Problem429'
         '500':
           $ref: '#/components/responses/Problem500'
+  /messages/{id}/history:
+    get:
+      operationId: getMessageHistory
+      summary: История правок и отзыва сообщения
+      description: >-
+        CR-012. Прежние тексты сообщения из `message_history` (каждая правка и отзыв, FR-DISC-06,
+        14.2) от новых к старым. Только модератору проекта: «модератор видит исходный текст в
+        истории»; эксперт получает 403.
+      tags:
+      - Обсуждения
+      x-permission: discussion.history
+      x-spec:
+      - FR-DISC-06
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      x-error-codes:
+      - UNAUTHENTICATED
+      - TOTP_ENROLL_REQUIRED
+      - PASSWORD_CHANGE_REQUIRED
+      - NOT_FOUND
+      - FORBIDDEN
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MessageHistoryEntry'
+                required:
+                - items
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '500':
+          $ref: '#/components/responses/Problem500'
   /threads/{id}/resolve:
     post:
       operationId: resolveThread
@@ -12239,6 +12287,20 @@ components:
         nodes_limit:
           type: integer
           const: 5000
+        open_questions:
+          type: integer
+          minimum: 0
+          description: >-
+            CR-013. «Открыто: всего» — открытые вопросы проекта (узлов и проекта), включая вопросы
+            заказчику до «решён»/«снят» (FR-TREE-11, 11.4 №3)
+        questions_to_me:
+          type: integer
+          minimum: 0
+          description: 'CR-013. «Открыто» (мне) — открытые вопросы, где зритель среди адресатов'
+        risks:
+          type: integer
+          minimum: 0
+          description: CR-013. Счётчик рисков — живые листья с меткой категории «Риск» в комментарии
       required:
       - works
       - pm
@@ -12246,6 +12308,9 @@ components:
       - unaccounted_leaves
       - nodes_count
       - nodes_limit
+      - open_questions
+      - questions_to_me
+      - risks
       additionalProperties: false
     NodeCreate:
       type: object
@@ -12750,6 +12815,29 @@ components:
       - edited_after_sent
       - first_message
       - replies_count
+      additionalProperties: false
+    MessageHistoryEntry:
+      type: object
+      description: Прежний текст сообщения до правки или отзыва (CR-012, FR-DISC-06)
+      properties:
+        body:
+          type: string
+          maxLength: 10000
+        edited_by:
+          $ref: '#/components/schemas/UserRef'
+        edited_at:
+          $ref: '#/components/schemas/Timestamp'
+        reason:
+          type: string
+          enum:
+          - edit
+          - revoke
+          - edit_after_sent
+      required:
+      - body
+      - edited_by
+      - edited_at
+      - reason
       additionalProperties: false
     MessageCreate:
       type: object

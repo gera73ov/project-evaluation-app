@@ -372,44 +372,58 @@ async def block_user(
         raise ApiError("FORBIDDEN", detail="Свою учётку заблокировать нельзя",
                        permission="users.manage")  # fmt: skip
     user = await _manageable(db, user_id)
-    if user.status != UserStatus.BLOCKED:
-        user.status = UserStatus.BLOCKED
-        user.block_reason = UserBlockReason.MANUAL
-        user.blocked_at = dt.datetime.now(dt.UTC)
-        user.updated_by = actor.user_id
-        await db.flush()
-        await sessions.revoke_user(db, user.id, RevokeReason.BLOCKED)
-        await audit.write(
-            db, "users.blocked", user_id=actor.user_id, login=actor.login,
-            session_id=actor.session_id, object_type="user", object_id=user.id,
-            details={"block_reason": UserBlockReason.MANUAL.value},
-        )  # fmt: skip
-        for project in await _moderated_projects(db, user.id):
-            await refresh_no_moderator(db, project)
-        await db.flush()
+    await block(db, sessions, actor, user)
     return user_out(user, (await _roles(db, [user.id]))[user.id])
+
+
+async def block(db: AsyncSession, sessions: SessionService, actor: Principal, user: User) -> bool:
+    """Блокировка учётки (без проверок, кто кого блокирует); ``False`` — уже заблокирована."""
+    if user.status == UserStatus.BLOCKED:
+        return False
+    user.status = UserStatus.BLOCKED
+    user.block_reason = UserBlockReason.MANUAL
+    user.blocked_at = dt.datetime.now(dt.UTC)
+    user.updated_by = actor.user_id
+    await db.flush()
+    await sessions.revoke_user(db, user.id, RevokeReason.BLOCKED)
+    await audit.write(
+        db, "users.blocked", user_id=actor.user_id, login=actor.login,
+        session_id=actor.session_id, object_type="user", object_id=user.id,
+        details={"block_reason": UserBlockReason.MANUAL.value},
+    )  # fmt: skip
+    for project in await _moderated_projects(db, user.id):
+        await refresh_no_moderator(db, project)
+    await db.flush()
+    return True
 
 
 async def unblock_user(db: AsyncSession, actor: Principal, user_id: uuid.UUID) -> dict[str, Any]:
     """Разблокировать: ``active``, а если пароль ещё не установлен — ``pending_password``."""
     user = await _manageable(db, user_id)
-    if user.status == UserStatus.BLOCKED:
-        previous = user.block_reason
-        has_password = user.source == UserSource.AD or user.password_hash is not None
-        user.status = UserStatus.ACTIVE if has_password else UserStatus.PENDING_PASSWORD
-        user.block_reason = None
-        user.blocked_at = None
-        user.updated_by = actor.user_id
-        await db.flush()
-        await audit.write(
-            db, "users.unblocked", user_id=actor.user_id, login=actor.login,
-            session_id=actor.session_id, object_type="user", object_id=user.id,
-            details={"previous_reason": previous.value if previous else None, "automatic": False},
-        )  # fmt: skip
-        for project in await _moderated_projects(db, user.id):
-            await refresh_no_moderator(db, project)
-        await db.flush()
+    await unblock(db, actor, user)
     return user_out(user, (await _roles(db, [user.id]))[user.id])
+
+
+async def unblock(db: AsyncSession, actor: Principal, user: User) -> bool:
+    """Разблокировка учётки (без проверок прав); ``False`` — не была заблокирована."""
+    if user.status != UserStatus.BLOCKED:
+        return False
+    previous = user.block_reason
+    has_password = user.source == UserSource.AD or user.password_hash is not None
+    user.status = UserStatus.ACTIVE if has_password else UserStatus.PENDING_PASSWORD
+    user.block_reason = None
+    user.blocked_at = None
+    user.updated_by = actor.user_id
+    await db.flush()
+    await audit.write(
+        db, "users.unblocked", user_id=actor.user_id, login=actor.login,
+        session_id=actor.session_id, object_type="user", object_id=user.id,
+        details={"previous_reason": previous.value if previous else None, "automatic": False},
+    )  # fmt: skip
+    for project in await _moderated_projects(db, user.id):
+        await refresh_no_moderator(db, project)
+    await db.flush()
+    return True
 
 
 async def _target_roles(db: AsyncSession, user_id: uuid.UUID) -> list[str]:
@@ -419,10 +433,14 @@ async def _target_roles(db: AsyncSession, user_id: uuid.UUID) -> list[str]:
 async def reset_password(db: AsyncSession, actor: Principal, user_id: uuid.UUID) -> dict[str, Any]:
     """Ссылка сброса пароля (60 минут); учётке, ещё не установившей пароль, — новая ссылка
     активации (72 часа). Письмом, а без SMTP или email — для показа на экране."""
+    return await issue_reset(db, actor, await _manageable(db, user_id))
+
+
+async def issue_reset(db: AsyncSession, actor: Principal, user: User) -> dict[str, Any]:
+    """Ссылка сброса пароля или активации учётке ``user`` (без проверок, кто кому сбрасывает)."""
     from estimator.notifications.mail.recipients import Recipient
     from estimator.notifications.tasks import enqueue_email
 
-    user = await _manageable(db, user_id)
     if user.source != UserSource.LOCAL:
         raise ApiError("FORBIDDEN", detail="Пароль пользователя AD задаёт каталог",
                        permission="users.reset_credentials")  # fmt: skip
@@ -455,7 +473,13 @@ async def reset_totp(
 ) -> None:
     """Сброс TOTP (FR-2FA-03): секрет и резервные коды удаляются, сессии завершаются — при
     следующем входе подключение заново, если его требует политика 2FA."""
-    user = await _manageable(db, user_id)
+    await clear_totp(db, sessions, actor, await _manageable(db, user_id))
+
+
+async def clear_totp(
+    db: AsyncSession, sessions: SessionService, actor: Principal, user: User
+) -> None:
+    """Удалить TOTP и резервные коды ``user``, завершить его сессии (без проверок прав)."""
     user.totp_secret_enc = None
     user.totp_enabled = False
     user.updated_by = actor.user_id

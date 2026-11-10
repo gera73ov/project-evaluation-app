@@ -1,4 +1,4 @@
-# E2E (FE-090, FE-091, QA-018)
+# E2E (FE-090, FE-091, FE-094, QA-018)
 
 Playwright-сценарии UI против настоящего API.
 
@@ -9,6 +9,7 @@ cd e2e && npm ci
 E2E_BASE_URL=https://dev.example.local \
 E2E_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/auth/seed.py' \
 E2E_WORK_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/work/seed.py' \
+E2E_ADMIN_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/admin/seed.py' \
 npx playwright test
 ```
 
@@ -37,5 +38,12 @@ cd e2e && npm ci && npx playwright test
   конфликта; исключённый из команды видит «Доступ к проекту закрыт». Данные создаёт `work/seed.py`
   (модератор с TOTP и два эксперта со случайными логинами). Разрыв связи имитируется через
   `page.routeWebSocket`: `context.setOffline` уже открытый WebSocket не закрывает.
+
+- `admin/` — админка администратора (FE-094): пользователи (создание, роли, сброс пароля с
+  подтверждением кодом), справочники и «Пороги и проценты», производственный календарь (правка дня
+  сохраняется и возвращается обратно), предложенный тип из проекта, реестр проектов (блокировка
+  последнего модератора → «без модератора», назначение нового, режим поддержки). Данные создаёт
+  `admin/seed.py`: администратор, два модератора и пользователь. Системная часть (суперадминистратор,
+  AD, журнал аудита) появится вместе с её серверной частью.
 
 `serve.mjs` проксирует и WebSocket `/api/v1/ws`. Все сценарии проверяют, что в консоли нет нарушений CSP.

@@ -1139,6 +1139,9 @@ const DEMO: Record<string, Demo> = {
         unaccounted_leaves: 0,
         nodes_count: p.nodes.length,
         nodes_limit: 5000,
+        open_questions: 0, // CR-013: счётчики «Открыто» и рисков считает сервер
+        questions_to_me: 0,
+        risks: 0,
       },
     };
   },

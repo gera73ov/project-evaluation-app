@@ -2126,6 +2126,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/messages/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * История правок и отзыва сообщения
+         * @description CR-012. Прежние тексты сообщения из `message_history` (каждая правка и отзыв, FR-DISC-06, 14.2) от новых к старым. Только модератору проекта: «модератор видит исходный текст в истории»; эксперт получает 403.
+         */
+        get: operations["getMessageHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/threads/{id}/resolve": {
         parameters: {
             query?: never;
@@ -3445,6 +3465,12 @@ export type components = {
             nodes_count: number;
             /** @constant */
             nodes_limit: 5000;
+            /** @description CR-013. «Открыто: всего» — открытые вопросы проекта (узлов и проекта), включая вопросы заказчику до «решён»/«снят» (FR-TREE-11, 11.4 №3) */
+            open_questions: number;
+            /** @description CR-013. «Открыто» (мне) — открытые вопросы, где зритель среди адресатов */
+            questions_to_me: number;
+            /** @description CR-013. Счётчик рисков — живые листья с меткой категории «Риск» в комментарии */
+            risks: number;
         };
         NodeCreate: {
             parent_id: components["schemas"]["Uuid"];
@@ -3599,6 +3625,14 @@ export type components = {
             edited_after_sent: boolean;
             first_message: components["schemas"]["Message"];
             replies_count: number;
+        };
+        /** @description Прежний текст сообщения до правки или отзыва (CR-012, FR-DISC-06) */
+        MessageHistoryEntry: {
+            body: string;
+            edited_by: components["schemas"]["UserRef"];
+            edited_at: components["schemas"]["Timestamp"];
+            /** @enum {string} */
+            reason: "edit" | "revoke" | "edit_after_sent";
         };
         MessageCreate: {
             body: string;
@@ -9058,6 +9092,34 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getMessageHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["MessageHistoryEntry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             500: components["responses"]["Problem500"];
         };
     };

@@ -467,7 +467,8 @@ export function registry(query: Query = {}) {
     id: uuidFrom("project", "orphan"),
     name: "Миграция CRM",
     customer: "ООО «Северный ветер»",
-    moderators: [] as Ref[],
+    // единственный модератор заблокирован: сервер оставляет его в списке с is_active: false
+    moderators: [{ ...userRef(PEOPLE.novikov), is_active: false }] as Ref[],
     status: "estimation" as Status,
     created_at: daysAgo(40),
     updated_at: daysAgo(12),
@@ -490,7 +491,7 @@ export function registry(query: Query = {}) {
   return base
     .map(({ since, ...r }) => {
       const moderators = moderatorEdits.get(r.id) ?? r.moderators;
-      const from = moderators.length ? null : since;
+      const from = moderators.some((m) => m.is_active) ? null : since;
       return {
         ...r,
         moderators,
@@ -525,7 +526,7 @@ export function transferModerators(
     ...r.moderators.filter((m) => !removeIds.includes(m.id)),
     ...add.filter((a) => !r.moderators.some((m) => m.id === a.id)),
   ];
-  if (next.length === 0) return { error: "LAST_MODERATOR" };
+  if (!next.some((m) => m.is_active)) return { error: "LAST_MODERATOR" };
   moderatorEdits.set(projectId, next);
   return next;
 }

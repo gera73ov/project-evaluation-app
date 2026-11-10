@@ -14,6 +14,7 @@ import { call } from '../../../shared/api/problem';
 import { formatDate } from '../../../shared/format/date';
 import { ErrorText } from '../../../shared/ui/ErrorText';
 import { AdminLayout } from '../layout/AdminLayout';
+import { ModeratorsCell, isActiveModerator } from './ModeratorsCell';
 import { canModerate, rememberSupportReason, REASON_MAX, REASON_MIN, reasonValid, registryKey } from './registry';
 
 type Project = components['schemas']['RegistryProject'];
@@ -102,13 +103,11 @@ export function RegistryPage() {
                     <div className="sub">{p.customer}</div>
                   </td>
                   <td>
-                    {p.moderators.length > 0 ? (
-                      p.moderators.map((m) => m.full_name).join(', ')
-                    ) : (
-                      <span className="pill bad">
-                        {t('system.registry.noModerator', { count: p.days_without_moderator ?? 0 })}
-                      </span>
-                    )}
+                    <ModeratorsCell
+                      moderators={p.moderators}
+                      since={p.no_moderator_since}
+                      days={p.days_without_moderator}
+                    />
                   </td>
                   <td>{t(`status.project.${p.status}`)}</td>
                   <td className="sub">{formatDate(p.updated_at)}</td>
@@ -179,7 +178,8 @@ function ModeratorsForm({ project, onClose }: { project: Project; onClose: () =>
     (u) => canModerate(u) && !keep.includes(u.id) && !added.some((a) => a.id === u.id),
   );
   const removed = project.moderators.filter((m) => !keep.includes(m.id)).map((m) => m.id);
-  const total = keep.length + added.length;
+  // заблокированный модератор вести проект не может: в счёт идут только активные (BR-PRJ-07)
+  const total = project.moderators.filter((m) => keep.includes(m.id) && isActiveModerator(m)).length + added.length;
   const save = useMutation({
     mutationFn: () =>
       call(() =>
@@ -200,7 +200,11 @@ function ModeratorsForm({ project, onClose }: { project: Project; onClose: () =>
         <Checkbox.Group label={t('admin.registry.current')} value={keep} onChange={setKeep}>
           <Stack gap={6} mt={4}>
             {project.moderators.map((m) => (
-              <Checkbox key={m.id} value={m.id} label={m.full_name} />
+              <Checkbox
+                key={m.id}
+                value={m.id}
+                label={isActiveModerator(m) ? m.full_name : `${m.full_name} · ${t('admin.registry.blocked')}`}
+              />
             ))}
           </Stack>
         </Checkbox.Group>

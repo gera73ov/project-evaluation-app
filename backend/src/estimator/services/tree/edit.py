@@ -42,6 +42,7 @@ from estimator.db.uuid7 import uuid7
 from estimator.realtime.locks import iface as locks
 from estimator.services.branches.status import touch
 from estimator.services.common import emit, user_ref
+from estimator.services.discussions import events as feed_events
 from estimator.services.review import marks
 from estimator.services.tree.load import DEPTH_LIMIT, NODES_LIMIT, count_live_nodes, node_event
 from estimator.services.tree.positions import key_between
@@ -463,6 +464,9 @@ async def patch_node(
             {FIELD_KEYS[f]: change for f, change in diff.items()}
             | ({"review": (True, False)} if unreview else {}),
         )
+    )
+    await feed_events.node_changed(  # FR-DISC-07: серая строка в ленте узла с сообщениями
+        db, project.id, node.id, principal.user_id, "node_changed", feed_events.feed_changes(diff)
     )
     if resets:  # BR-BR-02: и со всех предков
         await marks.clear(db, principal, await marks.ancestors(db, node))
