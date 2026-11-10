@@ -1,14 +1,17 @@
 """Деньги проекта (CORE-030). Единственный модуль, которому разрешён импорт
 ``estimator.db.models.money`` (G-11, tests/unit/db/test_money_imports.py).
 
-Пока здесь только начальные значения нового проекта (CORE-010): валюта RUB, курс 1, ставка НДС
-«по умолчанию» из справочника с копией процента (BR-MONEY-05, C-31). Чтение и правка денег —
-задача CORE-030.
+Здесь начальные значения нового проекта (CORE-010): валюта RUB, курс 1, ставка НДС «по
+умолчанию» из справочника с копией процента (BR-MONEY-05, C-31); перенос при копировании
+(CORE-023) и демо-данные (DB-012). Чтение и правка денег — :mod:`.project` (CORE-030), кэш итогов —
+:mod:`.totals` (CORE-026).
 """
 
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,6 +63,45 @@ async def copy_settings(
                 project_id=target_id,
                 discipline_id=rate.discipline_id,
                 rate_rub=rate.rate_rub,
+                created_by=user_id,
+                updated_by=user_id,
+            )
+        )
+
+
+async def set_settings(
+    db: AsyncSession,
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    currency: str,
+    exchange_rate: Decimal,
+    vat_percent: Decimal | None,
+    rates: Mapping[uuid.UUID | None, Decimal],
+) -> None:
+    """Валюта, курс, НДС (ставка справочника с этим процентом) и ставки — для ``seed-demo``."""
+    row = await db.get(ProjectMoney, project_id)
+    if row is None:  # pragma: no cover — строка создаётся вместе с проектом
+        raise RuntimeError("у проекта нет строки project_money")
+    vat = (
+        await db.execute(
+            select(VatRate.id, VatRate.percent).where(
+                VatRate.percent.is_(None) if vat_percent is None else VatRate.percent == vat_percent
+            )
+        )
+    ).first()
+    if vat is None:  # pragma: no cover — справочник НДС задан миграцией DB-010
+        raise RuntimeError(f"в справочнике НДС нет ставки {vat_percent}")
+    row.currency, row.exchange_rate = currency, exchange_rate
+    row.vat_rate_id, row.vat_percent = vat.id, vat.percent
+    row.updated_by = user_id
+    for discipline_id, rate in rates.items():
+        db.add(
+            ProjectRate(
+                id=uuid7(),
+                project_id=project_id,
+                discipline_id=discipline_id,
+                rate_rub=rate,
                 created_by=user_id,
                 updated_by=user_id,
             )

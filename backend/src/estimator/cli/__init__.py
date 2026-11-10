@@ -33,6 +33,7 @@ COMMAND_MODULES: tuple[str, ...] = (
     "estimator.cli.rotate_key",
     "estimator.cli.audit",
     "estimator.cli.superadmin",
+    "estimator.cli.seed_demo",
 )
 
 #: Код выхода, когда команда запрещена в текущем окружении.
@@ -65,7 +66,7 @@ class CommandRun:
 
 #: Аргументы, значения которых можно писать в аудит (логины допустимы, contracts/audit-events.yaml
 #: ``system.cli.executed``); значения остальных не передаются хукам вообще.
-PUBLIC_ARGUMENTS = frozenset({"login", "check", "dry_run", "mode", "before", "kid"})
+PUBLIC_ARGUMENTS = frozenset({"login", "check", "dry_run", "mode", "before", "kid"})  # не password
 
 
 class CommandHook(Protocol):
