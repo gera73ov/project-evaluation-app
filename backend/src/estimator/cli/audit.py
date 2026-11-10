@@ -38,3 +38,33 @@ def register(app: typer.Typer) -> None:
             err=True,
         )
         raise typer.Exit(1)
+
+    @command(
+        "purge",
+        group=audit_app,
+        group_name="audit",
+        help=(
+            "Удалить записи аудита старше срока хранения (retention, не меньше 6 мес.) от роли "
+            "estimator_audit_purge; хэш последней удалённой — якорь цепочки."
+        ),
+    )
+    def purge(
+        dry_run: bool = typer.Option(
+            False, "--dry-run", help="Только посчитать записи к удалению, ничего не удалять."
+        ),
+    ) -> None:
+        from estimator.cli import _os_user
+        from estimator.security.audit.purge import PurgeError, run
+
+        try:
+            result = asyncio.run(run(dry_run=dry_run, os_user=_os_user()))
+        except PurgeError as exc:
+            typer.echo(f"Ошибка: {exc}.", err=True)
+            raise typer.Exit(2) from exc
+        when = f"старше {result.before.isoformat()} (срок {result.months} мес.)"
+        if dry_run:
+            typer.echo(f"Будет удалено записей {when}: {result.deleted}. Ничего не удалено.")
+            return
+        typer.echo(f"Удалено записей {when}: {result.deleted}.")
+        if result.anchor_hash:
+            typer.echo(f"Якорь цепочки: {result.anchor_hash}.")
