@@ -31,6 +31,7 @@ from estimator.db.models.projects import Project, ProjectMember
 from estimator.db.session import DbSession
 from estimator.redis_client import get_redis
 from estimator.security import audit
+from estimator.security.audit import security_events
 from estimator.security.authz.catalog import PSEUDO, Catalog, load_catalog
 from estimator.security.authz.engine import (
     Access,
@@ -45,8 +46,6 @@ from estimator.security.ratelimit.limiter import client_ip
 
 API_PREFIX = "/api/v1"
 PROJECT_PATH = "/projects/{id}"
-DENIED_WINDOW = 60  # security.access_denied — не чаще раза в минуту на пользователя и объект
-DENIED_KEY = "authz:denied:"
 OPENED_KEY = "authz:ph_opened:"
 
 Resolver = Callable[[AsyncSession, uuid.UUID], Awaitable[Target | None]]
@@ -149,6 +148,7 @@ class Authorizer:
         return str(getattr(route, "path", "")) or "?"
 
     async def _audit_denied(self, exc: AccessDenied, target: Target) -> None:
+        """Отказ — в аудит не чаще раза в минуту на ключ (SEC-010, security_events)."""
         p = self.principal
         common: dict[str, Any] = {
             "user_id": p.user_id,
@@ -157,27 +157,15 @@ class Authorizer:
             "session_id": p.session_id,
         }
         if exc.code == "NOT_FOUND" and self.catalog.permission(exc.permission).network:
-            await audit.write_detached(
-                self.db, "security.network_denied", "denied", **common,
-                details={"route": self._route()},
-            )  # fmt: skip
+            await security_events.network_denied(self.db, self.redis, route=self._route(), **common)
             return
         if target.project_id is None or exc.status not in (403, 404):
             return
-        key = f"{DENIED_KEY}{p.user_id}:{target.project_id}:{exc.permission}"
-        if not await self.redis.set(key, "1", nx=True, ex=DENIED_WINDOW):
-            await self.redis.incr(key + ":n")
-            await self.redis.expire(key + ":n", DENIED_WINDOW * 2)
-            return
-        suppressed = int(await self.redis.getdel(key + ":n") or 0)
-        await audit.write_detached(
-            self.db, "security.access_denied", "denied", **common,
-            object_type="project", object_id=target.project_id, project_id=target.project_id,
-            details={
-                "status": exc.status, "permission": exc.permission,
-                "method": getattr(self.request, "method", "WS"),  # WS: подписка RT-003
-                "route": self._route(), "suppressed": suppressed,
-            },
+        await security_events.access_denied(
+            self.db, self.redis, **common,
+            project_id=target.project_id, status=exc.status, permission=exc.permission,
+            method=getattr(self.request, "method", "WS"),  # WS: подписка RT-003
+            route=self._route(),
         )  # fmt: skip
 
     async def _audit_presale_head(self, project_id: uuid.UUID) -> None:
