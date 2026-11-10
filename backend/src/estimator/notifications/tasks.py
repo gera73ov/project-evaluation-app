@@ -135,3 +135,63 @@ def enqueue_email(
         else:
             send_email.delay(kind, address, dict(fields), override, alert_channel)
     return len(addresses)
+
+
+# --- хранение уведомлений (NTF-007; NFR-REL-06, retention.periods.notifications_days) ----------
+
+PURGE_TASK = "estimator.notifications.purge"
+
+
+async def retention_days(db: Any) -> int:
+    """Срок хранения уведомлений в днях (настройка суперадминистратора, по умолчанию 365)."""
+    from estimator.admin.settings import schema
+    from estimator.auth.policy import read_settings
+
+    periods = (await read_settings(db, "retention.periods")).get("retention.periods") or {}
+    return int({**schema.default("retention.periods"), **periods}["notifications_days"])
+
+
+async def purge_old(db: Any, now: Any = None) -> int:
+    """Удалить уведомления старше срока хранения; число удалённых."""
+    import datetime as dt
+
+    from sqlalchemy import delete
+
+    from estimator.db.models.discussions import Notification
+
+    moment = now or dt.datetime.now(dt.UTC)
+    border = moment - dt.timedelta(days=await retention_days(db))
+    result = await db.execute(delete(Notification).where(Notification.created_at < border))
+    deleted = int(result.rowcount or 0)
+    log.info("notifications_purged", deleted=deleted, before=border.isoformat())
+    return deleted
+
+
+async def _purge_in_own_session() -> int:  # pragma: no cover — запуск в worker
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from estimator.config import get_settings
+    from estimator.db.session import create_engine, transaction
+
+    engine = create_engine(get_settings())
+    try:
+        async with transaction(async_sessionmaker(engine)) as db:
+            return await purge_old(db)
+    finally:
+        await engine.dispose()
+
+
+@shared_task(name=PURGE_TASK)
+def purge_notifications() -> int:  # pragma: no cover — запуск в worker
+    return int(asyncio.run(_purge_in_own_session()))
+
+
+def _register() -> None:
+    from celery.schedules import crontab
+
+    from estimator.jobs.schedule import PeriodicTask, register_periodic
+
+    register_periodic(PeriodicTask("notifications_purge", PURGE_TASK, crontab(hour=3, minute=40)))
+
+
+_register()
