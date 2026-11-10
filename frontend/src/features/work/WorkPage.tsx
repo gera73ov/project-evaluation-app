@@ -37,7 +37,7 @@ import {
   type FilterKey,
 } from './filters/filters';
 import { parseView, useSaveView, useSavedView, type WorkView } from './filters/viewState';
-import type { TreeState, TreeStore } from './store/treeStore';
+import { extraOf, type TreeState, type TreeStore } from './store/treeStore';
 import { useProjectTree, useTree } from './store/useProjectTree';
 import { SupportBanner } from './support-banner/SupportBanner';
 import { TopBar, type OpenQuestion } from './topbar/TopBar';
@@ -45,10 +45,6 @@ import { TreeTable, type TreeContext, type TreeTableApi } from './tree/TreeTable
 
 type Member = components['schemas']['Member'];
 type Money = components['schemas']['ProjectMoney'];
-
-interface CommentLine {
-  tag_id: string | null;
-}
 
 const READ_ONLY_STATUSES = new Set(['completed', 'archived']);
 
@@ -70,10 +66,9 @@ export function editRule(
 export function openQuestions(state: Pick<TreeState, 'nodes'>): OpenQuestion[] {
   const out: OpenQuestion[] = [];
   for (const node of state.nodes.values()) {
-    const extra = new Map(Object.entries(node.extra));
-    const open = Number(extra.get('open_questions') ?? 0);
-    if (open > 0)
-      out.push({ nodeId: node.id, title: node.title, open, toMe: Number(extra.get('questions_to_me') ?? 0) });
+    const extra = extraOf(node);
+    const open = Number(extra.open_questions ?? 0);
+    if (open > 0) out.push({ nodeId: node.id, title: node.title, open, toMe: Number(extra.questions_to_me ?? 0) });
   }
   return out.sort((a, b) => b.toMe - a.toMe || a.title.localeCompare(b.title, 'ru'));
 }
@@ -82,8 +77,7 @@ export function openQuestions(state: Pick<TreeState, 'nodes'>): OpenQuestion[] {
 export function riskCount(state: Pick<TreeState, 'nodes'>, riskTags: ReadonlySet<string>): number {
   let count = 0;
   for (const node of state.nodes.values()) {
-    const lines = (new Map(Object.entries(node.extra)).get('comment_lines') ?? []) as CommentLine[] | null;
-    if ((lines ?? []).some((l) => l.tag_id !== null && riskTags.has(l.tag_id))) count += 1;
+    if ((extraOf(node).comment_lines ?? []).some((l) => l.tag_id !== null && riskTags.has(l.tag_id))) count += 1;
   }
   return count;
 }

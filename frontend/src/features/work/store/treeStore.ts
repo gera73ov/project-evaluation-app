@@ -48,6 +48,20 @@ export interface TreeNode {
   extra: Readonly<Record<string, unknown>>;
 }
 
+/** Поля `extra`, которые читает экран: обращение по имени поля, без копирования объекта. */
+export interface NodeExtra {
+  comment_lines?: components['schemas']['CommentLine'][] | null;
+  reviewed_by?: unknown;
+  self_review?: boolean;
+  open_questions?: number;
+  questions_to_me?: number;
+  messages_count?: number;
+}
+
+export function extraOf(node: TreeNode | undefined): NodeExtra {
+  return (node?.extra ?? {}) as NodeExtra;
+}
+
 /** Поля, которые пользователь правит в ячейках. */
 export type EditableField = 'title' | 'o' | 'r' | 'p' | 'multiplier' | 'type_id';
 export type NodeEdit = Partial<Pick<TreeNode, EditableField>>;
