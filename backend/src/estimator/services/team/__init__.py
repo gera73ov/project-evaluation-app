@@ -261,9 +261,16 @@ async def _notify_new(
 
 
 async def put_members(
-    db: AsyncSession, principal: Principal, project: Project, specs: Sequence[MemberSpec]
+    db: AsyncSession,
+    principal: Principal,
+    project: Project,
+    specs: Sequence[MemberSpec],
+    *,
+    via: str = "team",
 ) -> int:
-    """Полная замена состава команды; новая ``project_version`` (прежняя — без изменений)."""
+    """Полная замена состава команды; новая ``project_version`` (прежняя — без изменений).
+
+    ``via`` — откуда изменение для аудита (``transfer`` — реестр администратора, ADM-010)."""
     _check_shape(specs)
     current = {_key(r): r for r in await _rows(db, project.id)}
     wanted = {s.key: s for s in specs}
@@ -313,11 +320,11 @@ async def put_members(
     await db.flush()
 
     for row in added_rows:
-        await _audit_row(db, principal, project.id, row, "added", "team")
+        await _audit_row(db, principal, project.id, row, "added", via)
     for row in updated:
-        await _audit_row(db, principal, project.id, row, "updated", "team")
+        await _audit_row(db, principal, project.id, row, "updated", via)
     for row in removed:
-        await _audit_row(db, principal, project.id, row, "removed", "team")
+        await _audit_row(db, principal, project.id, row, "removed", via)
     journal.record(db, project.id, principal.user_id, "project.team", changes)
     await _notify_new(db, principal, project, added_rows)
     await refresh_no_moderator(db, project)
