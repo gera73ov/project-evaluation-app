@@ -14,6 +14,7 @@ from estimator.api.v1 import (
     auth,
     branches,
     changes,
+    customer_questions,
     disciplines,
     discussions,
     me,
@@ -23,7 +24,11 @@ from estimator.api.v1 import (
     nodes,
     notifications,
     projects,
+    system_admins,
+    system_health,
     system_projects,
+    system_settings,
+    system_setup,
     system_users,
     trash,
     tree,
@@ -48,10 +53,15 @@ router.include_router(disciplines.router)
 router.include_router(node_types.router)
 router.include_router(notifications.router)
 router.include_router(discussions.router)
+router.include_router(customer_questions.router)
 router.include_router(admin_calendar.router)
 router.include_router(admin_dictionaries.router)
 router.include_router(admin_users.router)
 router.include_router(admin_projects.router)
 router.include_router(admin_proposed_types.router)
+router.include_router(system_admins.router)
+router.include_router(system_health.router)
 router.include_router(system_projects.router)
+router.include_router(system_settings.router)
+router.include_router(system_setup.router)
 router.include_router(system_users.router)

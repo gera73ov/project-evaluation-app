@@ -19,6 +19,7 @@ from estimator.db.enums import (
     BranchStatusValue,
     CustomerQuestionStatus,
     DetailLevel,
+    MessageHistoryReason,
     MessageKind,
     ProjectOutcome,
     ProjectRole,
@@ -189,6 +190,9 @@ class TreeTotals(_Strict):
     unaccounted_leaves: int
     nodes_count: int
     nodes_limit: Literal[5000]
+    open_questions: int = Field(ge=0)
+    questions_to_me: int = Field(ge=0)
+    risks: int = Field(ge=0)
 
 
 class Tree(_Strict):
@@ -684,3 +688,53 @@ class SuggestItem(_Strict):
 
 class SuggestList(_Strict):
     items: list[SuggestItem]
+
+
+class Conclusion(_Strict):
+    text: str = Field(min_length=1, max_length=2000)
+    tag_id: uuid.UUID | None
+
+
+class ResolveRequest(_Strict):
+    conclusion: Conclusion | None = None
+
+
+class MessagePatch(_Strict):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class MessageHistoryEntry(_Strict):
+    body: str = Field(max_length=10000)
+    edited_by: UserRef
+    edited_at: dt.datetime
+    reason: MessageHistoryReason
+
+
+class MessageHistoryList(_Strict):
+    items: list[MessageHistoryEntry]
+
+
+# --- вопросы заказчику (CORE-044) -------------------------------------------------------------
+
+
+class CqAnswer(_Strict):
+    body: str = Field(min_length=1, max_length=10000)
+
+
+class CqWithdraw(_Strict):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class CqEdit(_Strict):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class CustomerQuestion(_Strict):
+    thread: Thread
+    path: list[str]
+    answer: Message | None
+
+
+class CustomerQuestionList(_Strict):
+    items: list[CustomerQuestion]
+    next_cursor: str | None
