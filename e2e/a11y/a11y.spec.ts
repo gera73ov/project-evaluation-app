@@ -2,9 +2,10 @@
  * FE-080 · аудит доступности axe на готовых экранах (FR-UI-01..05, SPEC 11 «Цветовые обозначения»):
  * WCAG 2.1 A/AA, нарушения уровня serious и critical валят сценарий. Экраны: вход и восстановление
  * пароля; у модератора — «Мои оценки», новый проект, рабочий экран, настройки, корзина, журнал,
- * вкладки статистики, снимки и сравнение, профиль, портфель; у администратора — админка.
+ * вкладки статистики, снимки и сравнение, профиль, портфель, документы заказчика, панель
+ * обсуждения с закрытыми заметками и меню «Экспорт ▾»; у администратора — админка.
  *
- * Экраны заметок, документов, выгрузок и системной части — после их серверной части.
+ * Экраны системной части — после её серверной части.
  */
 import AxeBuilder from '@axe-core/playwright';
 import { readFileSync } from 'node:fs';
@@ -124,6 +125,7 @@ for (const [name, path] of [
   ['новый проект', () => '/projects/new'],
   ['рабочий экран', () => `/projects/${projectId}`],
   ['настройки проекта', () => `/projects/${projectId}/settings`],
+  ['документы заказчика', () => `/projects/${projectId}/settings/documents`],
   ['корзина', () => `/projects/${projectId}/trash`],
   ['журнал проекта', () => `/projects/${projectId}/log`],
   ['сетка готовности', () => `/projects/${projectId}/stats`],
@@ -168,5 +170,24 @@ test('рабочий экран: ввод оценки с клавиатуры',
   await input.fill('5');
   await moderator.keyboard.press('Enter');
   await expect(leaf.getByRole('button', { name: 'O: 5' })).toBeVisible();
+  expect(await audit(moderator)).toEqual([]);
+});
+
+test('рабочий экран: панель обсуждения с закрытыми заметками и меню «Экспорт ▾»', async () => {
+  await moderator.goto(`/projects/${projectId}`);
+  const leaf = moderator
+    .getByRole('treegrid', { name: 'Дерево оценки' })
+    .locator('.vrow [role="row"]')
+    .filter({ hasText: LEAF })
+    .first();
+  await leaf.hover();
+  await leaf.getByRole('button', { name: /^(Обсуждение|Начать обсуждение)/ }).click();
+  const panel = moderator.getByRole('region', { name: `Обсуждение: ${LEAF}` });
+  await panel.getByRole('tab', { name: /Заметки/ }).click();
+  await expect(panel.getByRole('textbox', { name: 'Закрытая заметка' })).toBeVisible();
+  expect(await audit(moderator)).toEqual([]);
+
+  await moderator.getByRole('button', { name: /Экспорт/ }).click();
+  await expect(moderator.getByRole('dialog', { name: /Экспорт/ })).toBeVisible();
   expect(await audit(moderator)).toEqual([]);
 });
