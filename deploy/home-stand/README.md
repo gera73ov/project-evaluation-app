@@ -78,6 +78,8 @@ Docker публикует порты в обход ufw, но все порты �
 ### 3. Завести пользователя для стенда
 
 Отдельный пользователь без `sudo`, только в группе `docker`. Под ним работает исполнитель.
+Пароля у него нет: входить в него только из своей учётки командой `sudo -iu stand`
+(спросит твой пароль), выходить — `exit`.
 
 ```bash
 sudo adduser --disabled-password --gecos "" stand
@@ -99,14 +101,15 @@ sudo usermod -aG docker stand
    exit
    ```
 
-3. Запустить как службу, которая стартует вместе с компьютером:
+3. Запустить как службу, которая стартует вместе с компьютером. Это делается **из своей
+   учётки**, не из `stand`: у `stand` нет `sudo`, и внутри его сеанса `sudo` попросит пароль
+   `stand`, которого нет. Приглашение терминала не должно начинаться со `stand@`.
 
    ```bash
-   cd /home/stand/actions-runner
-   sudo ./svc.sh install stand
-   sudo ./svc.sh start
-   sudo ./svc.sh status
+   sudo bash -c 'cd /home/stand/actions-runner && ./svc.sh install stand && ./svc.sh start && ./svc.sh status'
    ```
+
+   `status` должен показать `active (running)`.
 
 4. Проверка: в **Settings → Actions → Runners** исполнитель `home-mint` с меткой `home-stand`
    в состоянии **Idle**.
