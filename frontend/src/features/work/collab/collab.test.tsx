@@ -205,4 +205,36 @@ describe('совместная работа на рабочем экране', (
     expect(within(row('Авторизация')).getByRole('button', { name: 'R: 12' })).toBeTruthy();
     expect(bodies).toHaveLength(2);
   });
+  it('чужая правка того же поля во время ввода: правка уходит с версией начала ввода (FE-091, FR-TREE-32)', async () => {
+    const bodies: { base_version: number; changes: Record<string, unknown> }[] = [];
+    server.use(
+      http.patch(api('/nodes/:id'), async ({ request }) => {
+        bodies.push((await request.json()) as (typeof bodies)[number]);
+        return problem(409, 'FIELD_CONFLICT', {
+          conflicts: [{ field: 'r', current: '14', changed_by: SMIRNOVA }],
+          current_version: 99,
+        });
+      }),
+    );
+    const { push, row } = await open('expert');
+    const leaf = PROJECTS.portal.nodes.find((n) => n.title === 'Авторизация');
+    fireEvent.click(within(row('Авторизация')).getByRole('button', { name: 'R: 12' }));
+    const r = within(row('Авторизация')).getByRole('textbox', { name: 'R' });
+    fireEvent.change(r, { target: { value: '18' } });
+    push('node.updated', { node: { ...leaf, r: '14', version: 99 }, author: SMIRNOVA, changed_fields: ['r'] }, 22);
+    expect(within(row('Авторизация')).getByRole('textbox', { name: 'R' })).toHaveProperty('value', '18');
+    fireEvent.keyDown(within(row('Авторизация')).getByRole('textbox', { name: 'R' }), { key: 'Enter' });
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({ base_version: leaf?.version, changes: { r: '18' } });
+    expect(await screen.findByRole('dialog', { name: `Значение изменил ${SMIRNOVA.full_name}` })).toBeTruthy();
+  });
+  it('исключение из команды: экран закрывается сообщением со ссылкой на мои оценки (FE-091)', async () => {
+    const { push } = await open('expert');
+    push('access.revoked', { project_id: project, reason: 'removed_from_team' });
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Доступ к проекту закрыт');
+    expect(alert.textContent).toContain('Модератор исключил вас из команды проекта');
+    expect(within(alert).getByRole('link', { name: '← К моим оценкам' }).getAttribute('href')).toBe('/');
+    expect(screen.queryByRole('treegrid')).toBeNull();
+  });
 });

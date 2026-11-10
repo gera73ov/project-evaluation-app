@@ -1,19 +1,25 @@
 /**
  * FE-090 · данные сценариев: seed.py создаёт пользователей и печатает JSON с логинами.
- * Команда по умолчанию — из каталога backend через uv; на стенде её задаёт E2E_SEED_CMD
- * (например, `docker compose ... exec -T api python /e2e/seed.py`).
+ * Команды по умолчанию — из каталога backend через uv; на стенде их задают E2E_SEED_CMD
+ * (например, `docker compose ... exec -T api python /e2e/auth/seed.py`) и E2E_WORK_SEED_CMD
+ * (FE-091: модератор с TOTP и два эксперта для сценариев рабочего экрана).
  */
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const DATA_FILE = fileURLToPath(new URL('./.e2e-data.json', import.meta.url));
+export const WORK_DATA_FILE = fileURLToPath(new URL('./.e2e-work-data.json', import.meta.url));
 
-export default function globalSetup(): void {
+function runSeed(command: string, file: string): void {
   const backend = fileURLToPath(new URL('../backend', import.meta.url));
-  const command = process.env.E2E_SEED_CMD ?? 'uv run --frozen python ../e2e/auth/seed.py';
   const output = execSync(command, { cwd: backend, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
   const line = output.trim().split('\n').at(-1) ?? '';
   JSON.parse(line); // ошибка здесь — seed напечатал не JSON
-  writeFileSync(DATA_FILE, line);
+  writeFileSync(file, line);
+}
+
+export default function globalSetup(): void {
+  runSeed(process.env.E2E_SEED_CMD ?? 'uv run --frozen python ../e2e/auth/seed.py', DATA_FILE);
+  runSeed(process.env.E2E_WORK_SEED_CMD ?? 'uv run --frozen python ../e2e/work/seed.py', WORK_DATA_FILE);
 }

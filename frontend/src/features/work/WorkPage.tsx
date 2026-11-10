@@ -11,7 +11,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from 'react-i18next';
 
-import { useSearchParam } from '../../app/router';
+import { Link, useSearchParam } from '../../app/router';
 
 import { useSession } from '../../app/session';
 import { api, type components } from '../../shared/api/client';
@@ -128,6 +128,7 @@ export function WorkPage({ projectId }: { projectId: string }) {
   });
   const saved = useSavedView(projectId);
 
+  if (project.revoked) return <RevokedNotice reason={project.revoked} />;
   if (project.error || tree.error) {
     return (
       <div className="main">
@@ -155,6 +156,21 @@ export function WorkPage({ projectId }: { projectId: string }) {
       moderator={isModerator}
       initial={initial}
     />
+  );
+}
+
+/** Доступ к открытому проекту отозван по `access.revoked` (FR-SESS-05): почему и куда дальше. */
+function RevokedNotice({ reason }: { reason: string }) {
+  const { t } = useTranslation();
+  const known = ['removed_from_team', 'support_session_expired', 'project_purged', 'project_hidden'].includes(reason);
+  return (
+    <div className="main">
+      <section className="sec revoked" role="alert">
+        <h2>{t('work.revoked.title')}</h2>
+        <p>{known ? t(`work.revoked.${reason}`) : t('work.revoked.rights_changed')}</p>
+        <Link to="/">{t('work.revoked.home')}</Link>
+      </section>
+    </div>
   );
 }
 

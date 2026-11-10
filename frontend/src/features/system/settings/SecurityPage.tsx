@@ -141,7 +141,7 @@ export function SecurityFields({
       {parts.includes('password') ? (
         <fieldset className="set-group">
           <legend>{t('system.security.passwords')}</legend>
-          <div className="set-grid">
+          <div className="sys-fields">
             <IntField
               label={t('system.security.minLength')}
               value={f.password.min_length}
@@ -194,7 +194,7 @@ export function SecurityFields({
               onChange={(e) => pw({ require_special: e.currentTarget.checked })}
             />
           </div>
-          <div className="set-grid">
+          <div className="sys-fields">
             <div>
               <Checkbox
                 mb={6}
@@ -238,7 +238,7 @@ export function SecurityFields({
         <>
           <fieldset className="set-group">
             <legend>{t('system.security.sessions')}</legend>
-            <div className="set-grid">
+            <div className="sys-fields">
               <IntField
                 label={t('system.security.idleUser')}
                 value={f.session.idle_minutes_user}
@@ -268,7 +268,7 @@ export function SecurityFields({
 
           <fieldset className="set-group">
             <legend>{t('system.security.lockout')}</legend>
-            <div className="set-grid">
+            <div className="sys-fields">
               <IntField
                 label={t('system.security.maxFailures')}
                 value={f.lockout.max_failures}
@@ -407,7 +407,7 @@ function SiemCard({ data }: { data: Parameters<typeof SectionForm>[0]['data'] })
             checked={f.enabled}
             onChange={(e) => set({ enabled: e.currentTarget.checked })}
           />
-          <div className="set-grid">
+          <div className="sys-fields">
             <TextInput
               label={t('system.siem.host')}
               value={f.host}

@@ -3,8 +3,9 @@
  *
  * Делает то же, что deploy/nginx/conf.d/estimator.conf в части, важной для UI: HTTPS, статика
  * frontend/dist, index.html для маршрутов SPA со свежим nonce в CSP и в <meta name="csp-nonce">,
- * прокси /api на API (по умолчанию http://127.0.0.1:8000) с X-Forwarded-*. WebSocket не нужен
- * сценариям входа. Сертификат — самоподписанный, в E2E_TLS_DIR; если его нет, создаётся через openssl.
+ * прокси /api на API (по умолчанию http://127.0.0.1:8000) с X-Forwarded-*, включая WebSocket
+ * /api/v1/ws (FE-091: совместная работа). Сертификат — самоподписанный, в E2E_TLS_DIR; если его нет,
+ * создаётся через openssl.
  *
  * Только для тестов: на dev-стенде сценарии идут через настоящий Nginx (E2E_BASE_URL).
  */
@@ -74,13 +75,7 @@ function proxy(req, res) {
       port: API.port,
       method: req.method,
       path: req.url,
-      headers: {
-        ...req.headers,
-        host: req.headers.host,
-        'x-forwarded-for': req.socket.remoteAddress ?? '',
-        'x-forwarded-proto': 'https',
-        'x-real-ip': req.socket.remoteAddress ?? '',
-      },
+      headers: forwarded(req),
     },
     (answer) => {
       res.writeHead(answer.statusCode ?? 502, answer.headers);
@@ -92,6 +87,42 @@ function proxy(req, res) {
     res.end(JSON.stringify({ status: 502, code: 'SERVICE_UNAVAILABLE', title: 'API недоступен' }));
   });
   req.pipe(upstream);
+}
+
+function forwarded(req) {
+  return {
+    ...req.headers,
+    host: req.headers.host,
+    'x-forwarded-for': req.socket.remoteAddress ?? '',
+    'x-forwarded-proto': 'https',
+    'x-real-ip': req.socket.remoteAddress ?? '',
+  };
+}
+
+/** Upgrade до WebSocket: запрос уходит на API как есть, дальше сокеты соединяются напрямую. */
+function proxyUpgrade(req, socket, head) {
+  const upstream = http.request({
+    host: API.hostname,
+    port: API.port,
+    method: req.method,
+    path: req.url,
+    headers: forwarded(req),
+  });
+  upstream.on('upgrade', (answer, apiSocket, apiHead) => {
+    const lines = [`HTTP/1.1 ${answer.statusCode} ${answer.statusMessage}`];
+    for (let i = 0; i < answer.rawHeaders.length; i += 2) lines.push(`${answer.rawHeaders[i]}: ${answer.rawHeaders[i + 1]}`);
+    socket.write(`${lines.join('\r\n')}\r\n\r\n`);
+    if (apiHead.length) socket.write(apiHead);
+    if (head.length) apiSocket.write(head);
+    apiSocket.pipe(socket).pipe(apiSocket);
+    apiSocket.on('error', () => socket.destroy());
+    socket.on('error', () => apiSocket.destroy());
+  });
+  upstream.on('response', (answer) => {
+    socket.end(`HTTP/1.1 ${answer.statusCode} ${answer.statusMessage}\r\n\r\n`);
+  });
+  upstream.on('error', () => socket.destroy());
+  upstream.end();
 }
 
 function ensureCertificate() {
@@ -116,6 +147,12 @@ const server = https.createServer(
     return sendIndex(res);
   },
 );
+
+server.on('upgrade', (req, socket, head) => {
+  const path = new URL(req.url ?? '/', 'https://local').pathname;
+  if (path.startsWith('/api/')) proxyUpgrade(req, socket, head);
+  else socket.destroy();
+});
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`e2e: https://localhost:${PORT} → ${ROOT}, API ${API.href}`);

@@ -2,7 +2,7 @@
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { cspNonce, theme } from '../shared/ui/theme';
+import { cspNonce, shareStyleNonce, theme } from '../shared/ui/theme';
 import { RouterProvider } from './router';
 import { AppRoutes } from './Routes';
 import { SessionProvider } from './session';
@@ -22,6 +22,7 @@ export function App({
   wsOptions?: Partial<WsClientOptions>;
 }) {
   const nonce = cspNonce();
+  shareStyleNonce(nonce);
   return (
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={theme} {...(nonce ? { getStyleNonce: () => nonce } : {})}>
