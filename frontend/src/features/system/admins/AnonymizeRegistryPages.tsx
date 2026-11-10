@@ -1,12 +1,14 @@
 /**
- * FE-063 · «Анонимизация» (SEC-PD-03, Q-34) и «Реестр проектов» (11.2 №1, 3.2, FR-ADM-06).
- * Анонимизировать можно только заблокированного: ФИО → «Удалённый пользователь #N», логин и email —
- * случайные, сессии и 2FA удаляются; действие необратимо и требует step-up. Реестр — только чтение,
- * без денег: название, заказчик, модераторы, статус, даты, дни без модератора.
+ * FE-063 · «Анонимизация» (SEC-PD-03, Q-34, CR-010) и «Реестр проектов» (11.2 №1, 3.2, FR-ADM-06).
+ * Список — все заблокированные учётки, и раздела «Система», и обычные пользователи
+ * (`GET /system/users`), с поиском и «Ещё». Анонимизировать можно только заблокированного:
+ * ФИО → «Удалённый пользователь #N», логин и email — случайные, сессии и 2FA удаляются; действие
+ * необратимо и требует step-up. Вкладка «Анонимизированные» — для сверки, без действий. Реестр —
+ * только чтение, без денег: название, заказчик, модераторы, статус, даты, дни без модератора.
  */
-import { Button } from '@mantine/core';
+import { Button, SegmentedControl, TextInput } from '@mantine/core';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api, type components } from '../../../shared/api/client';
@@ -16,34 +18,50 @@ import { ConfirmDialog } from '../../../shared/ui/ConfirmDialog';
 import { ErrorText } from '../../../shared/ui/ErrorText';
 import { SystemLayout, adminsKey } from '../layout/SystemLayout';
 import { StepUpCancelled, useStepUp } from '../layout/useStepUp';
-import { isLastSuperadmin } from './accounts';
-import { useAdmins } from './AccountsPage';
 
-type Account = components['schemas']['AdminAccount'];
+type Item = components['schemas']['SystemUserItem'];
+type Status = Item['status'];
 
-/** Анонимизированные учётки уже обезличены — повторять нечего. */
-export const isAnonymized = (a: Account) => a.full_name.startsWith('Удалённый пользователь #');
+const usersKey = ['system', 'users'] as const;
 
 export function AnonymizePage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const { run, modal } = useStepUp();
-  const admins = useAdmins();
-  const [target, setTarget] = useState<Account | null>(null);
+  const [status, setStatus] = useState<Status>('blocked');
+  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
+  const [target, setTarget] = useState<Item | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  const all = admins.data?.items ?? [];
-  const blocked = all.filter((a) => a.status === 'blocked' && !isAnonymized(a));
+  useEffect(() => {
+    const id = setTimeout(() => setQ(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+  const users = useInfiniteQuery({
+    queryKey: [...usersKey, { status, q }],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      call(() =>
+        api.GET('/system/users', {
+          params: { query: { status, limit: 50, ...(q ? { q } : {}), ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
+      ),
+    getNextPageParam: (last) => last.next_cursor,
+  });
+  const items = users.data?.pages.flatMap((p) => p.items) ?? [];
   const anonymize = useMutation({
-    mutationFn: (a: Account) =>
+    mutationFn: (a: Item) =>
       run(() => call(() => api.POST('/system/users/{id}/anonymize', { params: { path: { id: a.id } } }))),
     onSuccess: (_r, a) => {
+      void qc.invalidateQueries({ queryKey: usersKey });
       void qc.invalidateQueries({ queryKey: adminsKey });
       setDone(a.full_name);
     },
   });
+  const role = (r: string) => (r === 'superadmin' ? t('system.accounts.roles.superadmin') : t(`system.roles.${r}`));
   return (
     <SystemLayout active="anonymize" title={t('system.menu.anonymize')} subtitle={t('system.anonymize.subtitle')}>
-      <ErrorText error={admins.error ?? (anonymize.error instanceof StepUpCancelled ? null : anonymize.error)} />
+      <ErrorText error={users.error ?? (anonymize.error instanceof StepUpCancelled ? null : anonymize.error)} />
       {done ? (
         <p className="auth-ok" role="status">
           ✓ {t('system.anonymize.done', { name: done })}
@@ -51,45 +69,77 @@ export function AnonymizePage() {
       ) : null}
       <section className="sec">
         <p className="auth-hint">{t('system.anonymize.scope')}</p>
-        {blocked.length === 0 ? <p className="sys-empty">{t('system.anonymize.empty')}</p> : null}
-        {blocked.length > 0 ? (
+        <div className="sys-list-head adm-filters">
+          <SegmentedControl
+            aria-label={t('system.anonymize.status')}
+            value={status}
+            data={(['blocked', 'anonymized'] as const).map((s) => ({ value: s, label: t(`system.anonymize.${s}`) }))}
+            onChange={(v) => setStatus(v === 'anonymized' ? 'anonymized' : 'blocked')}
+          />
+          <TextInput
+            className="adm-search"
+            aria-label={t('system.anonymize.search')}
+            placeholder={t('system.anonymize.search')}
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+          />
+        </div>
+        {users.data && items.length === 0 ? (
+          <p className="sys-empty">
+            {t(status === 'blocked' ? 'system.anonymize.empty' : 'system.anonymize.emptyDone')}
+          </p>
+        ) : null}
+        {items.length > 0 ? (
           <table className="t sys-table">
             <thead>
               <tr>
                 <th>{t('system.accounts.name')}</th>
                 <th>{t('system.accounts.role')}</th>
+                <th>{t('system.anonymize.blockedAt')}</th>
                 <th>{t('system.accounts.lastLogin')}</th>
-                <th />
+                {status === 'blocked' ? <th /> : null}
               </tr>
             </thead>
             <tbody>
-              {blocked.map((a) => (
+              {items.map((a) => (
                 <tr key={a.id}>
                   <td>
                     <b>{a.full_name}</b>
                     <div className="sub">{a.login}</div>
                   </td>
-                  <td>{a.roles.map((r) => t(`system.accounts.roles.${r}`)).join(', ')}</td>
+                  <td>{a.roles.length ? a.roles.map(role).join(', ') : t('system.roles.user')}</td>
+                  <td className="sub">{a.blocked_at ? formatDateTime(a.blocked_at) : '—'}</td>
                   <td className="sub">{a.last_login_at ? formatDateTime(a.last_login_at) : '—'}</td>
-                  <td className="r">
-                    <Button
-                      size="xs"
-                      color="red"
-                      variant="light"
-                      disabled={isLastSuperadmin(a, all)}
-                      aria-label={t('system.anonymize.actionFor', { name: a.full_name })}
-                      onClick={() => {
-                        setDone(null);
-                        setTarget(a);
-                      }}
-                    >
-                      {t('system.anonymize.action')}
-                    </Button>
-                  </td>
+                  {status === 'blocked' ? (
+                    <td className="r">
+                      <Button
+                        size="xs"
+                        color="red"
+                        variant="light"
+                        aria-label={t('system.anonymize.actionFor', { name: a.full_name })}
+                        onClick={() => {
+                          setDone(null);
+                          setTarget(a);
+                        }}
+                      >
+                        {t('system.anonymize.action')}
+                      </Button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
           </table>
+        ) : null}
+        {users.hasNextPage ? (
+          <Button
+            mt="sm"
+            variant="default"
+            loading={users.isFetchingNextPage}
+            onClick={() => void users.fetchNextPage()}
+          >
+            {t('system.anonymize.more')}
+          </Button>
         ) : null}
       </section>
       <ConfirmDialog

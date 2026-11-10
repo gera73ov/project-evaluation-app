@@ -15,11 +15,24 @@ type Json = Record<string, unknown>;
 const checks = { connection: false, login: false };
 /** Решения суперадминистратора: user_id → object_guid или null («не сопоставлять»). */
 const decisions = new Map<string, string | null>();
+/** CR-009 · итог последнего перехода «Приложение → AD» (getLastSwitch). */
+type LastSwitch = {
+  at: string;
+  by: { id: string; full_name: string; initials: string; is_active: boolean };
+  resolved: number;
+  report: ReturnType<typeof report>;
+};
+let last: LastSwitch | null = null;
 
 export function resetDemoAuth() {
   checks.connection = false;
   checks.login = false;
   decisions.clear();
+  last = null;
+}
+
+export function lastSwitch(): LastSwitch | null {
+  return last;
 }
 
 const AD_KEYS = [
@@ -27,6 +40,37 @@ const AD_KEYS = [
   "auth.ad.access_groups",
   "auth.ad.role_mapping",
 ] as const;
+
+const valuesOf = (body: unknown): unknown =>
+  body && typeof body === "object"
+    ? new Map(Object.entries(body)).get("values")
+    : undefined;
+
+/** Значение ключа из несохранённых `values` формы, иначе сохранённое. */
+function formValue(values: unknown, key: string): unknown {
+  const v =
+    values && typeof values === "object"
+      ? new Map(Object.entries(values)).get(key)
+      : undefined;
+  return v === undefined ? settingValue(key) : v;
+}
+
+/**
+ * CR-009 · сохранённый пароль сервисной учётки уходит только на тот же сервер и с той же учёткой
+ * bind: если в `values` они другие, а нового пароля нет — проверка не выполняется (422).
+ */
+export function needsBindPassword(body: unknown): boolean {
+  const values = valuesOf(body);
+  if (!values || typeof values !== "object") return false;
+  const map = new Map(Object.entries(values));
+  if (typeof map.get("auth.ad.bind_password") === "string") return false;
+  const next = connectionOf(values);
+  const saved = settingValue("auth.ad.connection") as Json;
+  return (
+    JSON.stringify(next.controllers) !== JSON.stringify(saved.controllers) ||
+    next.bind_dn !== saved.bind_dn
+  );
+}
 
 function connectionOf(values: unknown): Json {
   const v =
@@ -39,11 +83,7 @@ function connectionOf(values: unknown): Json {
 }
 
 export function testConnection(body: unknown) {
-  const values =
-    body && typeof body === "object"
-      ? new Map(Object.entries(body)).get("values")
-      : null;
-  const conn = connectionOf(values);
+  const conn = connectionOf(valuesOf(body));
   const controllers = Array.isArray(conn.controllers)
     ? (conn.controllers as { host: string; port: number }[])
     : [];
@@ -189,12 +229,16 @@ function directoryEntry(
   };
 }
 
+export type RoleMapping = {
+  enabled: boolean;
+  mappings: { group_dn: string; role: "moderator" | "presale" }[];
+};
+
 /** Роли по группам, если сопоставление включено (только «Модератор» и «Пресейл»). */
-function rolesOf(groups: string[]) {
-  const mapping = settingValue("auth.ad.role_mapping") as {
-    enabled: boolean;
-    mappings: { group_dn: string; role: "moderator" | "presale" }[];
-  };
+export function rolesOf(
+  groups: string[],
+  mapping = settingValue("auth.ad.role_mapping") as RoleMapping,
+) {
   if (!mapping.enabled) return [];
   return [
     ...new Set(
@@ -220,11 +264,14 @@ export function testLogin(body: unknown) {
       detail: "Пользователь не найден или пароль неверный",
       user: null,
     };
-  const access = settingValue("auth.ad.access_groups") as string[];
+  // CR-009: группа доступа и сопоставление ролей — из несохранённой формы, если она передана
+  const values = valuesOf(body);
+  const access = formValue(values, "auth.ad.access_groups") as string[];
+  const mapping = formValue(values, "auth.ad.role_mapping") as RoleMapping;
   const user = {
     ...found,
     groups: found.groups.map((g) => g.replace(/^CN=([^,]+),.*$/, "$1")),
-    roles: rolesOf(found.groups),
+    roles: rolesOf(found.groups, mapping),
     in_access_group: found.groups.some((g) => access.includes(g)),
   };
   // вход прошёл, если учётка активна и в группе доступа (FR-AUTH-AD-05)
@@ -351,7 +398,10 @@ export type SwitchOutcome =
   | { error: "MODE_SWITCH_NOT_ALLOWED" }
   | { error: "MODE_SWITCH_UNRESOLVED"; unresolved: number };
 
-export function switchMode(body: unknown): SwitchOutcome {
+export function switchMode(
+  body: unknown,
+  by?: LastSwitch["by"],
+): SwitchOutcome {
   const b = new Map(
     Object.entries(body && typeof body === "object" ? body : {}),
   );
@@ -365,7 +415,9 @@ export function switchMode(body: unknown): SwitchOutcome {
   if (r.ambiguous.length)
     return { error: "MODE_SWITCH_UNRESOLVED", unresolved: r.ambiguous.length };
   setSetting("auth.mode", "ad");
-  return { report: { ...r, applied: true } };
+  const applied = { ...r, applied: true };
+  if (by) last = { at: NOW, by, resolved: decisions.size, report: applied };
+  return { report: applied };
 }
 
 export function resolve(body: unknown) {

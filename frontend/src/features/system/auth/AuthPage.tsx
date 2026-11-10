@@ -5,8 +5,11 @@
  * 3 — подключение: контроллеры, LDAPS / StartTLS (без нешифрованного), сертификат УЦ, Base DN,
  *     фильтр, сервисная учётка (пароль — только «изменить»), «Проверить подключение» со временем.
  * 4 — группа доступа и роли по группам (только «Модератор» и «Пресейл»); включение сопоставления
- *     сначала подтверждается.
- * 5 — тестовый вход: ФИО, email, состояние учётки, группы и итоговая роль; пароль не сохраняется.
+ *     сначала показывает отчёт: у кого роли снимутся или добавятся (CR-009), и ещё раз перед
+ *     сохранением, если группы с тех пор изменились.
+ * 5 — тестовый вход с несохранёнными параметрами формы (CR-009): ФИО, email, состояние учётки,
+ *     группы и итоговая роль; пароль не сохраняется. Сменились сервер или учётка bind — пароль
+ *     сервисной учётки вводится заново (сохранённый на другой сервер не уходит).
  * 6 — «Сохранить…» неактивна, пока после последнего изменения не прошли обе проверки; step-up.
  */
 import { Button, Checkbox, FileButton, NumberInput, PasswordInput, Radio, Select, TextInput } from '@mantine/core';
@@ -18,7 +21,6 @@ import type { Me } from '../../../app/session';
 import { api, type components } from '../../../shared/api/client';
 import { call } from '../../../shared/api/problem';
 import { formatDateTime } from '../../../shared/format/date';
-import { ConfirmDialog } from '../../../shared/ui/ConfirmDialog';
 import { ErrorText } from '../../../shared/ui/ErrorText';
 import { SystemLayout, settingsKey } from '../layout/SystemLayout';
 import { StepUpCancelled, useStepUp } from '../layout/useStepUp';
@@ -29,19 +31,22 @@ import {
   certProblem,
   formOf,
   groupName,
+  keepsPassword,
   seconds,
   signature,
   validate,
   valuesOf,
   type AuthForm,
   type FieldError,
+  type RoleMapping,
 } from './auth';
-import { SwitchReportModal, SwitchWizard, ReportCounts, type SwitchResult } from './SwitchWizard';
+import { MappingConfirm } from './MappingConfirm';
+import { SwitchReportModal, SwitchWizard, ReportCounts } from './SwitchWizard';
 
 type AdTestResult = components['schemas']['AdTestResult'];
 
-/** Итог перехода живёт в кэше сессии: в контракте его нет (см. описание PR). */
-const switchKey = ['system', 'auth', 'switch-result'] as const;
+/** Итог последнего перехода «Приложение → AD» (CR-009, getLastSwitch). */
+const switchKey = ['system', 'auth', 'switch-last'] as const;
 
 export function AuthPage({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -50,15 +55,14 @@ export function AuthPage({ me }: { me: Me }) {
     queryKey: settingsKey('auth'),
     queryFn: () => call(() => api.GET('/system/settings/{section}', { params: { path: { section: 'auth' } } })),
   });
-  const switched = useQuery<SwitchResult | null>({
+  const mode = settings.data ? authMode(settings.data.values) : null;
+  const switched = useQuery({
     queryKey: switchKey,
-    queryFn: () => null,
-    staleTime: Infinity,
-    gcTime: Infinity,
+    enabled: mode === 'ad',
+    queryFn: () => call(() => api.GET('/system/auth/switch-mode/last')),
   });
   const [wizard, setWizard] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const mode = settings.data ? authMode(settings.data.values) : null;
 
   return (
     <SystemLayout active="auth" title={t('system.menu.auth')} subtitle={t('system.auth.subtitle')}>
@@ -83,6 +87,7 @@ export function AuthPage({ me }: { me: Me }) {
                     <div>
                       {t('system.auth.mode.switchedAt', {
                         at: formatDateTime(switched.data.at, me.timezone ?? undefined),
+                        by: switched.data.by.full_name,
                       })}
                     </div>
                     <div>
@@ -104,8 +109,8 @@ export function AuthPage({ me }: { me: Me }) {
           <SwitchWizard
             opened={wizard}
             onClose={() => setWizard(false)}
-            onDone={(result) => {
-              qc.setQueryData(switchKey, result);
+            onDone={() => {
+              void qc.invalidateQueries({ queryKey: switchKey });
               void qc.invalidateQueries({ queryKey: settingsKey('auth') });
             }}
           />
@@ -143,13 +148,18 @@ export function AdForm({
   const [loginResult, setLoginResult] = useState<{ sig: string; result: AdTestResult } | null>(null);
   const [testLogin, setTestLogin] = useState('');
   const [testPassword, setTestPassword] = useState('');
-  const [confirmMapping, setConfirmMapping] = useState(false);
+  /** Окно отчёта о ролях: при включении флажка или перед сохранением. */
+  const [confirmMapping, setConfirmMapping] = useState<'enable' | 'save' | null>(null);
+  /** Группы, по которым отчёт уже показан и подтверждён. */
+  const [confirmedGroups, setConfirmedGroups] = useState<string | null>(null);
   const [certError, setCertError] = useState<'size' | 'format' | null>(null);
   const [saved, setSaved] = useState(false);
 
   const sig = signature(form);
   const dirty = sig !== signature(initial);
-  const errors = validate(form);
+  const errors = validate(form, initial);
+  const mapping = (valuesOf(form)['auth.ad.role_mapping'] as RoleMapping).mappings;
+  const enabling = form.mappingEnabled && !initial.mappingEnabled;
   const err = (f: FieldError) => (showErrors && errors.includes(f) ? t(`system.auth.errors.${f}`) : null);
   const connOk = connResult?.sig === sig && connResult.result.ok;
   const loginOk = loginResult?.sig === sig && loginResult.result.ok;
@@ -171,7 +181,11 @@ export function AdForm({
   });
   const testLoginM = useMutation({
     mutationFn: () =>
-      call(() => api.POST('/system/auth/ad/test-login', { body: { login: testLogin.trim(), password: testPassword } })),
+      call(() =>
+        api.POST('/system/auth/ad/test-login', {
+          body: { values: valuesOf(form) as never, login: testLogin.trim(), password: testPassword },
+        }),
+      ),
     onSuccess: (result) => {
       setLoginResult({ sig, result });
       setTestPassword('');
@@ -327,7 +341,7 @@ export function AdForm({
               error={err('bindDn')}
               onChange={(e) => set('bindDn', e.currentTarget.value)}
             />
-            {form.bindPassword === null && form.passwordSet ? (
+            {keepsPassword(form, initial) ? (
               <div className="auth-secret">
                 <span aria-label={t('system.auth.conn.passwordSet')}>••••••</span>
                 <button type="button" className="btn-link" onClick={() => set('bindPassword', '')}>
@@ -340,6 +354,9 @@ export function AdForm({
                 placeholder={t('system.auth.conn.password')}
                 value={form.bindPassword ?? ''}
                 error={err('bindPassword')}
+                description={
+                  form.bindPassword === null && form.passwordSet ? t('system.auth.conn.passwordAgain') : undefined
+                }
                 maxLength={512}
                 autoComplete="new-password"
                 onChange={(e) => set('bindPassword', e.currentTarget.value)}
@@ -452,7 +469,7 @@ export function AdForm({
             label={t('system.auth.roles.mapping')}
             checked={form.mappingEnabled}
             onChange={(e) => {
-              if (e.currentTarget.checked) setConfirmMapping(true);
+              if (e.currentTarget.checked) setConfirmMapping('enable');
               else set('mappingEnabled', false);
             }}
           />
@@ -539,20 +556,26 @@ export function AdForm({
         >
           {t('common.cancel')}
         </Button>
-        <Button disabled={!canSave} loading={save.isPending} onClick={() => save.mutate()}>
+        <Button
+          disabled={!canSave}
+          loading={save.isPending}
+          onClick={() =>
+            enabling && confirmedGroups !== JSON.stringify(mapping) ? setConfirmMapping('save') : save.mutate()
+          }
+        >
           {saveLabel ?? t('system.auth.save.button')}
         </Button>
       </div>
 
-      <ConfirmDialog
-        opened={confirmMapping}
-        title={t('system.auth.roles.confirmTitle')}
-        message={t('system.auth.roles.confirmText')}
-        confirmLabel={t('system.auth.roles.confirmButton')}
-        onCancel={() => setConfirmMapping(false)}
+      <MappingConfirm
+        mapping={confirmMapping ? { enabled: true, mappings: mapping } : null}
+        onCancel={() => setConfirmMapping(null)}
         onConfirm={() => {
-          setConfirmMapping(false);
-          set('mappingEnabled', true);
+          const step = confirmMapping;
+          setConfirmMapping(null);
+          if (mapping.length > 0) setConfirmedGroups(JSON.stringify(mapping));
+          if (step === 'enable') set('mappingEnabled', true);
+          else save.mutate();
         }}
       />
       {modal}

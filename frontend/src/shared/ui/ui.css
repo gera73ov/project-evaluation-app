@@ -799,6 +799,9 @@ table.cq-table td{vertical-align:top}
 .set-checks{display:flex;flex-wrap:wrap;gap:10px 22px}
 .set-danger{background:var(--bad);color:#fff;border-radius:6px;padding:9px 12px;margin:0;font-weight:600}
 .set-secret{max-width:420px}
+.set-test{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px}
+.set-test .auth-login{grid-template-columns:minmax(0,320px) auto;justify-content:start}
+.set-test p{margin:0}
 .set-time{max-width:200px}
 
 /* FE-063 · учётки, анонимизация, реестр */

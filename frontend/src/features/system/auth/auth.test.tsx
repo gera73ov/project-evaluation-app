@@ -36,6 +36,16 @@ async function stepUp() {
 
 const button = (name: string | RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement;
 
+/** Обе проверки с текущими параметрами формы. */
+async function passChecks() {
+  fireEvent.click(button('Проверить подключение'));
+  await screen.findByText(/✓ Подключено к/);
+  fireEvent.change(screen.getByLabelText('Логин AD'), { target: { value: 'i.ivanov' } });
+  fireEvent.change(screen.getByLabelText('Пароль', { selector: 'input' }), { target: { value: 'secret' } });
+  fireEvent.click(button('Проверить вход'));
+  await waitFor(() => expect(button('Сохранить…').disabled).toBe(false));
+}
+
 describe('правила формы AD', () => {
   it('контроллер: host:port, без порта — порт протокола', () => {
     expect(parseController('dc1.corp.local:636', 'ldaps')).toEqual({ host: 'dc1.corp.local', port: 636 });
@@ -135,16 +145,71 @@ describe('экран «Аутентификация»', () => {
     expect(await screen.findByText(/Пользователь не найден или пароль неверный/)).toBeTruthy();
   });
 
-  it('роли по группам: сначала подтверждение, затем поля групп', async () => {
+  it('роли по группам: сначала отчёт, у кого роли изменятся, затем поля групп', async () => {
+    const previews = captureBodies('POST', '/api/v1/system/auth/role-mapping/preview');
     await open();
     expect(screen.queryByLabelText('Группа роли «Модератор»')).toBeNull();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Назначать роли по группам AD' }));
     const dialog = await screen.findByRole('dialog', { name: 'Назначать роли по группам AD?' });
     expect(dialog.textContent).toContain('выданные вручную роли снимутся');
+    const table = await within(dialog).findByRole('table', { name: 'Изменения ролей' });
+    const row = (login: string) => within(table).getByText(login).closest('tr')?.textContent;
+    expect(row('p.sidorov')).toContain('«Пресейл»');
+    expect(row('t.lebedeva')).toContain('«Модератор»');
+    expect(row('o.kuznetsova')).toMatch(/—«Пресейл»$/); // добавится
+    expect(within(table).queryByText('a.smirnova')).toBeNull(); // в группе модераторов — без изменений
+    expect(previews[0]).toMatchObject({ values: { 'auth.ad.role_mapping': { enabled: true } } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Включить' }));
     const mod = (await screen.findByLabelText('Группа роли «Модератор»')) as HTMLInputElement;
     expect(mod.value).toContain('APP-Estimator-Moderators');
     expect(screen.getByText(/только вручную/)).toBeTruthy();
+  });
+
+  it('группы сменились после отчёта — перед сохранением отчёт ещё раз, затем роли пересчитаны', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Назначать роли по группам AD' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Назначать роли по группам AD?' });
+    await within(dialog).findByRole('table');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Включить' }));
+    fireEvent.change(await screen.findByLabelText('Группа роли «Пресейл»'), { target: { value: '' } });
+    await passChecks();
+    fireEvent.click(button('Сохранить…'));
+    dialog = await screen.findByRole('dialog', { name: 'Назначать роли по группам AD?' });
+    const table = await within(dialog).findByRole('table');
+    expect(within(table).queryByText('o.kuznetsova')).toBeNull(); // группы пресейла больше нет
+    expect(within(table).getByText('p.sidorov').closest('tr')?.textContent).toContain('«Пресейл»');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Включить' }));
+    await stepUp();
+    expect(await screen.findByText('✓ Настройки AD сохранены')).toBeTruthy();
+  });
+
+  it('«Проверить вход» отправляет несохранённые параметры формы', async () => {
+    const bodies = captureBodies('POST', '/api/v1/system/auth/ad/test-login');
+    await open();
+    fireEvent.change(screen.getByLabelText('Группа доступа 1'), {
+      target: { value: 'CN=APP-Estimator-Moderators,OU=Groups,DC=corp,DC=local' },
+    });
+    fireEvent.change(screen.getByLabelText('Логин AD'), { target: { value: 'k.belova' } });
+    fireEvent.change(screen.getByLabelText('Пароль', { selector: 'input' }), { target: { value: 'x' } });
+    fireEvent.click(button('Проверить вход'));
+    expect(await screen.findByText(/Не состоит в группе доступа/)).toBeTruthy();
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({
+      login: 'k.belova',
+      values: { 'auth.ad.access_groups': ['CN=APP-Estimator-Moderators,OU=Groups,DC=corp,DC=local'] },
+    });
+  });
+
+  it('сменился контроллер — сохранённый пароль не подставляется, его нужно ввести', async () => {
+    await open();
+    fireEvent.change(screen.getByLabelText('Контроллер 1'), { target: { value: 'dc9.corp.local:636' } });
+    expect(screen.queryByRole('button', { name: 'изменить' })).toBeNull();
+    expect(screen.getByText(/сохранённый пароль туда не уйдёт/)).toBeTruthy();
+    fireEvent.click(button('Проверить подключение'));
+    expect(await screen.findByText('Введите пароль сервисной учётки')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Пароль сервисной учётки'), { target: { value: 'new-secret' } });
+    fireEvent.click(button('Проверить подключение'));
+    expect(await screen.findByText('✓ Подключено к dc9.corp.local за 0,2 с')).toBeTruthy();
   });
 
   it('пароль сервисной учётки — «изменить», без значения', async () => {
@@ -172,7 +237,9 @@ describe('переход на Active Directory', () => {
     await stepUp();
     expect(await screen.findByText('Сейчас: через Active Directory')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Перейти на Active Directory…' })).toBeNull();
-    expect(screen.getByText('сопоставлено 6 · неоднозначно 2 (решены) · не найдено 3')).toBeTruthy();
+    // итог берётся с сервера (CR-009) и переживает перезагрузку страницы
+    expect(await screen.findByText('сопоставлено 6 · неоднозначно 2 (решены) · не найдено 3')).toBeTruthy();
+    expect(screen.getByText(/Переход с «Приложения» .* · Суперадминистратор/)).toBeTruthy();
     expect(screen.getByText(/Обратного переключателя нет/)).toBeTruthy();
   });
 });

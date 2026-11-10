@@ -5,8 +5,13 @@
  * Суперадминистраторы и аудиторы ИБ ведутся в разделе «Система» и здесь не показываются.
  */
 import { PEOPLE, PROJECTS } from "./data";
-import { directoryByGuid, searchDirectory } from "./demoAuth";
-import { settingValue } from "./demoSystem";
+import {
+  directoryByGuid,
+  rolesOf as rolesByGroups,
+  searchDirectory,
+  type RoleMapping,
+} from "./demoAuth";
+import { nextAnonymous, settingValue } from "./demoSystem";
 import { NOW, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS } from "./personas";
 
@@ -20,6 +25,7 @@ type DemoUser = {
   roles: Role[];
   status: Status;
   block_reason: "manual" | "ad_disabled" | null;
+  blocked_at: string | null;
   last_login_at: string | null;
   totp_enabled: boolean;
   /** заведён из каталога AD */
@@ -39,6 +45,7 @@ const user = (
   roles,
   status: "active",
   block_reason: null,
+  blocked_at: null,
   last_login_at: minutesAgo(60 * (login.length % 9) + 30),
   totp_enabled: true,
   ad: false,
@@ -64,6 +71,7 @@ function seed(): DemoUser[] {
     user(PEOPLE.novikov.login, PEOPLE.novikov.fullName, [], {
       status: "blocked",
       block_reason: "manual",
+      blocked_at: minutesAgo(60 * 24 * 12),
     }),
     user("t.lebedeva", "Т. Лебедева", ["moderator"], {
       status: "pending_password",
@@ -238,6 +246,7 @@ export function setBlocked(id: string, blocked: boolean, actorId: string) {
   if (id === actorId) return { error: "FORBIDDEN" as const };
   u.status = blocked ? "blocked" : "active";
   u.block_reason = blocked ? "manual" : null;
+  u.blocked_at = blocked ? NOW : null;
   return out(u);
 }
 
@@ -328,4 +337,120 @@ export function replace(id: string, body: unknown) {
     projects: done.map((p) => p.project_id),
   });
   return { projects: done, applied: true };
+}
+
+// --- CR-010 · анонимизация обычных пользователей (SEC-PD-03, 11.2 №1) ---------------------
+
+/** Заблокированные или анонимизированные пользователи: только поля для решения, без почты. */
+export function blockedOrAnonymized(status: "blocked" | "anonymized") {
+  return users
+    .filter((u) => u.status === status)
+    .map((u) => ({
+      id: u.id,
+      login: u.login,
+      full_name: u.full_name,
+      roles: [...u.roles],
+      status,
+      blocked_at: u.blocked_at,
+      last_login_at: u.last_login_at,
+    }));
+}
+
+/** ФИО → «Удалённый пользователь #N», логин и почта — случайные; только заблокированного. */
+export function anonymize(id: string): "NOT_FOUND" | "USER_NOT_BLOCKED" | null {
+  const u = find(id);
+  if (!u) return "NOT_FOUND";
+  if (u.status !== "blocked") return "USER_NOT_BLOCKED";
+  const n = nextAnonymous();
+  u.status = "anonymized";
+  u.full_name = `Удалённый пользователь #${n}`;
+  u.login = `deleted-${uuidFrom("anon", String(n)).slice(0, 8)}`;
+  u.email = null;
+  u.totp_enabled = false;
+  return null;
+}
+
+// --- CR-009 · отчёт перед включением сопоставления групп AD с ролями (FR-AUTH-AD-07) -------
+
+const G_USERS = "CN=APP-Estimator-Users,OU=Groups,DC=corp,DC=local";
+const G_MODS = "CN=APP-Estimator-Moderators,OU=Groups,DC=corp,DC=local";
+const G_PRESALE = "CN=APP-Estimator-Presale,OU=Groups,DC=corp,DC=local";
+
+/** Членство демо-пользователей в группах каталога (с учётом вложенных — уже развёрнуто). */
+const MEMBERSHIP = new Map([
+  [PERSONAS.expert.login, [G_USERS, G_MODS]],
+  [PERSONAS.moderator.login, [G_USERS, G_MODS]],
+  [PERSONAS.presale.login, [G_USERS]],
+  [PEOPLE.kuznetsova.login, [G_USERS, G_PRESALE]],
+  ["t.lebedeva", [G_USERS]],
+]);
+
+const MAPPED = new Set<string>(["moderator", "presale"]);
+
+function mappingOf(body: unknown): RoleMapping {
+  const values =
+    body && typeof body === "object"
+      ? new Map(Object.entries(body)).get("values")
+      : undefined;
+  const m =
+    values && typeof values === "object"
+      ? new Map(Object.entries(values)).get("auth.ad.role_mapping")
+      : undefined;
+  const mappings =
+    m && typeof m === "object"
+      ? new Map(Object.entries(m)).get("mappings")
+      : [];
+  // отчёт — о включении: считаем по переданным группам, даже если флаг ещё снят
+  return { enabled: true, mappings: Array.isArray(mappings) ? mappings : [] };
+}
+
+function changes(mapping: RoleMapping) {
+  return users
+    .filter((u) => u.status !== "anonymized")
+    .map((u) => {
+      const now = u.roles.filter((r) => MAPPED.has(r)) as (
+        | "moderator"
+        | "presale"
+      )[];
+      const next = rolesByGroups(MEMBERSHIP.get(u.login) ?? [G_USERS], mapping);
+      return {
+        u,
+        removed: now.filter((r) => !next.includes(r)),
+        added: next.filter((r) => !now.includes(r)),
+      };
+    })
+    .filter((c) => c.removed.length > 0 || c.added.length > 0)
+    .sort((a, b) => a.u.login.localeCompare(b.u.login));
+}
+
+export function mappingPreview(body: unknown) {
+  return {
+    items: changes(mappingOf(body)).map(({ u, removed, added }) => ({
+      user: {
+        id: u.id,
+        full_name: u.full_name,
+        initials: u.full_name
+          .split(/\s+/)
+          .map((w) => w.charAt(0))
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+        is_active: u.status === "active",
+      },
+      login: u.login,
+      removed,
+      added,
+    })),
+  };
+}
+
+/** После сохранения с включённым сопоставлением роли «Модератор» и «Пресейл» — по группам. */
+export function applyMapping(mapping: RoleMapping) {
+  if (!mapping.enabled) return;
+  for (const { u, removed, added } of changes(mapping)) {
+    u.roles = [
+      ...u.roles.filter((r) => !removed.includes(r as never)),
+      ...added,
+    ];
+  }
 }

@@ -107,6 +107,39 @@ function seedAccounts(): Account[] {
 /** FE-063 · учётки раздела «Суперадминистраторы и администраторы», «Аудиторы ИБ» (FR-SA-05). */
 let accounts = seedAccounts();
 let anonymized = 0;
+/** CR-010 · когда учётка раздела «Система» заблокирована (для списка «Анонимизация»). */
+const blockedAt = new Map<string, string>();
+const seedBlocked = () => {
+  blockedAt.clear();
+  blockedAt.set(uuidFrom("user", "v.blinov"), minutesAgo(60 * 24 * 30));
+};
+seedBlocked();
+const anonymizedIds = new Set<string>();
+
+/** Номер для «Удалённый пользователь #N» — общий для учёток «Системы» и пользователей. */
+export function nextAnonymous(): number {
+  anonymized += 1;
+  return anonymized;
+}
+
+/** CR-010 · заблокированные или анонимизированные учётки раздела «Система». */
+export function blockedOrAnonymized(status: "blocked" | "anonymized") {
+  return accounts
+    .filter(
+      (a) =>
+        a.status === "blocked" &&
+        anonymizedIds.has(a.id) === (status === "anonymized"),
+    )
+    .map((a) => ({
+      id: a.id,
+      login: a.login,
+      full_name: a.full_name,
+      roles: [...a.roles],
+      status,
+      blocked_at: blockedAt.get(a.id) ?? null,
+      last_login_at: a.last_login_at,
+    }));
+}
 
 /** Первичная установка (FR-SA-01): есть только первый суперадминистратор. */
 export function firstInstall() {
@@ -205,6 +238,9 @@ export function patchAdmin(
   }
   if (status) {
     if (status === "blocked" && lastSa) return { error: "LAST_SUPERADMIN" };
+    if (status === "blocked" && a.status !== "blocked")
+      blockedAt.set(a.id, NOW);
+    if (status === "active") blockedAt.delete(a.id);
     a.status = status;
   }
   return { ...a, roles: [...a.roles] };
@@ -233,10 +269,12 @@ export function resetCredentials(
 export function anonymize(id: string): AccountError | null {
   const a = accounts.find((x) => x.id === id);
   if (!a) return "NOT_FOUND";
-  if (a.status !== "blocked") return "USER_NOT_BLOCKED";
-  anonymized += 1;
-  a.full_name = `Удалённый пользователь #${anonymized}`;
-  a.login = `deleted-${uuidFrom("anon", String(anonymized)).slice(0, 8)}`;
+  if (a.status !== "blocked" || anonymizedIds.has(a.id))
+    return "USER_NOT_BLOCKED";
+  const n = nextAnonymous();
+  anonymizedIds.add(a.id);
+  a.full_name = `Удалённый пользователь #${n}`;
+  a.login = `deleted-${uuidFrom("anon", String(n)).slice(0, 8)}`;
   a.email = null;
   a.totp_enabled = false;
   return null;
@@ -320,6 +358,8 @@ export function resetDemoSystem() {
   stepUpUntil = 0;
   accounts = seedAccounts();
   anonymized = 0;
+  anonymizedIds.clear();
+  seedBlocked();
 }
 
 export const STEP_UP_MS = 5 * 60 * 1000;
@@ -415,4 +455,50 @@ export function methodSettings() {
   };
   out.pm_percent_default = String(out.pm_percent_default);
   return out;
+}
+
+// --- CR-009 · тестовое письмо (7.1 шаг 2, FR-NOTIF-02) ------------------------------------
+
+type SmtpServer = { host: string; port: number; username: string | null };
+
+/**
+ * Письмо с несохранёнными параметрами формы; без них — с сохранёнными. Сохранённый пароль
+ * подставляется, только если host, port и username те же, иначе нужен smtp.password (422).
+ */
+export function smtpTest(
+  body: unknown,
+):
+  | { error: "VALIDATION_FAILED" }
+  | { ok: boolean; elapsed_ms: number; detail: string | null } {
+  const b = new Map(
+    Object.entries(body && typeof body === "object" ? body : {}),
+  );
+  const to = b.get("to");
+  // пустое тело (проверка моков по схеме) — образец ответа
+  if (to === undefined) return { ok: true, elapsed_ms: 0, detail: null };
+  if (typeof to !== "string" || !/^[^@\s]+@[^@\s]+$/.test(to))
+    return { error: "VALIDATION_FAILED" };
+  const values = b.get("values");
+  const v = new Map(
+    Object.entries(values && typeof values === "object" ? values : {}),
+  );
+  const saved = settingValue("smtp.server") as SmtpServer;
+  const server = (v.get("smtp.server") as SmtpServer | undefined) ?? saved;
+  const samePlace =
+    server.host === saved.host &&
+    server.port === saved.port &&
+    (server.username ?? null) === (saved.username ?? null);
+  if (!samePlace && typeof v.get("smtp.password") !== "string")
+    return { error: "VALIDATION_FAILED" };
+  if (server.host.includes("old"))
+    return {
+      ok: false,
+      elapsed_ms: 10000,
+      detail: `${server.host}:${server.port}: нет ответа за 10 с`,
+    };
+  return {
+    ok: true,
+    elapsed_ms: 420,
+    detail: `Письмо принято сервером ${server.host}`,
+  };
 }

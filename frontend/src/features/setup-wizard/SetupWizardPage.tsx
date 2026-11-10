@@ -184,7 +184,7 @@ function StepView({ step, steps, onNext }: { step: SetupStep; steps: readonly Se
         saveLabel={next}
         allowClean
       >
-        {(f, set, shown) => <SmtpFields f={f} set={set} shown={shown} />}
+        {(f, set, shown) => <SmtpFields f={f} initial={smtpForm(data.values)} set={set} shown={shown} />}
       </SectionForm>
     );
 
@@ -264,7 +264,7 @@ function AuthStep({
 
 /**
  * Шаг 5: первый администратор. В режиме «Приложение» — создать (ссылка активации письмом),
- * в режиме AD — завести заранее по логину каталога (FR-SA-02, поиск — CR-011). «Завершить
+ * в режиме AD — завести заранее, выбрав учётку поиском по каталогу (FR-SA-02, CR-011). «Завершить
  * настройку» доступна, когда есть хотя бы один администратор.
  */
 function FirstAdmin({ mode, onNext }: { mode: Mode; onNext: () => void }) {
@@ -312,7 +312,7 @@ function FirstAdmin({ mode, onNext }: { mode: Mode; onNext: () => void }) {
           kind="admins"
           all={all}
           adminOnly
-          adHint={mode === 'ad'}
+          ad={mode === 'ad'}
           doneLabel={t('common.close')}
           onDone={() => setCreating(false)}
         />

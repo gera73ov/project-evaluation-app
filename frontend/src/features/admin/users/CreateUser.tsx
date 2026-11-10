@@ -146,8 +146,20 @@ export function CreateUser({
   );
 }
 
-/** «Найти в AD»: ФИО или логин от 3 символов; до 50 записей (FR-AUTH-AD-10). */
-function AdSearch({ onPick, onOpen }: { onPick: (item: AdItem) => void; onOpen: (id: string) => void }) {
+/**
+ * «Найти в AD»: ФИО или логин от 3 символов; до 50 записей (FR-AUTH-AD-10). `system` — поиск
+ * раздела «Система» (CR-011, у суперадминистратора нет права ad.search); там уже заведённого
+ * пользователя открыть негде — только отметка.
+ */
+export function AdSearch({
+  onPick,
+  onOpen,
+  system = false,
+}: {
+  onPick: (item: AdItem) => void;
+  onOpen?: (id: string) => void;
+  system?: boolean;
+}) {
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
@@ -156,9 +168,10 @@ function AdSearch({ onPick, onOpen }: { onPick: (item: AdItem) => void; onOpen: 
     return () => clearTimeout(id);
   }, [text]);
   const search = useQuery({
-    queryKey: ['admin', 'ad-search', q],
+    queryKey: [system ? 'system' : 'admin', 'ad-search', q],
     enabled: q.length >= AD_MIN_QUERY,
-    queryFn: () => call(() => api.GET('/admin/ad/search', { params: { query: { q } } })),
+    queryFn: () =>
+      call(() => api.GET(system ? '/system/auth/ad/search' : '/admin/ad/search', { params: { query: { q } } })),
     retry: false,
   });
   const items = search.data?.items ?? [];
@@ -186,10 +199,12 @@ function AdSearch({ onPick, onOpen }: { onPick: (item: AdItem) => void; onOpen: 
                   {i.department ? ` · ${i.department}` : ''}
                 </div>
               </div>
-              {i.user_id ? (
+              {i.user_id && onOpen ? (
                 <button type="button" className="btn-link" onClick={() => onOpen(i.user_id ?? '')}>
                   {t('admin.users.ad.exists')}
                 </button>
+              ) : i.user_id ? (
+                <span className="pill">{t('admin.users.ad.existsHere')}</span>
               ) : i.in_access_group ? (
                 <Button size="xs" variant="default" onClick={() => onPick(i)}>
                   {t('admin.users.ad.pick')}

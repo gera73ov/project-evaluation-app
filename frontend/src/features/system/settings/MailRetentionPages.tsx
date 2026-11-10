@@ -1,11 +1,16 @@
 /**
  * FE-062 · «Почта (SMTP)» и «Сроки хранения» (SPEC 11.2 №1, 7.1, NFR-REL-06): почтовый сервер
- * (пароль — только «изменить»), время ежедневной сводки; сроки хранения журнала аудита, логов,
- * корзины, файлов выгрузок, уведомлений и журнала изменений. Сохранения — со step-up.
+ * (пароль — только «изменить»), тестовое письмо с параметрами формы (CR-009), время ежедневной
+ * сводки; сроки хранения журнала аудита, логов, корзины, файлов выгрузок, уведомлений и журнала
+ * изменений. Сохранения — со step-up.
  */
-import { PasswordInput, Select, TextInput } from '@mantine/core';
+import { Button, PasswordInput, Select, TextInput } from '@mantine/core';
+import { useMutation } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { api } from '../../../shared/api/client';
+import { call } from '../../../shared/api/problem';
 import { ErrorText } from '../../../shared/ui/ErrorText';
 import { SystemLayout } from '../layout/SystemLayout';
 import { IntField, SectionForm, useSection } from './SectionForm';
@@ -71,17 +76,34 @@ export function smtpErrors(f: SmtpForm): string[] {
   return out;
 }
 
-/** Поля почтового сервера: раздел «Почта» и шаг 2 мастера первичной настройки. */
+/**
+ * CR-009 · сохранённый пароль сервер подставит, только если сервер, порт и логин те же, что
+ * сохранены: иначе он ушёл бы на чужой сервер, и для тестового письма пароль вводится заново.
+ */
+export function smtpKeepsPassword(f: SmtpForm, initial: SmtpForm): boolean {
+  return (
+    f.password === null &&
+    f.passwordSet &&
+    f.host.trim() === initial.host.trim() &&
+    f.port === initial.port &&
+    f.username.trim() === initial.username.trim()
+  );
+}
+
+/** Поля почтового сервера и тестовое письмо: раздел «Почта» и шаг 2 мастера первичной настройки. */
 export function SmtpFields({
   f,
+  initial,
   set,
   shown,
 }: {
   f: SmtpForm;
+  initial: SmtpForm;
   set: (patch: Partial<SmtpForm>) => void;
   shown: (field: string) => boolean;
 }) {
   const { t } = useTranslation();
+  const keeps = smtpKeepsPassword(f, initial);
   return (
     <div className="set-groups">
       <div className="set-grid">
@@ -124,7 +146,7 @@ export function SmtpFields({
           autoComplete="off"
           onChange={(e) => set({ username: e.currentTarget.value })}
         />
-        {f.password === null && f.passwordSet ? (
+        {keeps ? (
           <div>
             <span className="auth-label">{t('system.smtp.password')}</span>
             <div className="auth-secret">
@@ -137,6 +159,7 @@ export function SmtpFields({
         ) : (
           <PasswordInput
             label={t('system.smtp.password')}
+            description={f.password === null && f.passwordSet ? t('system.smtp.passwordAgain') : undefined}
             value={f.password ?? ''}
             maxLength={512}
             autoComplete="new-password"
@@ -167,6 +190,56 @@ export function SmtpFields({
           onChange={(e) => set({ fromName: e.currentTarget.value })}
         />
       </div>
+      <SmtpTest f={f} needsPassword={f.passwordSet && !keeps && !f.password} />
+    </div>
+  );
+}
+
+type SmtpTestResult = { ok: boolean; elapsed_ms: number; detail: string | null };
+
+/** «Отправить тестовое письмо» на указанный адрес с несохранёнными параметрами формы. */
+function SmtpTest({ f, needsPassword }: { f: SmtpForm; needsPassword: boolean }) {
+  const { t } = useTranslation();
+  const [to, setTo] = useState('');
+  const [result, setResult] = useState<{ sig: string; result: SmtpTestResult } | null>(null);
+  const sig = JSON.stringify(smtpValues(f));
+  const test = useMutation({
+    mutationFn: () =>
+      call(() =>
+        api.POST('/system/smtp/test', { body: { values: smtpValues(f) as never, to: to.trim() } }),
+      ) as Promise<SmtpTestResult>,
+    onSuccess: (r) => setResult({ sig: `${sig}|${to.trim()}`, result: r }),
+  });
+  const current = result?.sig === `${sig}|${to.trim()}` ? result.result : null;
+  const ready = isEmail(to.trim()) && smtpErrors(f).length === 0 && !needsPassword;
+  return (
+    <div className="set-test">
+      <div className="auth-login">
+        <TextInput
+          aria-label={t('system.smtp.testTo')}
+          placeholder={t('system.smtp.testTo')}
+          type="email"
+          value={to}
+          maxLength={254}
+          onChange={(e) => setTo(e.currentTarget.value)}
+        />
+        <Button variant="default" disabled={!ready} loading={test.isPending} onClick={() => test.mutate()}>
+          {t('system.smtp.test')}
+        </Button>
+      </div>
+      {current ? (
+        current.ok ? (
+          <p className="auth-ok" role="status">
+            ✓ {t('system.smtp.testOk', { to: to.trim(), s: (current.elapsed_ms / 1000).toLocaleString('ru-RU') })}
+          </p>
+        ) : (
+          <p className="auth-bad" role="alert">
+            ✕ {current.detail ?? t('system.smtp.testFailed')}
+          </p>
+        )
+      ) : null}
+      <ErrorText error={test.error} />
+      <p className="auth-hint">{needsPassword ? t('system.smtp.testNeedsPassword') : t('system.smtp.testHint')}</p>
     </div>
   );
 }
@@ -188,7 +261,7 @@ export function SmtpPage() {
           errors={smtpErrors}
           hint={t('system.smtp.hint')}
         >
-          {(f, set, shown) => <SmtpFields f={f} set={set} shown={shown} />}
+          {(f, set, shown) => <SmtpFields f={f} initial={smtpForm(smtp.data?.values ?? {})} set={set} shown={shown} />}
         </SectionForm>
       ) : null}
       {digest.data ? (

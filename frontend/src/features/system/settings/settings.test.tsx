@@ -122,6 +122,34 @@ describe('«Почта (SMTP)» и сводка', () => {
     expect('smtp.password' in (bodies.at(-1)?.values ?? {})).toBe(false);
   });
 
+  it('тестовое письмо: с параметрами формы; другой сервер — только с новым паролем (CR-009)', async () => {
+    const bodies: { values: Record<string, unknown>; to: string }[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'POST' && new URL(request.url).pathname === '/api/v1/system/smtp/test')
+        void request
+          .clone()
+          .json()
+          .then((b: { values: Record<string, unknown>; to: string }) => bodies.push(b));
+    });
+    const card = await open('/system/smtp', 'Почтовый сервер');
+    const send = () => within(card).getByRole('button', { name: 'Отправить тестовое письмо' }) as HTMLButtonElement;
+    expect(send().disabled).toBe(true);
+    fireEvent.change(within(card).getByLabelText('Адрес для тестового письма'), { target: { value: 'ib@corp.local' } });
+    fireEvent.click(send());
+    expect(await within(card).findByText('✓ Письмо на ib@corp.local принято сервером за 0,42 с')).toBeTruthy();
+    expect(bodies[0]).toMatchObject({ to: 'ib@corp.local', values: { 'smtp.server': { host: 'mail.corp.local' } } });
+    expect('smtp.password' in (bodies[0]?.values ?? {})).toBe(false);
+
+    fireEvent.change(within(card).getByLabelText('Сервер'), { target: { value: 'mail-old.corp.local' } });
+    expect(within(card).queryByRole('button', { name: 'изменить' })).toBeNull();
+    expect(within(card).getByText(/сохранённый пароль туда не уйдёт/)).toBeTruthy();
+    expect(send().disabled).toBe(true);
+    fireEvent.change(within(card).getByLabelText('Пароль'), { target: { value: 'smtp-secret' } });
+    fireEvent.click(send());
+    expect(await within(card).findByText('✕ mail-old.corp.local:587: нет ответа за 10 с')).toBeTruthy();
+    expect(bodies[1]?.values['smtp.password']).toBe('smtp-secret');
+  });
+
   it('время сводки', async () => {
     const bodies = capturePut('digest');
     const card = await open('/system/smtp', 'Ежедневная сводка');

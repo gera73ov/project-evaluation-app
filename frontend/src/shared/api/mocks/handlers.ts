@@ -2,7 +2,7 @@
  * FE-001 · обработчики MSW для всех операций `contracts/openapi.yaml` и WebSocket.
  * Один набор для браузера (`browser.ts`, `npm run dev:mock`) и для тестов (`msw/node`).
  */
-import { http, HttpResponse, delay } from 'msw';
+import { http, HttpResponse, delay, type JsonBodyType } from 'msw';
 
 import { mswPath, operations } from './contract';
 import { currentPersona, type Persona } from './personas';
@@ -76,9 +76,9 @@ export function buildHandlers(options: HandlerOptions = {}) {
           },
         });
       }
-      if (result.body === null) return new HttpResponse(null, { status: result.status });
+      if (result.empty) return new HttpResponse(null, { status: result.status });
       const problem = result.status >= 400;
-      return HttpResponse.json(result.body, {
+      return HttpResponse.json(result.body as JsonBodyType, {
         status: result.status,
         headers: problem ? { 'Content-Type': 'application/problem+json' } : {},
       });
