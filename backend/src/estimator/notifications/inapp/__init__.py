@@ -198,6 +198,10 @@ async def notify(
             "notification.created",
             {"notification": out, "unread_count": unread},
         )
+    from estimator.notifications import service_mail
+
+    if created and kind in service_mail.IMMEDIATE:
+        await service_mail.on_created(db, created)  # письмо «Вас назначили» (NTF-006)
     return created
 
 
