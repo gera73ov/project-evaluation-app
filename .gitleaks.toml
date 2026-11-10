@@ -18,3 +18,9 @@ description = "AUTH-011: фиктивный пароль в тесте конс�
 regexes = [
   '''Vremennyi-parol-2026''',
 ]
+
+[[allowlists]]
+description = "SEC-012: заголовок PEM без ключа («-----BEGIN PRIVATE KEY-----» дважды) в тесте настроек SIEM (коммит 981bf02, test_siem_format.py); теперь в тесте другое значение, ключи mTLS генерируются в тестах на лету"
+commits = ["981bf024375ab0123949444084e9628b906f7d44"]
+paths = ['''backend/tests/unit/sec/test_siem_format\.py''']
+condition = "AND"
