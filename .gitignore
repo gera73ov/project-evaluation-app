@@ -58,4 +58,6 @@ Thumbs.db
 backend/src/estimator/security/authz/permissions.yaml
 # Копия contracts/ws-events.schema.json для шины RT-002 — тоже только в образе
 backend/src/estimator/realtime/bus/ws-events.schema.json
+# Копия contracts/settings.schema.json для проверки настроек (ADM-002) — тоже только в образе
+backend/src/estimator/admin/settings/settings.schema.json
 dump.rdb
