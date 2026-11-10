@@ -579,6 +579,45 @@ class ProjectMoneyPut(_Strict):
     rates: list[RateIn] = Field(default=None)  # type: ignore[assignment]
 
 
+# --- результат пресейла (CORE-029) и журнал проекта (CORE-032) ------------------------------------
+
+
+class OutcomeMoney(_Strict):
+    contract_amount: str | None = Field(pattern=r"^\d+$")
+
+
+class ProjectOutcomeOut(_Strict):
+    outcome: ProjectOutcome
+    loss_reason_id: uuid.UUID | None
+    loss_reason_text: str | None = Field(max_length=500)
+    money: OutcomeMoney = Field(default=None)  # type: ignore[assignment]
+
+
+class ProjectOutcomePut(_Strict):
+    outcome: ProjectOutcome
+    loss_reason_id: uuid.UUID | None = None
+    loss_reason_text: str | None = Field(default=None, max_length=500)
+    contract_amount: str | None = Field(default=None, pattern=r"^\d+$")
+
+
+class JournalEntryMoney(_Strict):
+    changes: dict[str, Any]
+
+
+class JournalEntry(_Strict):
+    id: uuid.UUID
+    created_at: str
+    user: UserRef | None
+    action: str
+    changes: dict[str, Any]
+    money: JournalEntryMoney = Field(default=None)  # type: ignore[assignment]
+
+
+class JournalPage(_Strict):
+    items: list[JournalEntry]
+    next_cursor: str | None
+
+
 # --- «Мои оценки» (CORE-033) --------------------------------------------------------------------
 
 

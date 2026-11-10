@@ -26,6 +26,7 @@ from estimator.api.v1 import (
     nodes,
     notes,
     notifications,
+    outcome,
     portfolio,
     projects,
     snapshots,
@@ -54,6 +55,7 @@ router.include_router(changes.router)
 router.include_router(nodes.router)
 router.include_router(trash.router)
 router.include_router(money.router)
+router.include_router(outcome.router)
 router.include_router(branches.router)
 router.include_router(members.router)
 router.include_router(portfolio.router)
