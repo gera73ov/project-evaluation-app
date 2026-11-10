@@ -206,6 +206,9 @@ def main() -> None:
     configure_logging(get_settings().log_level, stream="stderr")
     load_commands()
     install_audit_hook()
+    from estimator.security.alerts import notify as alerts
+
+    alerts.install()  # reset-superadmin, audit verify и др. оповещают ИБ (SEC-011)
     started = time.perf_counter()
     try:
         app()

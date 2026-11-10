@@ -10,6 +10,7 @@ import pytest
 from redis.asyncio import Redis
 
 from estimator.config import get_settings
+from estimator.security.alerts import notify as alerts_notify
 from estimator.services.projects import totals
 
 #: Адрес тестового Redis, например ``redis://127.0.0.1:6379/15``. Без него тесты с фикстурой
@@ -62,3 +63,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     for item in items:
         if item.get_closest_marker("nightly"):
             item.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def alerts_queue(monkeypatch: pytest.MonkeyPatch) -> list[tuple]:
+    """Постановка рассылки оповещений ИБ (SEC-011) без брокера: аргументы вызовов по порядку."""
+    calls: list[tuple] = []
+    monkeypatch.setattr(alerts_notify, "enqueue", lambda *args: calls.append(args))
+    return calls

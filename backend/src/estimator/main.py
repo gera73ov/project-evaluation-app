@@ -28,6 +28,7 @@ from estimator.metrics import (
 from estimator.realtime import ws as realtime_ws
 from estimator.realtime.runtime import Realtime
 from estimator.redis_client import make_redis
+from estimator.security.alerts import notify as alerts
 from estimator.security.authz.routes import assert_routes_protected
 from estimator.security.web.headers import SecurityHeadersMiddleware
 from estimator.security.web.limits import BodySizeLimitMiddleware
@@ -64,6 +65,7 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     # Совместная работа (RT-003…RT-008): WebSocket /api/v1/ws, Redis pub/sub, присутствие
     app.state.realtime = Realtime(settings, app.state.redis)
     install_error_handlers(app)
+    alerts.install()  # письма оповещений ИБ по событиям аудита (SEC-011)
     app.include_router(health.router)
     app.include_router(api_v1.router, prefix=api_v1.PREFIX)
     # WebSocket — не REST-маршрут: права проверяет сам эндпоинт на каждую команду (RT-003)

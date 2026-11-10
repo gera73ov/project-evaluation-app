@@ -79,14 +79,20 @@ def send_email(
     to: str,
     fields: dict[str, Any],
     smtp_override: dict[str, Any] | None = None,
+    alert_channel: str | None = None,
 ) -> str:
-    """Отправить письмо ``kind`` на адрес ``to``. Возвращает ``sent`` или ``skipped``."""
+    """Отправить письмо ``kind`` на адрес ``to``. Возвращает ``sent`` или ``skipped``.
+
+    ``alert_channel`` (``old_smtp``/``new_smtp``) — письмо оповещения ИБ о смене SMTP: если оно
+    не ушло окончательно, фиксируется «оповещение не доставлено» (SEC-011).
+    """
     rendered = render_email(kind, fields)  # ошибка шаблона — ошибка кода, без повторов
     config = load_config(smtp_override)
     try:
         send_message(config, build_message(config, to, rendered))
     except SmtpNotConfiguredError:
         log.warning("email_skipped_smtp_not_configured", kind=kind)
+        _undelivered(fields, alert_channel)
         return "skipped"
     except Exception as exc:
         if is_transient(exc) and self.request.retries < MAX_RETRIES:
@@ -98,8 +104,17 @@ def send_email(
             )
             raise self.retry(exc=exc, countdown=retry_delay(self.request.retries)) from exc
         log.error("email_failed", kind=kind, error_type=type(exc).__name__)
+        _undelivered(fields, alert_channel)
         raise
     return "sent"
+
+
+def _undelivered(fields: Mapping[str, Any], channel: str | None) -> None:
+    if channel is None:
+        return
+    from estimator.security.alerts.tasks import record_undelivered
+
+    record_undelivered(str(fields.get("alert")), channel)
 
 
 def enqueue_email(
@@ -108,12 +123,15 @@ def enqueue_email(
     fields: Mapping[str, Any],
     *,
     smtp_override: Mapping[str, Any] | None = None,
+    alert_channel: str | None = None,
 ) -> int:
     """Поставить письмо в очередь каждому допустимому получателю. Возвращает число писем."""
     render_email(kind, fields)  # проверить поля сразу, а не в worker
     addresses = deliverable(kind, recipients)
+    override = dict(smtp_override) if smtp_override else None
     for address in addresses:
-        send_email.delay(
-            kind, address, dict(fields), dict(smtp_override) if smtp_override else None
-        )
+        if alert_channel is None:
+            send_email.delay(kind, address, dict(fields), override)
+        else:
+            send_email.delay(kind, address, dict(fields), override, alert_channel)
     return len(addresses)
