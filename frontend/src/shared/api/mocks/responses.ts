@@ -32,16 +32,21 @@ import {
 } from "./data";
 import * as demoAudit from "./demoAudit";
 import * as demoAuth from "./demoAuth";
+import * as demoCalendar from "./demoCalendar";
+import * as demoDictionaries from "./demoDictionaries";
 import * as demoDiscussions from "./demoDiscussions";
 import * as demoDocuments from "./demoDocuments";
 import * as demoExports from "./demoExports";
 import * as demoOutcome from "./demoOutcome";
 import * as demoPortfolio from "./demoPortfolio";
+import * as demoProposed from "./demoProposed";
 import * as demoSetup from "./demoSetup";
 import * as demoSnapshots from "./demoSnapshots";
+import * as demoSupport from "./demoSupport";
 import * as demoStatsDetails from "./demoStatsDetails";
 import * as demoSystem from "./demoSystem";
 import * as demoTree from "./demoTree";
+import * as demoUsers from "./demoUsers";
 import { NOW, TODAY, minutesAgo, uuidFrom } from "./ids";
 import { PERSONAS, accessOf, personaId, type Persona } from "./personas";
 import { sample, stripMoney } from "./sample";
@@ -101,6 +106,19 @@ const ACCOUNT_STATUS = new Map<demoSystem.AccountError, [number, string]>([
 ]);
 
 /** Ошибка действия с учёткой раздела «Система». */
+const USER_STATUS = new Map<demoUsers.UserError, [number, string]>([
+  ["NOT_FOUND", [404, "Не найдено"]],
+  ["ALREADY_EXISTS", [409, "Пользователь с таким логином уже есть"]],
+  ["AD_USER_NOT_IN_GROUP", [422, "Учётка AD не в группе доступа"]],
+  ["VALIDATION_FAILED", [422, "Проверьте поля"]],
+  ["FORBIDDEN", [403, "Нельзя менять свои роли и блокировать себя"]],
+]);
+
+function userProblem(code: demoUsers.UserError) {
+  const [status, title] = USER_STATUS.get(code) ?? [409, code];
+  return new MockProblem(problem(status, code, title));
+}
+
 function accountProblem(code: demoSystem.AccountError) {
   const [status, title] = ACCOUNT_STATUS.get(code) ?? [409, code];
   return new MockProblem(problem(status, code, title));
@@ -264,9 +282,12 @@ function projectBody(ctx: Ctx, p: DemoProject, schema: Schema) {
     archived_at: null,
     cancel_reason: null,
     created_at: minutesAgo(60 * 24 * 14),
-    access: access.access === "presale_head" ? "presale_head" : "member",
+    access: access.access ?? "member",
     my_permissions: [...access.permissions].sort(),
-    support_expires_at: null,
+    support_expires_at:
+      access.access === "support"
+        ? new Date(demoSupport.active(p.key)?.expiresAt ?? 0).toISOString()
+        : null,
   });
 }
 
@@ -614,11 +635,6 @@ const DEMO: Record<string, Demo> = {
     }
     return result;
   },
-  listLossReasons: (ctx, schema) =>
-    list(
-      schema,
-      demoOutcome.lossReasons(ctx.params.include_inactive === "true"),
-    ),
   // FE-060 · раздел «Система» (FR-SA-07, BR-ROLE-03, FR-SA-04)
   getHealth: () => demoSystem.health(),
   listAdmins: (_ctx, schema) => list(schema, demoSystem.admins()),
@@ -653,6 +669,50 @@ const DEMO: Record<string, Demo> = {
     const err = demoSystem.anonymize(ctx.params.id ?? "");
     return err ? accountProblem(err) : undefined;
   },
+  // FE-070 · пользователи админки администратора (7.5, FR-AUTH-AD-10, FR-ADM-05)
+  listUsers: (ctx) => demoUsers.list(ctx.params),
+  getUser: (ctx) => demoUsers.get(ctx.params.id ?? "") ?? undefined,
+  createUser: (ctx) => {
+    const res = demoUsers.create(ctx.body);
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  patchUser: (ctx) => {
+    const res = demoUsers.patch(
+      ctx.params.id ?? "",
+      ctx.body,
+      personaId(ctx.persona),
+    );
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  blockUser: (ctx) => {
+    const res = demoUsers.setBlocked(
+      ctx.params.id ?? "",
+      true,
+      personaId(ctx.persona),
+    );
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  unblockUser: (ctx) => {
+    const res = demoUsers.setBlocked(
+      ctx.params.id ?? "",
+      false,
+      personaId(ctx.persona),
+    );
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  adminResetPassword: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const res = demoUsers.resetPassword(ctx.params.id ?? "");
+    return "error" in res ? userProblem(res.error) : res;
+  },
+  adminResetTotp: (ctx) => {
+    if (!demoSystem.stepUpFresh()) return stepUpRequired();
+    const err = demoUsers.resetTotp(ctx.params.id ?? "");
+    return err ? userProblem(err) : undefined;
+  },
+  replaceEverywhere: (ctx) =>
+    demoUsers.replace(ctx.params.id ?? "", ctx.body) ?? undefined,
+  adSearch: (ctx) => demoUsers.adSearch(ctx.params.q ?? ""),
   // FE-065 · журнал аудита (SEC-AUD-06); выгрузка CSV — со step-up (FR-EXP-06)
   listAudit: (ctx) => demoAudit.list(ctx.persona, ctx.params),
   exportAudit: (ctx) => {
@@ -890,26 +950,6 @@ const DEMO: Record<string, Demo> = {
       has_expert: true,
     };
   },
-  listProfiles: (_ctx, schema) =>
-    list(
-      schema,
-      DISCIPLINES.flatMap((d) => [
-        {
-          id: profileId(d.key),
-          discipline_id: disciplineId(d.key),
-          name: d.profile,
-          type_chain: profileChain(d.profile),
-          is_active: true,
-        },
-        {
-          id: profileId(`${d.key}-alt`),
-          discipline_id: disciplineId(d.key),
-          name: "Модуль → Работа",
-          type_chain: profileChain("Модуль → Работа"),
-          is_active: true,
-        },
-      ]),
-    ),
 
   getMe: (ctx) => ({
     id: personaId(ctx.persona),
@@ -925,7 +965,7 @@ const DEMO: Record<string, Demo> = {
         (r) => r !== "moderator" && r !== "presale",
       ) || ctx.persona.key === "moderator",
     mfa_passed: true,
-    auth_mode: "app",
+    auth_mode: demoSystem.settingValue("auth.mode") === "ad" ? "ad" : "app",
     session_expires_at: new Date(Date.parse(NOW) + 8 * 3600_000)
       .toISOString()
       .replace(".000Z", "Z"),
@@ -1302,40 +1342,148 @@ const DEMO: Record<string, Demo> = {
     return { items, unread: items.length, next_cursor: null };
   },
 
-  listRatios: (_ctx, schema) => list(schema, [DEMO_RATIO]),
+  // FE-071 · справочники (SPEC 7.5): список, создание, правка, удаление по правилам сервера
+  ...dictionaryHandlers(),
+  // FE-072 · производственный календарь и предложенные типы (GAP-03, Q-43, FR-TREE-03)
+  listCalendar: (ctx, schema) =>
+    list(
+      schema,
+      demoCalendar.list(ctx.params.year ? Number(ctx.params.year) : undefined),
+    ),
+  uploadCalendar: (ctx) => {
+    const r = demoCalendar.upload(ctx.body);
+    if (!("error" in r)) return r;
+    return new MockProblem(
+      r.error === "UNSUPPORTED_MEDIA_TYPE"
+        ? problem(415, r.error, "Формат файла не поддерживается")
+        : problem(422, r.error, "Файл календаря не распознан"),
+    );
+  },
+  putCalendarYear: (ctx) => {
+    const r = demoCalendar.put(Number(ctx.params.year), ctx.body);
+    return "error" in r
+      ? new MockProblem(problem(422, r.error, "Ошибка в данных"))
+      : r;
+  },
+  deleteCalendarYear: (ctx) => {
+    demoCalendar.remove(Number(ctx.params.year));
+    return undefined;
+  },
+  listProposedTypes: (_ctx, schema) => list(schema, demoProposed.list()),
+  acceptProposedType: (ctx) => {
+    const p = demoProposed.take(ctx.params.id ?? "");
+    if (!p) return new MockProblem(problem(404, "NOT_FOUND", "Не найдено"));
+    const r = demoDictionaries.create("node_types", {
+      name: p.name,
+      icon: p.icon,
+    });
+    return r && demoDictionaries.isError(r) ? dictProblem(r) : r;
+  },
+  mergeProposedType: (ctx) => {
+    const target = demoDictionaries.find(
+      "node_types",
+      String(body(ctx).target_type_id ?? ""),
+    );
+    if (!target || !demoProposed.take(ctx.params.id ?? ""))
+      return new MockProblem(problem(404, "NOT_FOUND", "Не найдено"));
+    return target;
+  },
+  // FE-073 · реестр проектов, «Передать / добавить модератора», режим поддержки (FR-ADM-06)
+  adminRegistry: (ctx, schema) =>
+    list(schema, demoPortfolio.registry(ctx.params)),
+  transferModerators: (ctx) => {
+    const b = body(ctx) as {
+      add_user_ids?: string[];
+      remove_user_ids?: string[];
+    };
+    const add = [];
+    for (const id of b.add_user_ids ?? []) {
+      const u = demoUsers.get(id);
+      if (!u)
+        return new MockProblem(
+          problem(422, "VALIDATION_FAILED", "Ошибка в данных"),
+        );
+      const roles = u.system_roles.map((r) => r.role);
+      if (
+        u.status !== "active" ||
+        !roles.some((r) => r === "moderator" || r === "presale_head")
+      )
+        return new MockProblem(
+          problem(
+            409,
+            "MEMBER_ROLE_REQUIRED",
+            "Нет системной роли «Модератор»",
+          ),
+        );
+      add.push(refOf(u));
+    }
+    const r = demoPortfolio.transferModerators(
+      ctx.params.id ?? "",
+      add,
+      b.remove_user_ids ?? [],
+    );
+    if ("error" in r)
+      return new MockProblem(
+        r.error === "NOT_FOUND"
+          ? problem(404, "NOT_FOUND", "Не найдено")
+          : problem(409, "LAST_MODERATOR", "Последний модератор"),
+      );
+    return {
+      items: r.map((user) => ({
+        user,
+        role: "moderator",
+        discipline_id: null,
+        is_reviewer: false,
+        status: "active",
+        added_by_admin_self: false,
+      })),
+    };
+  },
+  openSupportSession: (ctx) => {
+    const id = ctx.params.id ?? "";
+    // пустое тело (проверка моков) — ответ из примера схемы, сессия не открывается
+    if (!("reason" in body(ctx))) return undefined;
+    const reason = String(body(ctx).reason ?? "").trim();
+    if (!demoPortfolio.registry().some((r) => r.id === id))
+      return new MockProblem(problem(404, "NOT_FOUND", "Не найдено"));
+    if (reason.length < 10 || reason.length > 500)
+      return new MockProblem(
+        problem(422, "VALIDATION_FAILED", "Ошибка в данных"),
+      );
+    const key = projectKeyOf(id) ?? id;
+    const s = demoSupport.open(
+      key,
+      uuidFrom("support", id, String(Date.now())),
+      reason,
+    );
+    return {
+      id: s.id,
+      project_id: id,
+      expires_at: new Date(s.expiresAt).toISOString(),
+    };
+  },
+  rejectProposedType: (ctx) =>
+    demoProposed.take(ctx.params.id ?? "")
+      ? undefined
+      : new MockProblem(problem(404, "NOT_FOUND", "Не найдено")),
   getMethodSettings: () => demoSystem.methodSettings(),
-  listPhases: (_ctx, schema) =>
-    list(
-      schema,
-      PHASES.map((p, i) => ({
-        id: phaseId(p.key),
-        name: p.name,
-        sort_order: i + 1,
-        is_cross_cutting: p.cross,
-        is_active: true,
-      })),
-    ),
-
-  listDisciplines: (_ctx, schema) =>
-    list(
-      schema,
-      DISCIPLINES.map((d) => ({
-        id: disciplineId(d.key),
-        name: d.name,
-        short_name: d.short,
-        color: d.color,
-        default_profile_id: profileId(d.key),
-        is_active: true,
-      })),
-    ),
-
-  listNodeTypes: (_ctx, schema) => list(schema, dictionaryNodeTypes()),
+  putMethodSettings: (ctx) => {
+    const v = body(ctx);
+    if (Object.keys(v).length === 0) return demoSystem.methodSettings();
+    demoSystem.saveSettings(
+      "method",
+      Object.fromEntries(
+        Object.entries(v).map(([k, value]) => [`method.${k}`, value]),
+      ),
+    );
+    return demoSystem.methodSettings();
+  },
 
   // CR-006: типы словаря и локальные типы проекта (в «Портале дилеров» — «Шлюз оплаты»)
   listProjectNodeTypes: (ctx, schema) =>
     ctx.project
       ? list(schema, [
-          ...dictionaryNodeTypes(),
+          ...demoDictionaries.list("node_types", false),
           ...(ctx.project.key === "portal"
             ? [
                 {
@@ -1353,6 +1501,173 @@ const DEMO: Record<string, Demo> = {
         ])
       : undefined,
 };
+
+const DICT_STATUS = new Map([
+  ["NOT_FOUND", [404, "Не найдено"]],
+  ["DICTIONARY_IN_USE", [409, "Запись справочника используется"]],
+  ["ALREADY_EXISTS", [409, "Такая запись уже есть"]],
+  ["VALIDATION_FAILED", [422, "Ошибка в данных"]],
+] as const);
+
+function dictProblem(err: demoDictionaries.DictError) {
+  const [status, title] = DICT_STATUS.get(err.error) ?? [409, err.error];
+  const base = problem(status, err.error, title);
+  return new MockProblem(
+    "field" in err
+      ? {
+          status,
+          body: {
+            ...(base.body as object),
+            errors: [
+              {
+                field: `/${err.field}`,
+                code: "invalid",
+                message: "Неверное значение",
+              },
+            ],
+          },
+        }
+      : base,
+  );
+}
+
+/** Ссылка на пользователя по карточке админки: инициалы — первые буквы слов ФИО. */
+function refOf(u: { id: string; full_name: string }) {
+  const initials = u.full_name
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}]/gu, "").charAt(0))
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return { id: u.id, full_name: u.full_name, initials, is_active: true };
+}
+
+function dictionaryHandlers(): Record<string, Demo> {
+  const ops: [string, demoDictionaries.Kind, string][] = [
+    ["Phases", "phases", "id"],
+    ["Disciplines", "disciplines", "id"],
+    ["NodeTypes", "node_types", "id"],
+    ["Profiles", "profiles", "id"],
+    ["Ratios", "ratios", "id"],
+    ["Tags", "tags", "id"],
+    ["Currencies", "currencies", "code"],
+    ["VatRates", "vat_rates", "id"],
+    ["LossReasons", "loss_reasons", "id"],
+  ];
+  const out: Record<string, Demo> = {};
+  for (const [op, kind, key] of ops) {
+    out[`list${op}`] = (ctx, schema) =>
+      list(
+        schema,
+        demoDictionaries.list(kind, ctx.params.include_inactive === "true"),
+      );
+    out[`create${op}`] = (ctx) => {
+      const r = demoDictionaries.create(kind, ctx.body);
+      return r && demoDictionaries.isError(r) ? dictProblem(r) : r;
+    };
+    out[`update${op}`] = (ctx) => {
+      const r = demoDictionaries.update(kind, ctx.params[key] ?? "", ctx.body);
+      return demoDictionaries.isError(r) ? dictProblem(r) : r;
+    };
+    out[`delete${op}`] = (ctx) => {
+      const err = demoDictionaries.remove(kind, ctx.params[key] ?? "");
+      return err ? dictProblem(err) : undefined;
+    };
+  }
+  return out;
+}
+
+demoDictionaries.setSeeds({
+  phases: () =>
+    PHASES.map((p, i) => ({
+      id: phaseId(p.key),
+      name: p.name,
+      sort_order: i + 1,
+      is_cross_cutting: p.cross,
+      is_active: true,
+    })),
+  disciplines: () =>
+    DISCIPLINES.map((d) => ({
+      id: disciplineId(d.key),
+      name: d.name,
+      short_name: d.short,
+      color: d.color,
+      default_profile_id: profileId(d.key),
+      is_active: true,
+    })),
+  node_types: dictionaryNodeTypes,
+  profiles: () =>
+    DISCIPLINES.flatMap((d) => [
+      {
+        id: profileId(d.key),
+        discipline_id: disciplineId(d.key),
+        name: d.profile,
+        type_chain: profileChain(d.profile),
+        is_active: true,
+      },
+      {
+        id: profileId(`${d.key}-alt`),
+        discipline_id: disciplineId(d.key),
+        name: "Модуль → Работа",
+        type_chain: profileChain("Модуль → Работа"),
+        is_active: true,
+      },
+    ]),
+  ratios: () => [{ ...DEMO_RATIO }],
+  tags: () =>
+    (
+      [
+        ["assumption", "Допущение", "Доп.", "#57702c"],
+        ["constraint", "Ограничение", "Огр.", "#8a5a1f"],
+        ["risk", "Риск", "Риск", "#c92a2a"],
+        ["tech", "Технология", "Тех.", "#2f5aa8"],
+      ] as const
+    ).map(([category, name, short_name, color]) => ({
+      id: uuidFrom("tag", category),
+      name,
+      short_name,
+      color,
+      category,
+      is_active: true,
+    })),
+  currencies: () => [
+    { code: "RUB", symbol: "₽", is_active: true },
+    { code: "USD", symbol: "$", is_active: true },
+    { code: "EUR", symbol: "€", is_active: true },
+    { code: "KZT", symbol: "₸", is_active: false },
+  ],
+  vat_rates: () => [
+    {
+      id: uuidFrom("vat", "22"),
+      name: "НДС 22%",
+      percent: "22",
+      is_default: true,
+      is_active: true,
+    },
+    {
+      id: uuidFrom("vat", "20"),
+      name: "НДС 20%",
+      percent: "20",
+      is_default: false,
+      is_active: true,
+    },
+    {
+      id: uuidFrom("vat", "10"),
+      name: "НДС 10%",
+      percent: "10",
+      is_default: false,
+      is_active: true,
+    },
+    {
+      id: uuidFrom("vat", "none"),
+      name: "Без НДС",
+      percent: null,
+      is_default: false,
+      is_active: true,
+    },
+  ],
+  loss_reasons: () => demoOutcome.LOSS_REASONS.map((r) => ({ ...r })),
+});
 
 function dictionaryNodeTypes() {
   return NODE_TYPES.map((name) => ({

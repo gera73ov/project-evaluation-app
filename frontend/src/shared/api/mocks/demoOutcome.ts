@@ -3,6 +3,7 @@
  * каждого проекта. По умолчанию «не известен»; изменения живут до перезагрузки страницы.
  */
 import type { DemoProject } from "./data";
+import { find } from "./demoDictionaries";
 import { uuidFrom } from "./ids";
 
 export type DemoOutcome = {
@@ -37,10 +38,6 @@ const outcomes = new Map<string, DemoOutcome>();
 
 export function resetDemoOutcome(): void {
   outcomes.clear();
-}
-
-export function lossReasons(includeInactive: boolean) {
-  return LOSS_REASONS.filter((r) => includeInactive || r.is_active);
 }
 
 /** Ответ GET: деньги — отдельным блоком (его снимает stripMoney без права на деньги). */
@@ -85,9 +82,9 @@ export function putOutcome(
   let reason: string | null = null;
   let text: string | null = null;
   if (outcome === "lost") {
-    const found = LOSS_REASONS.find((r) => r.id === body.loss_reason_id);
+    const found = find("loss_reasons", String(body.loss_reason_id));
     if (!found) return { error: "VALIDATION_FAILED", field: "loss_reason_id" };
-    reason = found.id;
+    reason = String(found.id);
     if (found.is_other) {
       text = (body.loss_reason_text ?? "").trim();
       if (!text || text.length > 500)

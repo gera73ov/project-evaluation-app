@@ -17,7 +17,10 @@ export type HandlerOptions = {
   ws?: WsSimulatorOptions;
 };
 
-/** multipart (загрузка документа): файлы — их имя, размер и тип; содержимое моку не нужно. */
+/**
+ * multipart (загрузка документа, CSV календаря): файлы — их имя, размер и тип; текст — только у
+ * небольших CSV, его разбирает мок календаря.
+ */
 async function formFields(request: Request): Promise<Record<string, unknown> | null> {
   const form = await request
     .clone()
@@ -25,12 +28,19 @@ async function formFields(request: Request): Promise<Record<string, unknown> | n
     .catch(() => null);
   if (!form) return null;
   const out = new Map<string, unknown>();
-  form.forEach((value, key) => {
-    out.set(
-      key,
-      typeof value === 'string' ? value : { file_name: value.name, size_bytes: value.size, mime: value.type },
-    );
-  });
+  for (const [key, value] of form.entries()) {
+    if (typeof value === 'string') {
+      out.set(key, value);
+      continue;
+    }
+    const csv = value.name.toLowerCase().endsWith('.csv') && value.size <= 1_000_000;
+    out.set(key, {
+      file_name: value.name,
+      size_bytes: value.size,
+      mime: value.type,
+      ...(csv ? { text: await value.text().catch(() => '') } : {}),
+    });
+  }
   return Object.fromEntries(out);
 }
 

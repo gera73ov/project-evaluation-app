@@ -23,6 +23,12 @@ import { QuestionsPage } from '../features/stats/questions/QuestionsPage';
 import { TotalsPage } from '../features/stats/totals/TotalsPage';
 import { PortfolioRoute } from '../features/portfolio/PortfolioRoute';
 import { AuditPage } from '../features/audit/AuditPage';
+import { CalendarPage } from '../features/admin/calendar/CalendarPage';
+import { DictionariesPage } from '../features/admin/dictionaries/DictionariesPage';
+import { dictPath, isDictKey, type DictKey } from '../features/admin/dictionaries/dictionaries';
+import { ProposedTypesPage } from '../features/admin/proposed-types/ProposedTypesPage';
+import { RegistryPage as AdminRegistryPage } from '../features/admin/registry/RegistryPage';
+import { UsersPage } from '../features/admin/users/UsersPage';
 import { AccountsPage } from '../features/system/admins/AccountsPage';
 import { AnonymizePage, RegistryPage } from '../features/system/admins/AnonymizeRegistryPages';
 import { AuthPage } from '../features/system/auth/AuthPage';
@@ -36,9 +42,8 @@ import { JournalRoute, SettingsRoute } from '../features/settings/SettingsRoute'
 import { TrashPage } from '../features/trash/TrashPage';
 import { TotpEnrollPage } from '../features/profile/TotpEnrollPage';
 import { WorkRoute } from '../features/work/WorkRoute';
-import type { Params } from './router';
+import { Redirect, type Params } from './router';
 import type { SystemRole } from './session';
-import { Placeholder } from './Placeholder';
 
 export type Access = 'public' | 'enroll' | 'password' | 'private';
 
@@ -67,14 +72,6 @@ export const NAV: readonly NavItem[] = [
   { key: 'audit', to: '/audit', roles: ['security_auditor'] },
   { key: 'system', to: '/system', roles: ['superadmin'] },
 ];
-
-/** Пункты меню «Системы», экраны которых делают следующие задачи плана. */
-
-function stub(title: string, task: string) {
-  return function StubPage() {
-    return <Placeholder title={title} task={task} />;
-  };
-}
 
 export const ROUTES: readonly RouteDef[] = [
   { path: '/login', access: 'public', render: () => <LoginPage /> },
@@ -144,20 +141,50 @@ export const ROUTES: readonly RouteDef[] = [
   { path: '/projects/:id/stats/compare', access: 'private', render: (p) => <ComparePage projectId={p.id ?? ''} /> },
   { path: '/projects/:id/stats/questions', access: 'private', render: (p) => <QuestionsPage projectId={p.id ?? ''} /> },
   { path: '/profile', access: 'private', render: () => <ProfilePage /> },
-  { path: '/admin', access: 'private', nav: 'admin', roles: ['admin'], render: stub('Админка', 'FE-070') },
+  { path: '/admin', access: 'private', nav: 'admin', roles: ['admin'], render: () => <Redirect to="/admin/users" /> },
+  { path: '/admin/users', access: 'private', nav: 'admin', roles: ['admin'], render: () => <UsersPage /> },
+  {
+    path: '/admin/dictionaries',
+    access: 'private',
+    nav: 'admin',
+    roles: ['admin'],
+    render: () => <Redirect to={dictPath('phases')} />,
+  },
+  {
+    path: '/admin/dictionaries/:kind',
+    access: 'private',
+    nav: 'admin',
+    roles: ['admin'],
+    render: (p) =>
+      isDictKey(p.kind ?? '') ? <DictionariesPage kind={p.kind as DictKey} /> : <Redirect to={dictPath('phases')} />,
+  },
+  {
+    path: '/admin/calendar',
+    access: 'private',
+    nav: 'admin',
+    roles: ['admin'],
+    render: () => <CalendarPage />,
+  },
+  {
+    path: '/admin/proposed-types',
+    access: 'private',
+    nav: 'admin',
+    roles: ['admin'],
+    render: () => <ProposedTypesPage />,
+  },
   {
     path: '/admin/registry',
     access: 'private',
     nav: 'admin',
     roles: ['admin'],
-    render: stub('Реестр проектов', 'FE-073'),
+    render: () => <AdminRegistryPage />,
   },
   {
     path: '/admin/registry/:id/support',
     access: 'private',
     nav: 'admin',
     roles: ['admin'],
-    render: stub('Проект в режиме поддержки', 'FE-073'),
+    render: (p) => <Redirect to={`/projects/${p.id ?? ''}`} />,
   },
   {
     path: '/portfolio',

@@ -113,6 +113,82 @@ const DIRECTORY = new Map([
   ],
 ]);
 
+/** FE-070 · ещё учётки каталога для «Найти в AD»: заведены заранее не все. */
+const MORE = new Map([
+  [
+    "a.volkova",
+    {
+      full_name: "Волкова Анна Сергеевна",
+      email: "a.volkova@corp.ru",
+      disabled: false,
+      groups: [USERS],
+    },
+  ],
+  [
+    "a.volkov",
+    {
+      full_name: "Волков Алексей Игоревич",
+      email: "a.volkov@corp.ru",
+      disabled: false,
+      groups: [USERS, MODS],
+    },
+  ],
+]);
+
+const DEPARTMENTS = new Map([
+  ["i.ivanov", "Отдел разработки"],
+  ["a.volkova", "Отдел аналитики"],
+  ["a.volkov", "Отдел разработки"],
+  ["k.belova", "Коммерческий отдел"],
+]);
+
+export type DirectoryEntry = {
+  object_guid: string;
+  login: string;
+  full_name: string;
+  email: string;
+  department: string | null;
+  in_access_group: boolean;
+  disabled: boolean;
+  roles: ("moderator" | "presale")[];
+};
+
+/** FE-070 · «Найти в AD»: по логину или ФИО, от 3 символов, не больше 50 (FR-AUTH-AD-10). */
+export function searchDirectory(q: string): DirectoryEntry[] {
+  const needle = q.trim().toLowerCase();
+  if (needle.length < 3) return [];
+  return [...DIRECTORY, ...MORE]
+    .filter(
+      ([login, e]) =>
+        login.includes(needle) || e.full_name.toLowerCase().includes(needle),
+    )
+    .slice(0, 50)
+    .map(([login, e]) => directoryEntry(login, e));
+}
+
+export function directoryByGuid(guid: string): DirectoryEntry | null {
+  for (const [login, e] of [...DIRECTORY, ...MORE]) {
+    if (uuidFrom("ad", login) === guid) return directoryEntry(login, e);
+  }
+  return null;
+}
+
+function directoryEntry(
+  login: string,
+  e: { full_name: string; email: string; disabled: boolean; groups: string[] },
+): DirectoryEntry {
+  return {
+    object_guid: uuidFrom("ad", login),
+    login,
+    full_name: e.full_name,
+    email: e.email,
+    department: DEPARTMENTS.get(login) ?? null,
+    in_access_group: e.groups.includes(USERS),
+    disabled: e.disabled,
+    roles: rolesOf(e.groups),
+  };
+}
+
 /** Роли по группам, если сопоставление включено (только «Модератор» и «Пресейл»). */
 function rolesOf(groups: string[]) {
   const mapping = settingValue("auth.ad.role_mapping") as {
