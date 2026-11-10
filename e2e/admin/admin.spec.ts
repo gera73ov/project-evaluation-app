@@ -11,6 +11,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 
 import { ADMIN_DATA_FILE } from '../global-setup';
 import { currentStep, totp } from '../auth/totp';
+import { spendLogin } from '../auth/budget';
 
 interface Person {
   id: string;
@@ -65,6 +66,7 @@ async function open(browser: Browser, who: Person): Promise<Page> {
   await page.goto('/login');
   await page.getByLabel('Логин').fill(who.login);
   await page.getByLabel('Пароль').fill(seed.password);
+  await spendLogin();
   await page.getByRole('button', { name: 'Войти' }).click();
   await page.getByLabel('Цифра 1').pressSequentially(await code(page, who.login));
   await expect(page).not.toHaveURL(/\/login/);
@@ -201,7 +203,7 @@ test('реестр: блокировка модератора, назначен�
   await expect(row).toContainText(`${seed.moderator.name} · заблокирован`);
   await expect(row).toContainText(/без модератора \d+ д/);
 
-  await admin.getByRole('button', { name: `Передать или добавить модератора «${PROJECT}»` }).click();
+  await admin.getByRole('button', { name: `Модераторы проекта «${PROJECT}»: передать или добавить` }).click();
   const transfer = admin.getByRole('dialog', { name: `Модераторы проекта «${PROJECT}»` });
   await expect(transfer.getByText('Проект нельзя оставить без модератора.')).toBeVisible();
   await transfer.getByRole('textbox', { name: /Добавить модератора/ }).fill(seed.moderator2.name);
@@ -210,7 +212,7 @@ test('реестр: блокировка модератора, назначен�
   await expect(row).toHaveCount(0);
 
   await admin.getByRole('checkbox', { name: 'Проекты без модератора' }).click();
-  await admin.getByRole('button', { name: `Открыть «${PROJECT}» в режиме поддержки` }).click();
+  await admin.getByRole('button', { name: `Режим поддержки: открыть «${PROJECT}»` }).click();
   const support = admin.getByRole('dialog', { name: `Режим поддержки: «${PROJECT}»` });
   await support.getByRole('textbox', { name: /Причина/ }).fill('Проверка итогов по обращению заказчика');
   await support.getByRole('button', { name: 'Открыть проект' }).click();

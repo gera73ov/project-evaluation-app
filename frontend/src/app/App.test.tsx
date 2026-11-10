@@ -55,7 +55,7 @@ describe('гарды и меню', () => {
     renderApp('/');
     const nav = await screen.findByRole('navigation', { name: 'Разделы' });
     expect([...nav.querySelectorAll('a')].map((a) => a.textContent)).toEqual(['Мои оценки']);
-    expect(screen.getByRole('button', { name: 'Меню пользователя' }).textContent).toContain('И. Иванов');
+    expect(screen.getByRole('button', { name: /меню пользователя/i }).textContent).toContain('И. Иванов');
   });
 
   it.each([

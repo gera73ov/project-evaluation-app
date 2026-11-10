@@ -134,6 +134,7 @@ export function ProposedTypesPage() {
                       size="xs"
                       variant="subtle"
                       color="red"
+                      c="var(--bad)"
                       aria-label={t('admin.proposed.rejectOf', { name: p.name })}
                       onClick={() => setAction({ kind: 'reject', item: p })}
                     >

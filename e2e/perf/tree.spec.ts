@@ -14,6 +14,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { PERF_DATA_FILE, runJson } from '../global-setup';
 import { currentStep, totp } from '../auth/totp';
+import { spendLogin } from '../auth/budget';
 
 interface Seed {
   moderator: { id: string; login: string; name: string };
@@ -53,6 +54,7 @@ test.beforeAll(async ({ browser }) => {
   await page.goto('/login');
   await page.getByLabel('Логин').fill(seed.moderator.login);
   await page.getByLabel('Пароль').fill(seed.password);
+  await spendLogin();
   await page.getByRole('button', { name: 'Войти' }).click();
   const step = currentStep();
   await page.getByLabel('Цифра 1').pressSequentially(totp(seed.totp, step));

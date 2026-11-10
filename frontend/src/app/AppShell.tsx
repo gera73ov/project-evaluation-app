@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { api } from '../shared/api/client';
 import { call } from '../shared/api/problem';
+import { userColor } from '../shared/ui/userColor';
 import { OfflineBanner } from '../shared/ws/OfflineBanner';
 import { SessionExtend } from '../features/auth/SessionExtend';
 import { NotificationBell } from '../features/home/NotificationBell';
@@ -67,11 +68,12 @@ export function AppShell({ me, active, children }: { me: Me; active?: NavKey | u
         <NotificationBell timeZone={me.timezone ?? undefined} />
         <Menu position="bottom-end">
           <Menu.Target>
-            <button type="button" className="user-menu" aria-label={t('nav.userMenu')}>
-              <span className="av" aria-hidden="true">
+            <button type="button" className="user-menu">
+              <span className="av" style={{ background: userColor(me) }} aria-hidden="true">
                 {initials(me.full_name)}
               </span>
-              {shortName(me.full_name)} ▾
+              {shortName(me.full_name)} <span aria-hidden="true">▾</span>
+              <span className="sr-only">, {t('nav.userMenu').toLowerCase()}</span>
             </button>
           </Menu.Target>
           <Menu.Dropdown>

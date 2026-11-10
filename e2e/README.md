@@ -1,4 +1,4 @@
-# E2E (FE-090, FE-091, FE-094, FE-081, FE-093, QA-018)
+# E2E (FE-090, FE-091, FE-094, FE-081, FE-093, FE-080, QA-018)
 
 Playwright-сценарии UI против настоящего API.
 
@@ -12,6 +12,8 @@ E2E_WORK_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -
 E2E_ADMIN_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/admin/seed.py' \
 E2E_STATS_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/stats/seed.py' \
 E2E_STATS_FILL_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/perf/fill.py' \
+E2E_A11Y_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/a11y/seed.py' \
+E2E_A11Y_FILL_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/perf/fill.py' \
 npx playwright test
 ```
 
@@ -30,7 +32,8 @@ cd e2e && npm ci && npx playwright test
 `frontend/dist`, nonce в CSP, прокси `/api`. Самоподписанный сертификат создаётся в `e2e/.tls`.
 `global-setup.ts` запускает `auth/seed.py`: тот создаёт пользователя и администратора со случайными
 логинами, поэтому повторный прогон не мешает прошлому. Лимит входа с одного IP (20 в минуту) при
-частых локальных прогонах сбрасывается очисткой Redis.
+частых локальных прогонах сбрасывается очисткой Redis. Внутри прогона сценарии сами держатся в
+лимите: перед входом `auth/budget.ts` ждёт, пока за минуту не освободится место.
 
 ## Сценарии
 
@@ -54,6 +57,12 @@ cd e2e && npm ci && npx playwright test
   «v1 — КП отправлено» → правка оценки → сравнение с текущим, руководитель пресейла находит проект в
   портфеле и становится модератором. Данные создаёт `stats/seed.py` (модератор, руководитель пресейла,
   эксперт), узлы — `perf/fill.py` на 60 узлов. Выгрузки появятся вместе с серверной частью EXP.
+
+- `a11y/` — аудит доступности axe (FE-080): WCAG 2.1 A/AA, нарушения serious и critical валят
+  сценарий. 24 экрана, которые уже работают на сервере (вход, «Мои оценки», рабочий экран, настройки,
+  вкладки статистики, снимки и сравнение, профиль, портфель, админка), и ввод оценки с клавиатуры.
+  Данные создаёт `a11y/seed.py` (модератор, он же руководитель пресейла, и администратор), узлы —
+  `perf/fill.py`. Отчёт axe по каждому экрану — вложение `axe.json`.
 
 - `perf/` — замеры рабочего экрана на 5 000 узлах (FE-081): открытие, ввод O, прокрутка. В общий
   прогон не входят: `E2E_PERF=1 npx playwright test perf` (на стенде ещё `E2E_PERF_SEED_CMD` и

@@ -8,6 +8,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { DATA_FILE } from '../global-setup';
 import { STEP_SECONDS, currentStep, totp } from './totp';
+import { spendLogin } from './budget';
 
 interface Seed {
   user: string;
@@ -54,6 +55,7 @@ async function signIn(page: Page, login: string, password = seed.password): Prom
   await expect(page.getByText('Учётная запись приложения')).toBeVisible();
   await page.getByLabel('Логин').fill(login);
   await page.getByLabel('Пароль').fill(password);
+  await spendLogin();
   await page.getByRole('button', { name: 'Войти' }).click();
 }
 

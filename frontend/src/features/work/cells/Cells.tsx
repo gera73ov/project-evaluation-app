@@ -537,7 +537,7 @@ export function CommentCell({
           className="cm-click"
           role="button"
           tabIndex={0}
-          aria-label={t('cells.commentEdit')}
+          title={t('cells.commentEdit')}
           onClick={() => cells.start({ nodeId, field: 'comment' })}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && e.target === e.currentTarget) cells.start({ nodeId, field: 'comment' });

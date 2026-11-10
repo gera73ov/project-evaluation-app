@@ -3,7 +3,8 @@
  * serve.mjs (HTTPS, статика frontend/dist, CSP-nonce как у Nginx). На dev-стенде:
  * E2E_BASE_URL=https://localhost:8443 и E2E_SEED_CMD с командой seed.py внутри контейнера api.
  *
- * Замеры производительности (`perf/`, FE-081) идут отдельно: `E2E_PERF=1 npx playwright test perf`.
+ * Замеры производительности (`perf/`, FE-081) идут отдельно: `E2E_PERF=1 npx playwright test perf`. Входы всех сценариев
+ * укладываются в лимит FR-LOCK-02 (20 попыток в минуту с IP) через `auth/budget.ts`.
  * Они долгие, и их вход добавлял бы к общему прогону ещё одну попытку при лимите входов с одного IP.
  */
 import { defineConfig, devices } from '@playwright/test';

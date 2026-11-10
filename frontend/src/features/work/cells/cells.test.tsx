@@ -150,7 +150,7 @@ describe('ввод в ячейки на рабочем экране', () => {
     await within(grid).findByText('Дашборд');
     const foreign = within(grid).getByText('Дашборд').closest('[role="row"]') as HTMLElement;
     expect(within(foreign).queryByRole('button', { name: /^O:/ })).toBeNull();
-    expect(within(foreign).queryByRole('button', { name: 'Изменить комментарий' })).toBeNull();
+    expect(within(foreign).queryByRole('button', { description: 'Изменить комментарий' })).toBeNull();
   });
 
   it('норма типа у пустого листа: «Норма: … · подставить» отправляет вилку', async () => {

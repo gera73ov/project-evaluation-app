@@ -313,7 +313,14 @@ function Progress({ item }: { item: ProjectItem }) {
   const share = Math.round((progress.done / progress.total) * 100);
   return (
     <span className="progress">
-      <span className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={progress.total} aria-valuenow={progress.done}>
+      <span
+        className="bar"
+        role="progressbar"
+        aria-label={t('home.progressBar', { done: progress.done, total: progress.total })}
+        aria-valuemin={0}
+        aria-valuemax={progress.total}
+        aria-valuenow={progress.done}
+      >
         <i style={{ width: `${share}%` }} />
       </span>
       {t('home.progress', { done: progress.done, total: progress.total })}
