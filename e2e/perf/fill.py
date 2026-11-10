@@ -7,7 +7,8 @@
 Под каждой веткой дисциплины проекта добавляет группы «узел → 3 подузла → по 3 листа с O/R/P»,
 пока в проекте не станет заданное число живых узлов (фазы и ветки дисциплин входят в счёт, как в
 BR-TREE-06). Узлы пишутся напрямую в таблицу, без событий WS и истории: сценарий открывает экран
-после наполнения. Печатает JSON с числом узлов. Только для dev и тестовых стендов.
+после наполнения; кэш итогов проекта пересчитывается сразу. Нужен и сценариям статистики (FE-093).
+Печатает JSON с числом узлов. Только для dev и тестовых стендов.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from estimator.db.enums import NodeKind
 from estimator.db.models.tree import Node
 from estimator.db.session import dispose_engine, transaction
 from estimator.db.uuid7 import uuid7
+from estimator.services.projects.totals import recompute
 from estimator.services.tree.positions import keys_after
 
 GROUP = 1 + 3 + 3 * 3  # узел, три подузла, по три листа
@@ -50,6 +52,8 @@ async def fill(project_id: uuid.UUID, total: int) -> dict[str, int]:
                     _group(db, branch, position, f"Модуль {g + 1}")
                     left -= 1
             await db.flush()
+            # кэш итогов (список проектов, портфель) обычно считает worker после правки
+            await recompute(db, project_id)
             count = (await db.execute(select(func.count()).where(*alive))).scalar_one()
     finally:
         await dispose_engine()

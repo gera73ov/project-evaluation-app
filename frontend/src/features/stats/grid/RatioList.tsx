@@ -23,11 +23,18 @@ export function useRatioName(names: ReadonlyMap<string, string>) {
     select: (data) => data.items as Ratio[],
     staleTime: 10 * 60_000,
   });
+  // дисциплины соотношения, которых нет в проекте, — по справочнику (FE-093)
+  const dictionary = useQuery({
+    queryKey: ['dict', 'disciplines'],
+    queryFn: () => call(() => api.GET('/admin/disciplines')),
+    staleTime: 10 * 60_000,
+  });
+  const nameOf = (id: string) => names.get(id) ?? dictionary.data?.items.find((d) => d.id === id)?.name ?? '?';
   return (ratioId: string) => {
     const r = ratios.data?.find((x) => x.id === ratioId);
     if (!r) return t('stats.ratios.unknown');
-    const b = r.disciplines_b.map((id) => names.get(id) ?? '?');
-    return `${names.get(r.discipline_a_id) ?? '?'} ${t('stats.ratios.to')} (${b.join(' + ')})`;
+    const b = r.disciplines_b.map(nameOf);
+    return `${nameOf(r.discipline_a_id)} ${t('stats.ratios.to')} (${b.join(' + ')})`;
   };
 }
 
