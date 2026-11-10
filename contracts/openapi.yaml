@@ -12272,6 +12272,20 @@ components:
         nodes_limit:
           type: integer
           const: 5000
+        open_questions:
+          type: integer
+          minimum: 0
+          description: >-
+            CR-013. «Открыто: всего» — открытые вопросы проекта (узлов и проекта), включая вопросы
+            заказчику до «решён»/«снят» (FR-TREE-11, 11.4 №3)
+        questions_to_me:
+          type: integer
+          minimum: 0
+          description: 'CR-013. «Открыто» (мне) — открытые вопросы, где зритель среди адресатов'
+        risks:
+          type: integer
+          minimum: 0
+          description: CR-013. Счётчик рисков — живые листья с меткой категории «Риск» в комментарии
       required:
       - works
       - pm
@@ -12279,6 +12293,9 @@ components:
       - unaccounted_leaves
       - nodes_count
       - nodes_limit
+      - open_questions
+      - questions_to_me
+      - risks
       additionalProperties: false
     NodeCreate:
       type: object

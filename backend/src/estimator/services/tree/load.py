@@ -19,8 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from estimator.api.common.decimal import format_decimal
 from estimator.auth.policy import read_settings
-from estimator.db.enums import NodeKind, ProjectRole
-from estimator.db.models.dictionaries import Discipline, Phase
+from estimator.db.enums import CommentTagCategory, NodeKind, ProjectRole
+from estimator.db.models.dictionaries import CommentTag, Discipline, Phase
 from estimator.db.models.projects import (
     BranchStatus,
     Project,
@@ -316,8 +316,27 @@ async def load_tree(
             "unaccounted_leaves": result.unaccounted_leaves,
             "nodes_count": len(nodes),
             "nodes_limit": NODES_LIMIT,
+            "open_questions": counters.project_open,
+            "questions_to_me": counters.project_to_me,
+            "risks": await _risks(db, nodes, result),
         },
     }
+
+
+async def _risks(db: AsyncSession, nodes: list[Node], result: calc.ProjectResult) -> int:
+    """Счётчик рисков (FR-TREE-11): живые листья с меткой категории «Риск» в комментарии."""
+    risk = {
+        str(t)
+        for t in await db.scalars(
+            select(CommentTag.id).where(CommentTag.category == CommentTagCategory.RISK)
+        )
+    }
+    return sum(
+        1
+        for n in nodes
+        if result.tree[str(n.id)].is_leaf
+        and any(str(line.get("tag_id")) in risk for line in (n.comment_lines or []))
+    )
 
 
 def _node_out(
