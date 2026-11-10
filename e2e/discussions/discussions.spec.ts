@@ -41,6 +41,7 @@ const ASSUMPTION = 'Допущение: обмен через REST, формат
 const ANSWER = 'REST, спецификацию пришлём в декабре';
 const NOTE = 'Заказчик торгуется по интеграции, скидка не больше 5%';
 const DOCUMENT = 'ТЗ_e2e_портал.pdf';
+const LOSS = 'Заказчик заморозил бюджет до весны';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -252,4 +253,55 @@ test('модератор: документ заказчика проверен �
   const pdf = await file;
   expect(pdf.suggestedFilename()).toBe(DOCUMENT);
   expect(readFileSync(await pdf.path(), 'latin1')).toMatch(/^%PDF-1\.4/);
+});
+
+test('модератор: результат пресейла «выигран» с суммой, затем «проигран» с причиной', async ({ browser }) => {
+  const moderator = await open(browser, seed.moderator);
+  await moderator.goto(`/projects/${projectId}/settings/outcome`);
+  const section = moderator.getByRole('region', { name: 'Результат пресейла' });
+  await section.getByText('выигран', { exact: true }).click(); // SegmentedControl: input скрыт
+  const amount = section.getByLabel('Сумма договора');
+  await amount.fill('2500000');
+  await amount.blur();
+  await section.getByRole('button', { name: 'Сохранить' }).click();
+  await expect(section.getByText('✓ сохранено')).toBeVisible();
+  const won = await api<{ outcome: string; money?: { contract_amount: string | null } }>(
+    moderator,
+    'GET',
+    `/projects/${projectId}/outcome`,
+  );
+  expect(won.outcome).toBe('won');
+  expect(Number(won.money?.contract_amount)).toBe(2_500_000);
+
+  await moderator.reload();
+  await expect(section.getByRole('radio', { name: 'выигран' })).toBeChecked();
+  await section.getByText('проигран', { exact: true }).click(); // SegmentedControl: input скрыт
+  await section.getByRole('textbox', { name: 'Причина проигрыша' }).click();
+  await moderator.getByRole('option', { name: 'Другое' }).click();
+  await section.getByRole('textbox', { name: 'Причина своими словами' }).fill(LOSS);
+  await section.getByRole('button', { name: 'Сохранить' }).click();
+  await expect(section.getByText('✓ сохранено')).toBeVisible();
+  const lost = await api<{ outcome: string; loss_reason_text: string | null }>(
+    moderator,
+    'GET',
+    `/projects/${projectId}/outcome`,
+  );
+  expect(lost.outcome).toBe('lost');
+  expect(lost.loss_reason_text).toBe(LOSS);
+});
+
+test('модератор: журнал проекта — дисциплины, команда, статус, результат пресейла и сумма', async ({ browser }) => {
+  const moderator = await open(browser, seed.moderator);
+  await moderator.goto(`/projects/${projectId}/log`);
+  const journal = moderator.getByRole('region', { name: 'Журнал проекта' });
+  await expect(journal.getByText('Изменён результат пресейла').first()).toBeVisible();
+  await expect(journal).toContainText('Результат пресейла: выигран → проигран');
+  await expect(journal).toContainText(`Комментарий к причине: — → ${LOSS}`);
+  await expect(journal).toContainText(/Сумма договора: — → 2\s?500\s?000|Сумма договора: — → 2500000/);
+  await expect(journal).toContainText('Изменён статус');
+  await expect(journal).toContainText('Изменена команда');
+  await expect(journal.getByText('Изменён состав дисциплин').first()).toBeVisible();
+  await expect(journal).toContainText(seed.discipline_names[0] ?? '');
+  // подписи полей — из ru.json, без технических ключей
+  await expect(journal).not.toContainText(/\b(loss_reason|contract_amount|outcome|rate:)/);
 });
