@@ -188,6 +188,126 @@ test('рабочий экран: панель обсуждения с закры
   expect(await audit(moderator)).toEqual([]);
 
   await moderator.getByRole('button', { name: /Экспорт/ }).click();
-  await expect(moderator.getByRole('dialog', { name: /Экспорт/ })).toBeVisible();
+  const menu = moderator.getByRole('dialog', { name: /Экспорт/ });
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveCSS('opacity', '1'); // контраст считается после появления меню
+  expect(await audit(moderator)).toEqual([]);
+});
+
+test('рабочий экран: 1366 px без горизонтальной прокрутки, уже — прокрутка дерева и сжатая полоса', async () => {
+  const leafOf = () =>
+    moderator
+      .getByRole('treegrid', { name: 'Дерево оценки' })
+      .locator('.vrow [role="row"]')
+      .filter({ hasText: LEAF })
+      .first();
+  const scroller = moderator.locator('.tree-scroll');
+  const top = moderator.locator('header.top');
+  try {
+    await moderator.setViewportSize({ width: 1366, height: 768 });
+    await moderator.goto(`/projects/${projectId}`);
+    await expect(leafOf()).toBeVisible();
+    const wide = await scroller.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(wide).toBeLessThanOrEqual(0);
+    await expect(top.getByText('Настройки', { exact: true })).toBeVisible();
+    await expect(top.locator('.fig-p90')).toBeVisible();
+
+    await moderator.setViewportSize({ width: 1024, height: 768 });
+    await expect(top.locator('.fig-p90')).toBeHidden();
+    await expect(top.locator('.fig-p80')).toHaveAttribute('title', /^P90 /);
+    await expect(top.locator('.fig.quote')).toBeVisible();
+    // подпись скрыта визуально, но остаётся в имени ссылки
+    expect(
+      await top.getByText('Настройки', { exact: true }).evaluate((el) => el.getBoundingClientRect().width),
+    ).toBeLessThanOrEqual(1);
+    await expect(top.getByRole('link', { name: /Настройки/ })).toBeVisible();
+
+    expect(await scroller.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeGreaterThan(0);
+    const box = await scroller.boundingBox();
+    await scroller.evaluate((el) => (el.scrollLeft = el.scrollWidth));
+    const node = leafOf().locator('.td.node');
+    await expect.poll(async () => Math.round((await node.boundingBox())?.x ?? -1)).toBe(Math.round(box?.x ?? 0));
+    const head = moderator.locator('.tree-head .td.node');
+    await expect.poll(async () => Math.round((await head.boundingBox())?.x ?? -1)).toBe(Math.round(box?.x ?? 0));
+    const headE = moderator.locator('.tree-head [role="columnheader"]').nth(6);
+    const rowE = leafOf().locator('.td.e');
+    await expect
+      .poll(
+        async () => Math.round((await headE.boundingBox())?.x ?? 0) - Math.round((await rowE.boundingBox())?.x ?? 1),
+      )
+      .toBe(0);
+    expect(await audit(moderator)).toEqual([]);
+  } finally {
+    await moderator.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
+test('рабочий экран: обход клавиатурой — полоса, меню «Экспорт ▾», снимок, обсуждение строки', async () => {
+  await moderator.goto(`/projects/${projectId}`);
+  const tree = moderator.getByRole('treegrid', { name: 'Дерево оценки' });
+  const leaf = tree.locator('.vrow [role="row"]').filter({ hasText: LEAF }).first();
+  await expect(leaf).toBeVisible();
+
+  // Tab с начала страницы доходит до ячейки O листа; у каждого шага видимый фокус и имя
+  await moderator.locator('body').focus();
+  const seen: string[] = [];
+  for (let i = 0; i < 80; i++) {
+    await moderator.keyboard.press('Tab');
+    const info = await moderator.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return null;
+      const style = getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      const name = (el.getAttribute('aria-label') || el.textContent?.trim() || el.getAttribute('title') || '').trim();
+      const ring = style.outlineStyle !== 'none' && style.outlineWidth !== '0px';
+      return { name, ring: ring || style.boxShadow !== 'none', visible: rect.width > 0 && rect.height > 0 };
+    });
+    expect(info, `шаг ${i + 1}: фокус потерян`).not.toBeNull();
+    if (!info) break;
+    expect(info.visible, `шаг ${i + 1} «${info.name}» не виден`).toBe(true);
+    expect(info.name, `шаг ${i + 1}: нет имени`).not.toBe('');
+    expect(info.ring, `шаг ${i + 1} «${info.name}»: нет видимого фокуса`).toBe(true);
+    seen.push(info.name);
+    if (/^O:/.test(info.name)) break;
+  }
+  expect(seen.at(-1) ?? '').toMatch(/^O:/);
+  expect(seen.some((n) => /Экспорт/.test(n))).toBe(true);
+
+  // «Экспорт ▾»: Enter открывает, Esc закрывает и возвращает фокус
+  const exportBtn = moderator.getByRole('button', { name: /Экспорт/ });
+  await exportBtn.focus();
+  await moderator.keyboard.press('Enter');
+  const menu = moderator.getByRole('dialog', { name: /Экспорт/ });
+  await expect(menu).toBeVisible();
+  await moderator.keyboard.press('Tab');
+  await expect(menu.locator(':focus')).toHaveCount(1);
+  await moderator.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(exportBtn).toBeFocused();
+
+  // «📷 Снимок»: фокус в диалоге, Esc закрывает и возвращает фокус
+  const snapBtn = moderator.getByRole('button', { name: /Снимок/ });
+  await snapBtn.focus();
+  await moderator.keyboard.press('Enter');
+  const dialog = moderator.getByRole('dialog', { name: /Снимок/ });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(':focus')).toHaveCount(1);
+  await moderator.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(snapBtn).toBeFocused();
+
+  // обсуждение строки: кнопка доступна с клавиатуры без наведения мыши
+  await moderator.mouse.move(0, 0);
+  const cell = leaf.getByRole('button', { name: /^O:/ });
+  await cell.focus();
+  const disc = leaf.getByRole('button', { name: /^(Обсуждение|Начать обсуждение)/ });
+  for (let i = 0; i < 12 && !(await disc.evaluate((el) => el === document.activeElement)); i++) {
+    await moderator.keyboard.press('Shift+Tab');
+  }
+  await expect(disc).toBeFocused();
+  await expect(disc).toBeVisible();
+  await moderator.keyboard.press('Enter');
+  const panel = moderator.getByRole('region', { name: `Обсуждение: ${LEAF}` });
+  await expect(panel).toBeVisible();
   expect(await audit(moderator)).toEqual([]);
 });
