@@ -3340,7 +3340,7 @@ export type components = {
             loss_reason_text: string | null;
             money?: components["schemas"]["OutcomeMoney"];
         };
-        /** @description contract_amount — только с money.write и TOTP */
+        /** @description CR-015. contract_amount — с outcome.write и money.read (TOTP в сессии) в любом статусе проекта: модератор, пресейл проекта, руководитель пресейла (BR-PRJ-05). Без money.read — 403 FORBIDDEN, без TOTP — 403 TOTP_REQUIRED; непустая сумма при результате, отличном от won, — 422 */
         ProjectOutcomePut: {
             outcome: components["schemas"]["Outcome"];
             loss_reason_id?: components["schemas"]["Uuid"] | null;

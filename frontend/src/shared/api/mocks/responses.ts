@@ -625,7 +625,7 @@ const DEMO: Record<string, Demo> = {
     const result = demoOutcome.putOutcome(
       ctx.project,
       ctx.body,
-      ctx.permissions.has("money.write"),
+      ctx.permissions.has("money.read"),
     );
     if ("error" in result) {
       const err =

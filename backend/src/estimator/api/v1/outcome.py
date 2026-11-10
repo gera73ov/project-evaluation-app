@@ -2,8 +2,9 @@
 ``GET/PUT /projects/{id}/outcome``, ``GET /projects/{id}/journal``).
 
 Gate проверяет ``project.read`` / ``outcome.write`` / ``journal.read``. Сумма договора в ответе —
-только с ``money.read`` (и TOTP, ``access.money``); передать её в ``PUT`` можно только с
-``money.write`` — иначе 403 ``FORBIDDEN`` или ``TOTP_REQUIRED`` (контракт ``ProjectOutcomePut``).
+только с ``money.read`` (и TOTP, ``access.money``); передать её в ``PUT`` может тот, у кого есть
+``outcome.write`` и ``money.read`` с TOTP, в любом статусе — иначе 403 ``FORBIDDEN`` или
+``TOTP_REQUIRED`` (CR-015, BR-PRJ-05).
 """
 
 from __future__ import annotations
@@ -69,7 +70,7 @@ async def put_outcome(
         loss_reason_text=body.loss_reason_text,
     )
     if "contract_amount" in body.model_fields_set:
-        await authz.check("money.write", await target_from_path(request, db))
+        await authz.check("money.read", await target_from_path(request, db))
         change = service.OutcomeChange(
             outcome=body.outcome,
             loss_reason_id=body.loss_reason_id,
