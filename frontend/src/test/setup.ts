@@ -24,12 +24,14 @@ import { resetDemoTree } from '../shared/api/mocks/demoTree';
 import { buildHandlers } from '../shared/api/mocks/handlers';
 import { PERSONAS, type Persona } from '../shared/api/mocks/personas';
 
-// jsdom не реализует matchMedia и ResizeObserver, а Mantine их вызывает; тесты в среде node их не ждут
+// jsdom не реализует matchMedia и ResizeObserver, а Mantine их вызывает; тесты в среде node их не ждут.
+// «Уменьшить движение» включено: переходы Mantine идут без таймеров, и таймер не срабатывает уже после
+// того, как окружение теста закрыто («window is not defined» в CI).
 const browser = typeof window !== 'undefined';
 if (browser) {
   window.matchMedia ??= (query: string) =>
     ({
-      matches: false,
+      matches: query.includes('prefers-reduced-motion'),
       media: query,
       onchange: null,
       addEventListener: () => {},

@@ -26,7 +26,7 @@ describe('экран «Предложенные типы»', () => {
     persona.current = PERSONAS.admin;
     renderApp('/admin/proposed-types');
     const table = within(await screen.findByRole('table'));
-    fireEvent.click(table.getByRole('button', { name: 'Объединить «Регламентный отчёт» с типом словаря' }));
+    fireEvent.click(table.getByRole('button', { name: 'Объединить с типом словаря «Регламентный отчёт»' }));
     const dialog = await screen.findByRole('dialog', { name: 'Объединить «Регламентный отчёт»' });
     expect(within(dialog).getByText('5 узлов проекта получат выбранный тип словаря.')).toBeTruthy();
     expect((within(dialog).getByRole('button', { name: 'Объединить' }) as HTMLButtonElement).disabled).toBe(true);

@@ -13,6 +13,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 
 import { STATS_DATA_FILE, runJson } from '../global-setup';
 import { currentStep, totp } from '../auth/totp';
+import { spendLogin } from '../auth/budget';
 
 interface Person {
   id: string;
@@ -62,6 +63,7 @@ async function open(browser: Browser, who: Person): Promise<Page> {
   await page.goto('/login');
   await page.getByLabel('Логин').fill(who.login);
   await page.getByLabel('Пароль').fill(seed.password);
+  await spendLogin();
   await page.getByRole('button', { name: 'Войти' }).click();
   while (currentStep() <= lastStep) await page.waitForTimeout(1000);
   lastStep = currentStep();

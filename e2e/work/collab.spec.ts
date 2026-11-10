@@ -18,6 +18,7 @@ import {
 
 import { WORK_DATA_FILE } from '../global-setup';
 import { currentStep, totp } from '../auth/totp';
+import { spendLogin } from '../auth/budget';
 
 interface Person {
   id: string;
@@ -68,6 +69,7 @@ async function signIn(page: Page, who: Person, withTotp = false): Promise<void> 
   await page.goto('/login');
   await page.getByLabel('Логин').fill(who.login);
   await page.getByLabel('Пароль').fill(seed.password);
+  await spendLogin();
   await page.getByRole('button', { name: 'Войти' }).click();
   if (withTotp) {
     // сервер не принимает уже использованный шаг TOTP

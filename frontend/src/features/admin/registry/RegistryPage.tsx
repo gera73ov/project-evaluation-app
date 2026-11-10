@@ -4,6 +4,7 @@
  * «Передать / добавить модератора» и «Открыть в режиме поддержки» с причиной 10–500 символов.
  */
 import { Button, Checkbox, Modal, Select, Stack, Textarea, TextInput } from '@mantine/core';
+import { useDebouncedValue } from '@mantine/hooks';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -170,9 +171,14 @@ function ModeratorsForm({ project, onClose }: { project: Project; onClose: () =>
   const qc = useQueryClient();
   const [keep, setKeep] = useState<string[]>(project.moderators.map((m) => m.id));
   const [added, setAdded] = useState<UserRef[]>([]);
+  // поиск на сервере: в справочнике пользователей может быть больше одной страницы
+  const [search, setSearch] = useState('');
+  const [q] = useDebouncedValue(search.trim(), 300);
   const users = useQuery({
-    queryKey: ['admin', 'users', 'moderators'],
-    queryFn: () => call(() => api.GET('/admin/users', { params: { query: { limit: 200, status: 'active' } } })),
+    queryKey: ['admin', 'users', 'moderators', q],
+    queryFn: () =>
+      call(() => api.GET('/admin/users', { params: { query: { limit: 200, status: 'active', ...(q ? { q } : {}) } } })),
+    placeholderData: (previous) => previous,
   });
   const candidates = (users.data?.items ?? []).filter(
     (u) => canModerate(u) && !keep.includes(u.id) && !added.some((a) => a.id === u.id),
@@ -233,11 +239,14 @@ function ModeratorsForm({ project, onClose }: { project: Project; onClose: () =>
         description={t('admin.registry.addHint')}
         placeholder={t('admin.registry.addPlaceholder')}
         searchable
+        searchValue={search}
+        onSearchChange={setSearch}
         value={null}
         data={candidates.map((u) => ({ value: u.id, label: `${u.full_name} · ${u.login}` }))}
         onChange={(id) => {
           const u = candidates.find((c) => c.id === id);
           if (u) setAdded((x) => [...x, { id: u.id, full_name: u.full_name, initials: '', is_active: true }]);
+          setSearch('');
         }}
       />
       {total === 0 ? <p className="set-danger">{t('admin.registry.lastModerator')}</p> : null}

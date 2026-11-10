@@ -45,7 +45,7 @@ describe('экран «Реестр проектов»', () => {
     await waitFor(() => expect(table().queryByText('Портал дилеров')).toBeNull());
     expect(table().getAllByRole('row')).toHaveLength(3); // шапка и два проекта
 
-    fireEvent.click(screen.getByRole('button', { name: 'Передать или добавить модератора «Миграция CRM»' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Модераторы проекта «Миграция CRM»: передать или добавить' }));
     const dialog = await screen.findByRole('dialog', { name: /Модераторы проекта «Миграция CRM»/ });
     // отмеченный заблокированный не спасает от «без модератора»: сохранить без нового нельзя
     expect(within(dialog).getByRole('checkbox', { name: 'Н. Новиков · заблокирован' })).toHaveProperty('checked', true);
@@ -60,7 +60,7 @@ describe('экран «Реестр проектов»', () => {
 
   it('снять единственного модератора без замены нельзя', async () => {
     const table = await open();
-    fireEvent.click(screen.getByRole('button', { name: 'Передать или добавить модератора «Портал дилеров»' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Модераторы проекта «Портал дилеров»: передать или добавить' }));
     const dialog = await screen.findByRole('dialog', { name: /Модераторы проекта «Портал дилеров»/ });
     fireEvent.click(within(dialog).getByRole('checkbox', { name: 'А. Смирнова' }));
     expect(within(dialog).getByText('Проект нельзя оставить без модератора.')).toBeTruthy();
@@ -70,7 +70,7 @@ describe('экран «Реестр проектов»', () => {
 
   it('режим поддержки: причина обязательна, проект открывается на чтение с жёлтой полосой и без денег', async () => {
     await open();
-    fireEvent.click(screen.getByRole('button', { name: 'Открыть «Портал дилеров» в режиме поддержки' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Режим поддержки: открыть «Портал дилеров»' }));
     const dialog = await screen.findByRole('dialog', { name: /Режим поддержки: «Портал дилеров»/ });
     const button = within(dialog).getByRole('button', { name: 'Открыть проект' }) as HTMLButtonElement;
     fireEvent.change(within(dialog).getByRole('textbox', { name: /Причина/ }), { target: { value: 'Проверка' } });
