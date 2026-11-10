@@ -129,6 +129,10 @@ class Settings(BaseSettings):
             "файла) для «Состояния системы» (FR-SA-07); пишет скрипт бэкапа"
         ),
     )
+    exports_dir: str = Field(
+        default="/data/exports",
+        description="Каталог файлов выгрузок (том `exports`, файлы живут 24 часа, FR-EXP-05)",
+    )
     trusted_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["*"],
         description=(

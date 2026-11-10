@@ -277,6 +277,11 @@ def check_response(
     chosen = media if media in content else next(iter(content))
     if "schema" not in content[chosen]:
         return issues
+    schema = content[chosen]["schema"]
+    if schema.get("format") == "binary":  # файл: проверяется тип содержимого, не JSON-схема
+        if not isinstance(body, bytes | str):
+            issues.append(f"{where}: ожидался файл, а пришло {type(body).__name__}")
+        return issues
     return issues + _validate(where, f"{pointer}/content/{_escape(chosen)}/schema", body)
 
 

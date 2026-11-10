@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import AsyncIterator
+from pathlib import Path
+from typing import Any
 
 import pytest
 from redis.asyncio import Redis
@@ -39,6 +41,22 @@ def totals_queue(monkeypatch: pytest.MonkeyPatch) -> list[uuid.UUID]:
 
     monkeypatch.setattr(totals, "enqueue", record)
     return calls
+
+
+@pytest.fixture(autouse=True)
+def export_queue(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[Any]:
+    """Постановка выгрузок (EXP-003) без брокера: задания по порядку; файлы — во временном
+    каталоге теста. Тест строит файл сам: ``await engine.run(db, job)``."""
+    from estimator.exports import engine
+
+    jobs: list[Any] = []
+
+    async def record(job: Any) -> None:
+        jobs.append(job)
+
+    monkeypatch.setattr(engine, "dispatch", record)
+    monkeypatch.setenv("EXPORTS_DIR", str(tmp_path / "exports"))
+    return jobs
 
 
 @pytest.fixture
