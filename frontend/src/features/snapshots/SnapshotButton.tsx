@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../shared/api/client';
 import { call } from '../../shared/api/problem';
 import { ErrorText } from '../../shared/ui/ErrorText';
-import { snapshotsKey } from '../stats/details/SnapshotsPage';
+import { snapshotsKey } from './keys';
 
 export const SNAPSHOT_NAME_MAX = 100;
 export const SNAPSHOT_DESCRIPTION_MAX = 1000;

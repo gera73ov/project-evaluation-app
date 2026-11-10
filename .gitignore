@@ -40,6 +40,7 @@ e2e/.tls/
 e2e/.e2e-data.json
 e2e/.e2e-work-data.json
 e2e/.e2e-admin-data.json
+e2e/.e2e-perf-data.json
 
 # Данные и дампы
 *.dump

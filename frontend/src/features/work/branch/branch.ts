@@ -1,7 +1,7 @@
 /**
  * FE-029 · правила статуса ветки и отметки «Проверено» (4.3, BR-BR-01…03, FR-REV-01…04, GAP-10).
  */
-import type { TreeState } from '../store/treeStore';
+import { extraOf, type TreeState } from '../store/treeStore';
 
 type Tree = Pick<TreeState, 'nodes' | 'children' | 'calc'>;
 
@@ -38,7 +38,7 @@ export function branchReadiness(tree: Tree, branchNodeId: string): BranchReadine
     if (state === 'empty') empty += 1;
     if (state === 'invalid') invalid += 1;
     const node = tree.nodes.get(id);
-    open += Number(new Map(Object.entries(node?.extra ?? {})).get('open_questions') ?? 0);
+    open += Number(extraOf(node).open_questions ?? 0);
   }
   return { empty, invalid, open, hasNodes: ids.length > 0 };
 }

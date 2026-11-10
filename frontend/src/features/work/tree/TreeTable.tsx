@@ -55,8 +55,9 @@ import { AddMenu, NodeMenu, type RowMenuApi } from '../menu/RowMenus';
 import { useRowMenus, type MenuSetup } from '../menu/useRowMenus';
 import { ConflictDialog } from '../collab/ConflictDialog';
 import { userColor } from '../../../shared/ui/userColor';
-import type { TreeNode, TreeStore } from '../store/treeStore';
+import { extraOf, type TreeNode, type TreeStore } from '../store/treeStore';
 import { useTree } from '../store/useProjectTree';
+import { sameSignature, useFresh } from './fresh';
 import { MAX_INDENT_DEPTH, ancestorsOf, buildRows, indentOf, type TreeRow } from './rows';
 
 export const ROW_HEIGHT = 38;
@@ -105,11 +106,6 @@ export function Highlight({ text, query }: { text: string; query: string | undef
   return <>{parts}</>;
 }
 
-function extra<T>(node: TreeNode | undefined, key: string): T | undefined {
-  if (!node) return undefined;
-  return new Map(Object.entries(node.extra)).get(key) as T | undefined;
-}
-
 /** Причина «неверного» листа для Σ E: «O > R» или «R > P». */
 export function invalidReason(o: Dec | null, r: Dec | null): string {
   return o !== null && r !== null && o.gt(r) ? 'O > R' : 'R > P';
@@ -154,10 +150,10 @@ function Discussion({
   onToggle?: (() => void) | undefined;
 }) {
   const { t } = useTranslation();
-  const count = extra<number>(node, 'messages_count') ?? 0;
+  const count = extraOf(node).messages_count ?? 0;
   if (!count && !onToggle) return null;
-  const open = (extra<number>(node, 'open_questions') ?? 0) > 0;
-  const mine = (extra<number>(node, 'questions_to_me') ?? 0) > 0;
+  const open = (extraOf(node).open_questions ?? 0) > 0;
+  const mine = (extraOf(node).questions_to_me ?? 0) > 0;
   const label = t('tree.discussion', { count }) + (mine ? `, ${t('tree.questionToMe')}` : '');
   const className = ['disc', open ? 'open' : '', !count ? 'ghost' : '', expanded ? 'on' : ''].filter(Boolean).join(' ');
   if (!onToggle)
@@ -207,7 +203,16 @@ interface RowProps {
   onDiscussion?: ((nodeId: string) => void) | undefined;
   /** Готовность ветки (только у строки дисциплины). */
   readiness?: BranchReadiness | undefined;
+  /**
+   * FE-081 · всё, что показывает строка, плоским списком: строка перерисовывается, только когда он
+   * изменился. Объекты действий приходят через `useFresh` и в сравнении не участвуют.
+   */
+  sig: readonly unknown[];
 }
+
+const CELL_FIELDS = ['title', 'o', 'r', 'p', 'multiplier', 'comment'] as const;
+
+const sameRow = (a: RowProps, b: RowProps) => sameSignature(a.sig, b.sig);
 
 const Row = memo(function Row({
   row,
@@ -289,9 +294,9 @@ const Row = memo(function Row({
     );
   const type = node?.type_id ? ctx.nodeTypes.get(node.type_id) : undefined;
   const big = leaf && largeThreshold ? candidate(result.node, leaf, largeThreshold).large : false;
-  const comments = extra<CommentLine[] | null>(node, 'comment_lines') ?? [];
-  const reviewed = extra<unknown>(node, 'reviewed_by');
-  const self = extra<boolean>(node, 'self_review');
+  const comments: CommentLine[] = extraOf(node).comment_lines ?? [];
+  const reviewed = extraOf(node).reviewed_by;
+  const self = extraOf(node).self_review;
   const foreign = row.kind === 'discipline' && !editable;
   const roTitle = editable
     ? undefined
@@ -461,7 +466,27 @@ const Row = memo(function Row({
       />
     </div>
   );
-});
+}, sameRow);
+
+/**
+ * Ключ данных контекста, которые показывают строки: справочники, подписи, права, поиск. Меняется —
+ * перерисовываются все строки; иначе строки сравнивают только свои данные.
+ */
+function contextKey(ctx: TreeContext, menu: RowMenuApi | undefined): string {
+  return [
+    ctx.pmPercent,
+    ctx.pmReason,
+    ctx.settingsHref ?? '',
+    ctx.highlight ?? '',
+    String(ctx.collab?.canForce ?? false),
+    String(Boolean(ctx.discussion)),
+    JSON.stringify([...ctx.nodeTypes]),
+    JSON.stringify([...ctx.tags]),
+    JSON.stringify([...ctx.disciplineNames]),
+    [...ctx.withoutExpert].join(),
+    menu ? JSON.stringify([menu.history, menu.canNotNeeded, menu.config.types, menu.config.can]) : '',
+  ].join('\n');
+}
 
 /** Управление таблицей снаружи: показать строку узла (раскрыть предков и прокрутить к ней). */
 export interface TreeTableApi {
@@ -632,29 +657,84 @@ export function TreeTable({
       else next.add(id);
       return next;
     });
+  // FE-081: строки получают постоянные обёртки действий и перерисовываются по своей подписи
+  const actions = useFresh({ toggle, toggleDiscussion });
+  const rowCells = useFresh(onConfirm ? cells : undefined);
+  const rowMenu = useFresh(menus.api);
+  const rowBranch = useFresh(branch);
+  const thresholdKey = largeThreshold?.toString() ?? null;
+  const ctxKey = contextKey(ctx, menus.api);
 
-  if (!calc || !settings) return null;
+  if (!calc || !settings || !actions) return null;
   const items = virtualizer.getVirtualItems();
-  const rowProps = (row: TreeRow): RowProps => {
-    const base = row.id ? nodes.get(row.id) : undefined;
-    const edit = row.id ? pending.get(row.id) : undefined;
+  /** `sticky` — копия строки поверх прокрутки, без меню. */
+  const rowProps = (row: TreeRow, sticky = false): RowProps => {
+    const id = row.id;
+    const base = id ? nodes.get(id) : undefined;
+    const edit = id ? pending.get(id) : undefined;
+    const res = id ? calc.nodes.get(id) : undefined;
+    const status = row.disciplineId ? branchStatus.get(branchKey(row.phaseId, row.disciplineId)) : undefined;
+    const pmE = row.kind === 'pm' ? (result?.pm.e ?? null) : null;
+    const readiness = row.kind === 'discipline' && id && rowBranch ? branchReadiness(state, id) : undefined;
+    const isTarget = id !== null && id === target;
+    const open = id !== null && discOpen.has(id);
+    const sig: unknown[] = [
+      ctxKey,
+      thresholdKey,
+      row.key,
+      row.kind,
+      row.depth,
+      row.hasChildren,
+      row.collapsed,
+      row.filtered,
+      res?.node,
+      res?.leaf,
+      res?.totals,
+      res?.excluded,
+      base,
+      edit,
+      status,
+      pmE?.toString(),
+      isTarget,
+      open,
+      readiness ? `${readiness.empty}/${readiness.invalid}/${readiness.open}/${readiness.hasNodes}` : null,
+      sticky,
+    ];
+    if (id) {
+      sig.push(
+        ctx.canEdit(row.disciplineId),
+        ctx.collab?.marks.get(id),
+        rowMenu?.context === id,
+        rowMenu ? rowMenu.config.chainOf(row.disciplineId).join() : null,
+        rowBranch?.busy === `status:${id}` || rowBranch?.busy === `review:${id}`,
+        rowBranch?.setup.canDone(row.disciplineId),
+        rowBranch?.setup.canReview(row.disciplineId),
+        rowCells?.editing?.nodeId === id ? rowCells.editing.field : null,
+        rowCells?.savingComments.has(id),
+      );
+      for (const field of CELL_FIELDS) {
+        const key = cellKey(id, field);
+        sig.push(ctx.collab?.locks.get(key), rowCells?.errors.get(key), rowCells?.hints.get(key));
+      }
+    }
     return {
       row,
-      result: row.id ? calc.nodes.get(row.id) : undefined,
+      result: res,
       node: base && edit ? { ...base, ...edit } : base,
-      status: row.disciplineId ? branchStatus.get(branchKey(row.phaseId, row.disciplineId)) : undefined,
+      status,
       ctx,
-      pmE: result?.pm.e ?? null,
+      pmE,
       largeThreshold,
-      onToggle: toggle,
-      target: row.id !== null && row.id === target,
-      cells: onConfirm ? cells : undefined,
+      onToggle: actions.toggle,
+      target: isTarget,
+      cells: rowCells,
       pendingFields: edit ? new Set(Object.keys(edit)) : undefined,
-      menu: menus.api,
-      branch,
-      readiness: row.kind === 'discipline' && row.id && branch ? branchReadiness(state, row.id) : undefined,
-      discOpen: row.id !== null && discOpen.has(row.id),
-      onDiscussion: ctx.discussion ? toggleDiscussion : undefined,
+      menu: sticky ? undefined : rowMenu,
+      branch: rowBranch,
+      readiness,
+      discOpen: open,
+      onDiscussion: ctx.discussion ? actions.toggleDiscussion : undefined,
+      sig,
     };
   };
 
@@ -735,7 +815,7 @@ export function TreeTable({
         {sticky.length ? (
           <div className="tree-sticky">
             {sticky.map((r) => (
-              <Row key={`sticky-${r.key}`} {...rowProps(r)} menu={undefined} />
+              <Row key={`sticky-${r.key}`} {...rowProps(r, true)} />
             ))}
           </div>
         ) : null}

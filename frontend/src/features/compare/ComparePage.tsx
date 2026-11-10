@@ -19,7 +19,7 @@ import { formatDateTime } from '../../shared/format/date';
 import { formatHours, formatHoursInput, formatNumber, formatRate } from '../../shared/format/number';
 import { ErrorText } from '../../shared/ui/ErrorText';
 import { useProject } from '../settings/useProject';
-import { snapshotsKey } from '../stats/details/SnapshotsPage';
+import { snapshotsKey } from '../snapshots/keys';
 import {
   FILTERS,
   compareHref,

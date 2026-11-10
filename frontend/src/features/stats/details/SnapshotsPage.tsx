@@ -20,11 +20,10 @@ import { ConfirmDialog } from '../../../shared/ui/ConfirmDialog';
 import { ErrorText } from '../../../shared/ui/ErrorText';
 import { ExportToast, useProjectExport } from '../../exports/useProjectExport';
 import { compareHref, orderPair } from '../../compare/compare';
+import { snapshotsKey } from '../../snapshots/keys';
 import { StatsShell } from './StatsShell';
 
 type Snapshot = components['schemas']['Snapshot'];
-
-export const snapshotsKey = (projectId: string) => ['snapshots', projectId] as const;
 
 /** Выбор для сравнения: не больше двух, ошибочные не выбираются; третий вытесняет первый. */
 export function toggleSelection(selected: readonly string[], id: string): string[] {
