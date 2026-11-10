@@ -37,6 +37,7 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from estimator.auth import devices
 from estimator.auth.lockout import Event, LockoutPolicy, LoginGuard
 from estimator.auth.mfa_policy import load_mfa_policy
 from estimator.auth.policy import load_auth_mode, load_session_policy, read_settings
@@ -328,6 +329,9 @@ class LoginService:
             mfa_passed=mfa, enrollment_required=enroll, password_change_required=password_change,
         )  # fmt: skip
         user.last_login_at = datetime.now(UTC)
+        new_device = await devices.on_login(
+            db, user, roles, ip=ip, user_agent=user_agent, now=user.last_login_at
+        )  # письмо о входе с нового устройства (AUTH-009)
         await audit.write(
             db,
             "auth.login.succeeded",
@@ -338,7 +342,7 @@ class LoginService:
             session_id=session_id,
             object_type="session",
             object_id=id_hash(session_id).hex(),
-            details={"method": method, "mfa": mfa},
+            details={"method": method, "mfa": mfa, "new_device": new_device},
         )
         return session_id, record
 
