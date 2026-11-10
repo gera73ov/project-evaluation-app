@@ -24,9 +24,9 @@ from estimator.auth.sessions import RevokeReason, SessionService
 from estimator.db.enums import AuthTokenKind, RoleSource, SystemRole, UserSource, UserStatus
 from estimator.db.models.users import BackupCode, User, UserRole
 from estimator.security import audit
+from estimator.security.authz.role_rules import MAX_SUPERADMINS
 
 LINK_TTL = timedelta(minutes=60)
-MAX_SUPERADMINS = 3  # BR-ROLE-03: активных 2–3
 _LIVE = (UserStatus.ACTIVE, UserStatus.PENDING_PASSWORD)
 
 

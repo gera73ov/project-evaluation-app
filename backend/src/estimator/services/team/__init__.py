@@ -37,14 +37,13 @@ from estimator.db.models.projects import Project, ProjectMember
 from estimator.db.models.users import User, UserRole
 from estimator.notifications import inapp
 from estimator.security import audit
+from estimator.security.authz import role_rules
 from estimator.services.common import emit, user_ref
 from estimator.services.projects import disciplines, journal
 from estimator.services.projects.lifecycle import notify_assigned
 
 PRESALE_LIMIT = 3  # FR-PRJ-01
 _ROLE_ORDER = {ProjectRole.MODERATOR: 0, ProjectRole.PRESALE: 1, ProjectRole.EXPERT: 2}
-_INCOMPATIBLE = (SystemRole.SUPERADMIN, SystemRole.SECURITY_AUDITOR)
-
 Key = tuple[uuid.UUID, ProjectRole, uuid.UUID | None]
 
 
@@ -146,9 +145,7 @@ async def _check_new(
             raise _validation("/members", "Пользователь не найден")
         if user.status in (UserStatus.BLOCKED, UserStatus.ANONYMIZED):
             raise _validation("/members", "Заблокированного пользователя нельзя назначить")
-        clash = sorted(r.value for r in roles[spec.user_id] if r in _INCOMPATIBLE)
-        if clash:
-            raise ApiError("ROLE_INCOMPATIBLE", conflicting_roles=clash)
+        role_rules.check_project_member(roles[spec.user_id])  # BR-ROLE-02, R-COMPAT
         if spec.role is ProjectRole.MODERATOR and SystemRole.MODERATOR not in roles[spec.user_id]:
             raise ApiError("MEMBER_ROLE_REQUIRED", required_role="moderator")
         if spec.role is ProjectRole.PRESALE and SystemRole.PRESALE not in roles[spec.user_id]:
@@ -388,7 +385,7 @@ async def replace_member(
             "/replacement_user_id", "Замена должна быть незаблокированным пользователем"
         )
     roles = (await _system_roles(db, [replacement_id]))[replacement_id]
-    if roles & set(_INCOMPATIBLE):
+    if roles & role_rules.NO_PROJECTS:
         raise _validation("/replacement_user_id", "Этого пользователя нельзя назначить в проект")
     needed = {ProjectRole(r.role) for r in rows}
     if ProjectRole.MODERATOR in needed and not roles & {
@@ -465,7 +462,7 @@ async def candidates(
     ``role=moderator`` — только с системной ролью «Модератор», ``presale`` — «Пресейл». Поиск
     по ФИО без учёта регистра; логин, почта и статус не отдаются.
     """
-    excluded = select(UserRole.user_id).where(UserRole.role.in_(_INCOMPATIBLE))
+    excluded = select(UserRole.user_id).where(UserRole.role.in_(tuple(role_rules.NO_PROJECTS)))
     pattern = "%" + q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
     stmt = select(User.id, User.full_name).where(
         User.status == UserStatus.ACTIVE,
