@@ -20,7 +20,8 @@ const WsContext = createContext<WsClient | null>(null);
 export interface WsProviderProps {
   /** Соединение открыто, только пока true (сессия «ready»). */
   enabled: boolean;
-  onSessionEnded: (reason: string) => void;
+  /** `restart` — открыть соединение снова, если сессия на деле жива (её id сменил step-up). */
+  onSessionEnded: (reason: string, restart: () => void) => void;
   onUserEvent?: (event: WsEvent) => void;
   /** Тесты подставляют фабрику сокета и задержки. */
   options?: Partial<WsClientOptions>;
@@ -37,7 +38,10 @@ export function WsProvider({ enabled, onSessionEnded, onUserEvent, options, chil
   );
   // колбэки меняются между рендерами; клиент живёт всё время провайдера
   useLayoutEffect(() => {
-    client.setCallbacks({ onSessionEnded, ...(onUserEvent ? { onUserEvent } : {}) });
+    client.setCallbacks({
+      onSessionEnded: (reason) => onSessionEnded(reason, () => client.start()),
+      ...(onUserEvent ? { onUserEvent } : {}),
+    });
   });
   useEffect(() => {
     if (!enabled) return undefined;

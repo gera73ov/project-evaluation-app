@@ -117,6 +117,7 @@ export function AnonymizePage() {
                         size="xs"
                         color="red"
                         variant="light"
+                        c="var(--bad-ink)" // DESIGN 2.3: текст тоном -ink, у Mantine red.6 на светлом фоне ниже 4.5:1
                         aria-label={t('system.anonymize.actionFor', { name: a.full_name })}
                         onClick={() => {
                           setDone(null);
