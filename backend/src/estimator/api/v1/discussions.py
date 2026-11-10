@@ -16,7 +16,6 @@ from fastapi import HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from estimator.api.common.errors import ApiError
 from estimator.api.common.pagination import PageParams, encode_cursor
 from estimator.api.common.router import ApiRouter
 from estimator.api.v1 import core_schemas as s
@@ -30,6 +29,7 @@ from estimator.db.session import DbSession
 from estimator.security.authz.deps import AuthorizerDep, register_resolver
 from estimator.security.authz.engine import Target
 from estimator.security.ratelimit.limiter import LIMITS, RateLimiter
+from estimator.services.customer_questions import flow as cq_flow
 from estimator.services.discussions import addressees as addr
 from estimator.services.discussions import edit as message_edit
 from estimator.services.discussions import feed, resolve, write
@@ -44,7 +44,13 @@ async def thread_target(db: AsyncSession, thread_id: uuid.UUID) -> Target | None
     """Объект ``/threads/{id}``: проект, статус, дисциплина узла, автор и адресаты вопроса."""
     row = (
         await db.execute(
-            select(Thread.project_id, Thread.opened_by, Project.status, Node.discipline_id)
+            select(
+                Thread.project_id,
+                Thread.opened_by,
+                Project.status,
+                Node.discipline_id,
+                Thread.customer_status,
+            )
             .join(Project, Project.id == Thread.project_id)
             .outerjoin(Node, Node.id == Thread.node_id)
             .where(Thread.id == thread_id, Node.deleted_at.is_(None))
@@ -52,7 +58,7 @@ async def thread_target(db: AsyncSession, thread_id: uuid.UUID) -> Target | None
     ).first()
     if row is None:
         return None
-    project_id, opened_by, status, discipline_id = row
+    project_id, opened_by, status, discipline_id, cq_status = row
     tokens = (
         await db.execute(
             select(MessageAddressee.target_type, MessageAddressee.target_id)
@@ -67,6 +73,7 @@ async def thread_target(db: AsyncSession, thread_id: uuid.UUID) -> Target | None
         disciplines=frozenset({discipline_id}) if discipline_id else frozenset(),
         author_id=opened_by,
         addressees=frozenset(users),
+        attrs={"cq_status": str(cq_status)} if cq_status else {},
     )
 
 
@@ -340,8 +347,10 @@ async def resolve_thread(
     """«Решено» (FR-DISC-05); с ``conclusion`` — строка вывода в комментарий узла вопроса."""
     thread = await _thread(db, id)
     target = await thread_target(db, thread.id)
-    if thread.is_customer:  # закрытие вопроса заказчику — CORE-044
-        raise ApiError("INVALID_TRANSITION", detail="Вопрос заказчику закрывают его статусом")
+    if thread.is_customer:  # BR-CQ-02: «отвечен» → «решён» (автор, модератор, пресейл)
+        await authz.check("cq.close", target)
+        await cq_flow.close(db, principal, thread)
+        return await _thread_out(db, thread)
     await authz.check("thread.resolve", target)
     conclusion = body.conclusion
     if conclusion is not None:
@@ -381,8 +390,10 @@ async def reopen_thread(
     authz: AuthorizerDep,
 ) -> dict[str, Any]:
     thread = await _thread(db, id)
-    if thread.is_customer:  # переоткрытие вопроса заказчику — CORE-044
-        raise ApiError("INVALID_TRANSITION", detail="Вопрос заказчику переоткрывают его статусом")
+    if thread.is_customer:  # BR-CQ-02: «решён» → «отвечен» (модератор, пресейл)
+        await authz.check("cq.reopen", await thread_target(db, thread.id))
+        await cq_flow.reopen(db, principal, thread)
+        return await _thread_out(db, thread)
     await authz.check("thread.resolve", await thread_target(db, thread.id))
     await resolve.reopen(db, principal, thread)
     return await _thread_out(db, thread)

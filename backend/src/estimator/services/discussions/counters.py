@@ -3,8 +3,8 @@
 У строки узла: ``messages_count`` — все записи ленты узла, включая серые события (N в «Показать
 всё (N)»); ``open_questions`` — открытые вопросы узла (оранжевый значок); ``questions_to_me`` —
 открытые вопросы узла, где зритель среди адресатов (красная точка). У ветки — открытые вопросы
-во всех её узлах. Сводные «вопросы мне / всего» по проекту и включение счётчиков в события —
-CORE-045.
+во всех её узлах. У проекта (шапка «Открыто», CORE-045, CR-013) — открытые вопросы узлов
+и проекта и из них «мне».
 """
 
 from __future__ import annotations
@@ -29,6 +29,8 @@ class Counters:
     open: Counter[uuid.UUID] = field(default_factory=Counter)
     to_me: Counter[uuid.UUID] = field(default_factory=Counter)
     branches: Counter[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=Counter)
+    project_open: int = 0
+    project_to_me: int = 0
 
     def node(self, node_id: uuid.UUID) -> dict[str, int]:
         return {
@@ -62,18 +64,26 @@ async def tree_counters(
         .where(*is_open, Node.discipline_id.is_not(None))
         .group_by(Node.phase_id, Node.discipline_id)
     )
+    in_project = (Thread.project_id == project_id, Thread.status == ThreadStatus.OPEN)
+    project_open = int(await db.scalar(select(func.count()).where(*in_project)) or 0)
     to_me: Counter[uuid.UUID] = Counter()
+    project_to_me = 0
     if viewer is not None:
         tokens = (await team(db, project_id)).tokens(viewer)
         rows = await db.execute(
             select(Thread.node_id, func.count())
-            .where(*is_open, addressed(tokens))
+            .where(*in_project, addressed(tokens))
             .group_by(Thread.node_id)
         )
-        to_me = Counter({n: int(c) for n, c in rows.all()})
+        for n, c in rows.all():
+            project_to_me += int(c)
+            if n is not None:
+                to_me[n] = int(c)
     return Counters(
         messages=Counter({n: int(c) for n, c in messages.all()}),
         open=Counter({n: int(c) for n, c in opened.all()}),
         to_me=to_me,
         branches=Counter({(p, d): int(c) for p, d, c in branches.all()}),
+        project_open=project_open,
+        project_to_me=project_to_me,
     )
