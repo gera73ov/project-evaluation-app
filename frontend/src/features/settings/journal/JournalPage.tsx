@@ -30,10 +30,21 @@ export function showValue(value: unknown, t: TFunction): string {
   return String(value as string | number);
 }
 
-/** Статус проекта — словом, как на плашке (DESIGN.md 7.1); остальное — `showValue`. */
+/** Статус проекта и результат пресейла — словом, как на плашке (DESIGN.md 7.1); остальное — `showValue`. */
 export function fieldValue(field: string, value: unknown, t: TFunction): string {
   if (field === 'status' && typeof value === 'string') return t(`status.project.${value}`, { defaultValue: value });
+  if (field === 'outcome' && typeof value === 'string') return t(`outcome.value.${value}`, { defaultValue: value });
   return showValue(value, t);
+}
+
+/** Подпись поля: ставки денег приходят ключами `rate:<discipline_id>` и `rate:pm` (CORE-032). */
+export function fieldLabel(field: string, t: TFunction, disciplineName: (id: string) => string | undefined): string {
+  if (field === 'rate:pm') return t('journal.ratePm');
+  if (field.startsWith('rate:')) {
+    const id = field.slice('rate:'.length);
+    return t('journal.rate', { name: disciplineName(id) ?? id });
+  }
+  return t(`journal.field.${field}`, { defaultValue: field });
 }
 
 /** Пары `{поле: [было, стало]}` → строки; неверные записи пропускаются. */
@@ -43,7 +54,15 @@ export function changeRows(changes: object): { field: string; before: unknown; a
   );
 }
 
-function Changes({ changes, money }: { changes: object; money?: boolean }) {
+function Changes({
+  changes,
+  money,
+  disciplineName,
+}: {
+  changes: object;
+  money?: boolean;
+  disciplineName: (id: string) => string | undefined;
+}) {
   const { t } = useTranslation();
   const rows = changeRows(changes);
   if (!rows.length) return null;
@@ -51,7 +70,7 @@ function Changes({ changes, money }: { changes: object; money?: boolean }) {
     <ul className={money ? 'journal-changes money' : 'journal-changes'}>
       {rows.map((row) => (
         <li key={row.field}>
-          <span className="journal-field">{t(`journal.field.${row.field}`, { defaultValue: row.field })}:</span>{' '}
+          <span className="journal-field">{fieldLabel(row.field, t, disciplineName)}:</span>{' '}
           {fieldValue(row.field, row.before, t)} → {fieldValue(row.field, row.after, t)}
         </li>
       ))}
@@ -59,7 +78,7 @@ function Changes({ changes, money }: { changes: object; money?: boolean }) {
   );
 }
 
-function Row({ entry }: { entry: Entry }) {
+function Row({ entry, disciplineName }: { entry: Entry; disciplineName: (id: string) => string | undefined }) {
   const { t } = useTranslation();
   return (
     <li className="journal-row">
@@ -69,8 +88,8 @@ function Row({ entry }: { entry: Entry }) {
       </div>
       <div className="journal-what">
         <div className="journal-action">{t(`journal.action.${entry.action}`, { defaultValue: entry.action })}</div>
-        <Changes changes={entry.changes} />
-        {entry.money ? <Changes changes={entry.money.changes} money /> : null}
+        <Changes changes={entry.changes} disciplineName={disciplineName} />
+        {entry.money ? <Changes changes={entry.money.changes} money disciplineName={disciplineName} /> : null}
       </div>
     </li>
   );
@@ -91,6 +110,8 @@ export function JournalPage({ projectId }: { projectId: string }) {
     getNextPageParam: (last) => last.next_cursor,
   });
   const entries = (journal.data?.pages.flatMap((p) => p.items) ?? []) as Entry[];
+  const names = new Map((project.data?.disciplines ?? []).map((d) => [d.discipline_id, d.name]));
+  const disciplineName = (id: string) => names.get(id);
 
   return (
     <div className="settings">
@@ -107,7 +128,7 @@ export function JournalPage({ projectId }: { projectId: string }) {
         {entries.length ? (
           <ol className="journal-list">
             {entries.map((entry) => (
-              <Row key={entry.id} entry={entry} />
+              <Row key={entry.id} entry={entry} disciplineName={disciplineName} />
             ))}
           </ol>
         ) : null}

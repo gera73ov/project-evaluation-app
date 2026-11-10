@@ -7,7 +7,7 @@ import { PROJECTS } from '../../../shared/api/mocks/data';
 import { PERSONAS } from '../../../shared/api/mocks/personas';
 import { persona, server } from '../../../test/setup';
 import { HttpResponse, api, http, renderApp } from '../../../test/render';
-import { changeRows, showValue } from './JournalPage';
+import { changeRows, fieldLabel, fieldValue, showValue } from './JournalPage';
 
 const id = PROJECTS.portal.id;
 const t = i18n.t.bind(i18n);
@@ -37,6 +37,28 @@ describe('журнал: значения', () => {
     expect(changeRows({ name: ['А', 'Б'], bad: 'x', short: [1] })).toEqual([
       { field: 'name', before: 'А', after: 'Б' },
     ]);
+  });
+});
+
+describe('журнал: подписи полей CORE-032', () => {
+  const names = (id: string) => (id === 'd-1' ? 'Бэкенд' : undefined);
+
+  it('ставки rate:<дисциплина> и rate:pm, неизвестная дисциплина — id', () => {
+    expect(fieldLabel('rate:d-1', t, names)).toBe('Ставка «Бэкенд», ₽/ч');
+    expect(fieldLabel('rate:pm', t, names)).toBe('Ставка управления проектом, ₽/ч');
+    expect(fieldLabel('rate:d-9', t, names)).toBe('Ставка «d-9», ₽/ч');
+  });
+
+  it('итог пресейла, дисциплины и локальный тип', () => {
+    expect(fieldLabel('outcome', t, names)).toBe('Результат пресейла');
+    expect(fieldLabel('loss_reason', t, names)).toBe('Причина проигрыша');
+    expect(fieldLabel('loss_reason_text', t, names)).toBe('Комментарий к причине');
+    expect(fieldLabel('disciplines', t, names)).toBe('Дисциплины');
+    expect(fieldLabel('icon', t, names)).toBe('Значок');
+    expect(fieldValue('outcome', 'won', t)).toBe('выигран');
+    expect(fieldValue('outcome', 'cancelled', t)).toBe('отменён заказчиком');
+    expect(t('journal.action.project.disciplines')).toBe('Изменён состав дисциплин');
+    expect(t('journal.action.project.node_type')).toBe('Добавлен локальный тип узла');
   });
 });
 
