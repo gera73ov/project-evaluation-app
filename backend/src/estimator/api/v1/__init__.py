@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 from estimator.api.v1 import (
     admin_calendar,
+    admin_dictionaries,
     auth,
     branches,
     changes,
@@ -44,4 +45,5 @@ router.include_router(node_types.router)
 router.include_router(notifications.router)
 router.include_router(discussions.router)
 router.include_router(admin_calendar.router)
+router.include_router(admin_dictionaries.router)
 router.include_router(system_users.router)
