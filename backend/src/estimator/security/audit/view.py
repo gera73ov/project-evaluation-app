@@ -46,6 +46,28 @@ class AuditFilter:
     #: None — все категории; иначе только перечисленные (администратор).
     categories: frozenset[str] | None = field(default=None)
 
+    def to_params(self) -> dict[str, Any]:
+        """Параметры задачи выгрузки (JSON)."""
+        return {
+            "from": _iso(self.since), "to": _iso(self.until),
+            "user_id": str(self.user_id) if self.user_id else None,
+            "event_type": self.event_type, "result": self.result,
+            "categories": sorted(self.categories) if self.categories is not None else None,
+        }  # fmt: skip
+
+    @classmethod
+    def from_params(cls, raw: dict[str, Any]) -> AuditFilter:
+        def ts(key: str) -> dt.datetime | None:
+            return dt.datetime.fromisoformat(raw[key]) if raw.get(key) else None
+
+        cats = raw.get("categories")
+        return cls(
+            since=ts("from"), until=ts("to"),
+            user_id=uuid.UUID(raw["user_id"]) if raw.get("user_id") else None,
+            event_type=raw.get("event_type"), result=raw.get("result"),
+            categories=frozenset(cats) if cats is not None else None,
+        )  # fmt: skip
+
     def summary(self) -> dict[str, Any]:
         """Фильтры для ``audit.viewed`` / ``audit.exported`` (details.filters)."""
         out: dict[str, Any] = {}
@@ -66,8 +88,12 @@ def _iso(value: dt.datetime | None) -> str | None:
     return value.isoformat() if value else None
 
 
-def _query(filt: AuditFilter, *, before: int | None, limit: int | None) -> Any:
-    q = select(AuditLog).order_by(AuditLog.id.desc())
+def query(
+    filt: AuditFilter, *, before: int | None = None, after: int | None = None,
+    limit: int | None = None, ascending: bool = False,
+) -> Any:  # fmt: skip
+    """Выборка записей по фильтру: от новых к старым (просмотр) или по возрастанию (выгрузка)."""
+    q = select(AuditLog).order_by(AuditLog.id.asc() if ascending else AuditLog.id.desc())
     if filt.since is not None:
         q = q.where(AuditLog.ts >= filt.since)
     if filt.until is not None:
@@ -82,6 +108,8 @@ def _query(filt: AuditFilter, *, before: int | None, limit: int | None) -> Any:
         q = q.where(AuditLog.event_type.in_(types_of(filt.categories)))
     if before is not None:
         q = q.where(AuditLog.id < before)
+    if after is not None:
+        q = q.where(AuditLog.id > after)
     if limit is not None:
         q = q.limit(limit)
     return q
@@ -108,5 +136,5 @@ async def list_entries(
     db: AsyncSession, filt: AuditFilter, *, before: int | None, limit: int
 ) -> list[dict[str, Any]]:
     """До ``limit + 1`` записей с ``id < before`` (лишняя — признак следующей страницы)."""
-    rows = (await db.scalars(_query(filt, before=before, limit=limit + 1))).all()
+    rows = (await db.scalars(query(filt, before=before, limit=limit + 1))).all()
     return [entry(r) for r in rows]

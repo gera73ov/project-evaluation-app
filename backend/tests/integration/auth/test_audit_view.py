@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+import io
+import time
 import uuid
 from typing import Any
 
@@ -12,6 +15,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from estimator.db.enums import SystemRole
+from estimator.db.session import run_after_commit
+from estimator.exports import engine
 from estimator.security import audit
 from tests.integration.auth.conftest import complete_setup, csrf_headers, set_setting
 from tests.integration.auth.helpers import PASSWORD, make_user
@@ -21,6 +26,12 @@ pytestmark = [pytest.mark.integration, pytest.mark.spec("SEC-AUD-06")]
 
 async def _sign_in(api: httpx.AsyncClient, db: AsyncSession, role: SystemRole) -> str:
     """Вошедший пользователь с ролью ``role`` и подключённым TOTP; возвращает логин."""
+    return (await _sign_in_with_secret(api, db, role))[0]
+
+
+async def _sign_in_with_secret(
+    api: httpx.AsyncClient, db: AsyncSession, role: SystemRole
+) -> tuple[str, str]:
     await complete_setup(db)
     await set_setting(db, "security.admin_networks", [])
     user = await make_user(db, role)
@@ -33,7 +44,7 @@ async def _sign_in(api: httpx.AsyncClient, db: AsyncSession, role: SystemRole) -
         headers=csrf_headers(api),
     )
     assert confirmed.status_code == 200, confirmed.text
-    return user.login
+    return user.login, started.json()["secret"]
 
 
 async def _seed(db: AsyncSession, mark: str) -> None:
@@ -136,3 +147,86 @@ async def test_other_roles_forbidden(api: httpx.AsyncClient, db_session: AsyncSe
     await _sign_in(api, db_session, role)
     response = await _page(api)
     assert response.status_code == 403
+
+
+# --- выгрузка CSV (SEC-015, FR-EXP-06) ---------------------------------------------------------
+
+
+async def _export(api: httpx.AsyncClient, **body: Any) -> httpx.Response:
+    return await api.post("/api/v1/system/audit/export", json=body, headers=csrf_headers(api))
+
+
+@pytest.mark.spec("FR-EXP-06")
+async def test_export_csv(
+    api: httpx.AsyncClient, db_session: AsyncSession, redis_client: Any, export_queue: list[Any]
+) -> None:
+    me, secret = await _sign_in_with_secret(api, db_session, SystemRole.SECURITY_AUDITOR)
+    mark = f"m.{uuid.uuid4().hex[:8]}"
+    await _seed(db_session, mark)
+    await audit.write(db_session, "auth.login.failed", "failure", login="=cmd|calc",
+                      details={"reason": "wrong_password"}, actor="anonymous")  # fmt: skip
+    now = await db_session.scalar(text("SELECT now()"))
+    period = {"from": now.replace(year=now.year - 1).isoformat(),
+              "to": now.replace(year=now.year + 1).isoformat()}  # fmt: skip
+
+    no_step_up = await _export(api, **period)
+    assert no_step_up.status_code == 403
+    assert no_step_up.json()["code"] == "STEP_UP_REQUIRED"
+    await redis_client.delete(f"totp:last:{(await _user_id(db_session, me))}")
+    stepped = await api.post(
+        "/api/v1/auth/step-up",
+        json={"code": pyotp.TOTP(secret).at(time.time() + 30), "password": PASSWORD},
+        headers=csrf_headers(api),
+    )
+    assert stepped.status_code == 200, stepped.text
+    reversed_period = await _export(api, **{"from": period["to"], "to": period["from"]})
+    assert reversed_period.status_code == 422
+
+    made = await _export(api, **period, event_type="dict.changed")
+    assert made.status_code == 202, made.text
+    assert made.json()["kind"] == "audit_csv"
+    await db_session.commit()
+    await run_after_commit(db_session)
+    [job] = [j for j in export_queue if str(j.export_id) == made.json()["id"]]
+    await engine.run(db_session, job)
+    ready = (await api.get(f"/api/v1/exports/{job.export_id}")).json()
+    assert ready["status"] == "ready"
+    assert ready["file_name"].startswith("Аудит_")
+    assert ready["file_name"].endswith(".csv")
+    got = await api.get(ready["download_url"])
+    assert got.status_code == 200
+    raw = got.content.decode("utf-8")
+    assert raw.startswith("\ufeff# Коммерческая тайна; ")
+    lines = list(csv.reader(io.StringIO(raw.lstrip("\ufeff")), delimiter=";"))
+    assert lines[1][:4] == ["time", "type", "category", "result"]
+    data = [r for r in lines[2:] if r]
+    assert {r[1] for r in data} == {"dict.changed"}
+    assert any(r[5] == mark for r in data)
+    assert all(len(r[13]) == 64 for r in data), "hash каждой записи"
+
+    everything = await _export(api, **period, result="failure")
+    await db_session.commit()
+    await run_after_commit(db_session)
+    [job2] = [j for j in export_queue if str(j.export_id) == everything.json()["id"]]
+    await engine.run(db_session, job2)
+    body = (await api.get(f"/api/v1/exports/{job2.export_id}/download")).content.decode()
+    assert ";'=cmd|calc;" in body, "формульный префикс экранирован"
+
+    exported = await db_session.execute(
+        text("SELECT details FROM audit.audit_log WHERE event_type = 'audit.exported' "
+             "AND login = :l ORDER BY id"), {"l": me},
+    )  # fmt: skip
+    first = exported.scalars().first()
+    assert first["filters"]["type"] == "dict.changed"
+    assert first["rows"] == len(data)
+
+
+async def _user_id(db: AsyncSession, login: str) -> Any:
+    return await db.scalar(text("SELECT id FROM users WHERE login = :l"), {"l": login})
+
+
+async def test_admin_cannot_export(api: httpx.AsyncClient, db_session: AsyncSession) -> None:
+    await _sign_in(api, db_session, SystemRole.ADMIN)
+    response = await _export(api, **{"from": "2026-01-01T00:00:00Z", "to": "2026-12-31T00:00:00Z"})
+    assert response.status_code == 403
+    assert response.json()["code"] == "FORBIDDEN"
