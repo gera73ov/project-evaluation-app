@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from typing import Any, Literal
 
@@ -105,3 +106,26 @@ class SetupStep(_Strict):
 class SetupStepWrite(_Strict):
     values: dict[str, Any]
     complete: bool = False
+
+
+# --- журнал аудита (SEC-015) ------------------------------------------------------------------
+
+
+class AuditEntry(_Strict):
+    id: int
+    ts: dt.datetime
+    event_type: str
+    category: str
+    result: Literal["success", "failure", "denied"]
+    user_id: uuid.UUID | None
+    login: str | None
+    ip: str | None
+    user_agent: str | None
+    object_type: str | None
+    object_id: str | None
+    details: dict[str, Any]
+
+
+class AuditPage(_Strict):
+    items: list[AuditEntry]
+    next_cursor: str | None

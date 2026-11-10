@@ -43,6 +43,7 @@ paths:
             schema:
               $ref: '#/components/schemas/LoginRequest'
       x-error-codes:
+      - NOT_FOUND
       - VALIDATION_FAILED
       - LOGIN_FAILED
       - LOGIN_LOCKED
@@ -58,6 +59,8 @@ paths:
                 $ref: '#/components/schemas/LoginResponse'
         '401':
           $ref: '#/components/responses/Problem401'
+        '404':
+          $ref: '#/components/responses/Problem404'
         '422':
           $ref: '#/components/responses/Problem422'
         '429':
@@ -112,6 +115,7 @@ paths:
             schema:
               $ref: '#/components/schemas/TotpLoginRequest'
       x-error-codes:
+      - NOT_FOUND
       - VALIDATION_FAILED
       - TOTP_INVALID
       - LOGIN_STEP_EXPIRED
@@ -126,6 +130,8 @@ paths:
                 $ref: '#/components/schemas/LoginResponse'
         '401':
           $ref: '#/components/responses/Problem401'
+        '404':
+          $ref: '#/components/responses/Problem404'
         '422':
           $ref: '#/components/responses/Problem422'
         '429':
@@ -167,6 +173,7 @@ paths:
       x-spec:
       - FR-2FA-04
       x-error-codes:
+      - NOT_FOUND
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
@@ -183,6 +190,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
         '429':
           $ref: '#/components/responses/Problem429'
         '500':
@@ -204,6 +213,7 @@ paths:
             schema:
               $ref: '#/components/schemas/TotpCode'
       x-error-codes:
+      - NOT_FOUND
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
@@ -222,6 +232,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
         '422':
           $ref: '#/components/responses/Problem422'
         '429':
@@ -245,6 +257,7 @@ paths:
             schema:
               $ref: '#/components/schemas/StepUpRequest'
       x-error-codes:
+      - NOT_FOUND
       - UNAUTHENTICATED
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
@@ -264,6 +277,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '404':
+          $ref: '#/components/responses/Problem404'
         '422':
           $ref: '#/components/responses/Problem422'
         '429':
