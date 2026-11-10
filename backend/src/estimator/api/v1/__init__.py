@@ -33,6 +33,7 @@ from estimator.api.v1 import (
     stats,
     system_admins,
     system_audit,
+    system_auth,
     system_health,
     system_projects,
     system_settings,
@@ -81,3 +82,4 @@ router.include_router(system_settings.router)
 router.include_router(system_setup.router)
 router.include_router(system_users.router)
 router.include_router(system_audit.router)
+router.include_router(system_auth.router)

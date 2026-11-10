@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from estimator.api.v1 import core_schemas as core
 from estimator.api.v1.admin_schemas import _EMAIL
 
 AdminRole = Literal["superadmin", "admin", "security_auditor"]
@@ -139,3 +140,54 @@ class AuditExport(_Strict):
     user_id: uuid.UUID | None = None
     event_type: str | None = Field(default=None, max_length=200)
     result: Literal["success", "failure", "denied"] | None = None
+
+
+# --- AD: проверки, сопоставление ролей (AUTH-015, CR-009) ---------------------------------------
+
+
+class AdTestConnection(_Strict):
+    values: dict[str, Any] | None = None
+
+
+class AdTestLogin(_Strict):
+    values: dict[str, Any] | None = None
+    login: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=1, max_length=128, repr=False)
+
+
+class AdTestUser(_Strict):
+    full_name: str
+    email: str | None
+    disabled: bool
+    groups: list[str]
+    roles: list[Literal["superadmin", "admin", "moderator", "presale", "presale_head",
+                        "security_auditor"]]  # fmt: skip
+    in_access_group: bool
+
+
+class AdTestResult(_Strict):
+    ok: bool
+    elapsed_ms: int
+    detail: str | None = None
+    user: AdTestUser | None = None
+
+
+class RoleMappingValues(_Strict):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    role_mapping: dict[str, Any] = Field(alias="auth.ad.role_mapping")
+
+
+class RoleMappingPreviewRequest(_Strict):
+    values: RoleMappingValues
+
+
+class RoleMappingItem(_Strict):
+    user: core.UserRef
+    login: str
+    removed: list[Literal["moderator", "presale"]]
+    added: list[Literal["moderator", "presale"]]
+
+
+class RoleMappingPreview(_Strict):
+    items: list[RoleMappingItem]

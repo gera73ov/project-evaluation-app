@@ -19,9 +19,9 @@ SEC-AUTH-07; 15.2 ``GET/PUT /system/settings/{section}``).
   событием на раздел. Условия оповещений проверяет сам :func:`audit.write` (SEC-011).
 * Смена SMTP: до записи новых значений — письмо ИБ через **старый** сервер
   (:func:`notify.before_smtp_change`); через новый письмо уходит от самого события.
-* Раздел ``auth``: способ входа меняет только переход «Приложение → AD» (AUTH-018), параметры AD —
-  только после проверок подключения и входа (AUTH-015). До них любое изменение раздела — 409
-  ``AD_CHECKS_REQUIRED`` (или 422 для ``auth.mode``).
+* Раздел ``auth``: способ входа меняет только переход «Приложение → AD» (AUTH-018, здесь — 422),
+  параметры AD записывает :func:`estimator.auth.ad_settings.save` — только после проверок
+  подключения и входа (409 ``AD_CHECKS_REQUIRED``), с пересчётом ролей по группам (AUTH-015).
 """
 
 from __future__ import annotations
@@ -187,10 +187,10 @@ async def apply(
             raise validation_error(
                 [("/auth.mode", "Способ входа меняет переход на Active Directory")]
             )
-        raise ApiError(
-            "AD_CHECKS_REQUIRED",
-            detail="Параметры AD сохраняются после проверок подключения и входа",
-        )
+        from estimator.auth import ad_settings
+
+        await ad_settings.save(db, actor, values, raw, changed, ip=ip)
+        return list(changed)
     if section == "smtp":
         from estimator.security.alerts import notify
 
