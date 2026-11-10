@@ -16,6 +16,7 @@ from fastapi import HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from estimator.api.common.errors import ApiError
 from estimator.api.common.pagination import PageParams, encode_cursor
 from estimator.api.common.router import ApiRouter
 from estimator.api.v1 import core_schemas as s
@@ -26,13 +27,17 @@ from estimator.db.models.discussions import Message, MessageAddressee, Thread
 from estimator.db.models.projects import Project
 from estimator.db.models.tree import Node
 from estimator.db.session import DbSession
-from estimator.security.authz.deps import register_resolver
+from estimator.security.authz.deps import AuthorizerDep, register_resolver
 from estimator.security.authz.engine import Target
 from estimator.security.ratelimit.limiter import LIMITS, RateLimiter
 from estimator.services.discussions import addressees as addr
-from estimator.services.discussions import feed, write
+from estimator.services.discussions import edit as message_edit
+from estimator.services.discussions import feed, resolve, write
+from estimator.services.tree import edit as node_edit
+from estimator.services.tree.moderator_edits import notify_experts
 
 router = ApiRouter(tags=["Обсуждения"])
+_NO_CONCLUSION = s.ResolveRequest()
 
 
 async def thread_target(db: AsyncSession, thread_id: uuid.UUID) -> Target | None:
@@ -66,6 +71,30 @@ async def thread_target(db: AsyncSession, thread_id: uuid.UUID) -> Target | None
 
 
 register_resolver("/threads/{id}", thread_target)
+
+
+async def message_target(db: AsyncSession, message_id: uuid.UUID) -> Target | None:
+    """Объект ``/messages/{id}``: проект, статус, дисциплина узла, автор сообщения."""
+    row = (
+        await db.execute(
+            select(Message.project_id, Message.author_id, Project.status, Node.discipline_id)
+            .join(Project, Project.id == Message.project_id)
+            .outerjoin(Node, Node.id == Message.node_id)
+            .where(Message.id == message_id, Node.deleted_at.is_(None))
+        )
+    ).first()
+    if row is None:
+        return None
+    project_id, author_id, status, discipline_id = row
+    return Target(
+        project_id=project_id,
+        project_status=str(status),
+        disciplines=frozenset({discipline_id}) if discipline_id else frozenset(),
+        author_id=author_id,
+    )
+
+
+register_resolver("/messages/{id}", message_target)
 
 
 async def _project(db: AsyncSession, project_id: uuid.UUID) -> Project:
@@ -280,3 +309,129 @@ async def suggest_addressees(
     db: DbSession,
 ) -> dict[str, Any]:
     return {"items": await addr.suggest(db, id, q)}
+
+
+async def _thread(db: AsyncSession, thread_id: uuid.UUID) -> Thread:
+    thread = await db.get(Thread, thread_id)
+    if thread is None:  # pragma: no cover — gate уже ответил 404
+        raise HTTPException(404, detail={"code": "NOT_FOUND"})
+    return thread
+
+
+async def _thread_out(db: AsyncSession, thread: Thread) -> dict[str, Any]:
+    await db.flush()
+    [out] = await feed.threads_out(db, [thread])
+    return out
+
+
+@router.post(
+    "/threads/{id}/resolve",
+    permission=["thread.resolve", "cq.close"],
+    response_model=s.Thread,
+    response_model_exclude_unset=True,
+)
+async def resolve_thread(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    principal: ActivePrincipal,
+    db: DbSession,
+    authz: AuthorizerDep,
+    body: s.ResolveRequest = _NO_CONCLUSION,
+) -> dict[str, Any]:
+    """«Решено» (FR-DISC-05); с ``conclusion`` — строка вывода в комментарий узла вопроса."""
+    thread = await _thread(db, id)
+    target = await thread_target(db, thread.id)
+    if thread.is_customer:  # закрытие вопроса заказчику — CORE-044
+        raise ApiError("INVALID_TRANSITION", detail="Вопрос заказчику закрывают его статусом")
+    await authz.check("thread.resolve", target)
+    conclusion = body.conclusion
+    if conclusion is not None:
+        node = await node_edit.live_node(db, thread.node_id) if thread.node_id else None
+        if node is None:
+            raise addr.invalid("conclusion", "вывод добавляется только к вопросу узла")
+        project = await _project(db, thread.project_id)
+        node_target = Target(
+            project_id=project.id,
+            project_status=str(project.status),
+            disciplines=frozenset({node.discipline_id}) if node.discipline_id else frozenset(),
+        )
+        await authz.check("comment.write", node_target)
+        lines = resolve.conclusion_lines(node, conclusion.text, conclusion.tag_id)
+        was = node.version
+        node, _, _ = await node_edit.patch_node(
+            db, principal, project, node, node.version, {"comment_lines": lines}
+        )
+        if node.version != was:
+            await notify_experts(
+                db, principal, project.id, node.id, node.discipline_id, ["comment"]
+            )
+    await resolve.resolve(db, principal, thread)
+    return await _thread_out(db, thread)
+
+
+@router.post(
+    "/threads/{id}/reopen",
+    permission=["thread.resolve", "cq.reopen"],
+    response_model=s.Thread,
+    response_model_exclude_unset=True,
+)
+async def reopen_thread(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    principal: ActivePrincipal,
+    db: DbSession,
+    authz: AuthorizerDep,
+) -> dict[str, Any]:
+    thread = await _thread(db, id)
+    if thread.is_customer:  # переоткрытие вопроса заказчику — CORE-044
+        raise ApiError("INVALID_TRANSITION", detail="Вопрос заказчику переоткрывают его статусом")
+    await authz.check("thread.resolve", await thread_target(db, thread.id))
+    await resolve.reopen(db, principal, thread)
+    return await _thread_out(db, thread)
+
+
+async def _message(db: AsyncSession, message_id: uuid.UUID) -> Message:
+    message = await db.get(Message, message_id)
+    if message is None:  # pragma: no cover — gate уже ответил 404
+        raise HTTPException(404, detail={"code": "NOT_FOUND"})
+    return message
+
+
+@router.patch(
+    "/messages/{id}",
+    permission="discussion.write",
+    response_model=s.Message,
+    response_model_exclude_unset=True,
+)
+async def edit_message(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    body: s.MessagePatch,
+    principal: ActivePrincipal,
+    db: DbSession,
+) -> dict[str, Any]:
+    return await message_edit.edit(db, principal, await _message(db, id), body.body)
+
+
+@router.post(
+    "/messages/{id}/revoke",
+    permission="discussion.write",
+    response_model=s.Message,
+    response_model_exclude_unset=True,
+)
+async def revoke_message(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    principal: ActivePrincipal,
+    db: DbSession,
+) -> dict[str, Any]:
+    return await message_edit.revoke(db, principal, await _message(db, id))
+
+
+@router.get(
+    "/messages/{id}/history",
+    permission="discussion.history",
+    response_model=s.MessageHistoryList,
+    response_model_exclude_unset=True,
+)
+async def get_message_history(
+    id: uuid.UUID,  # noqa: A002 — имя параметра из контракта
+    db: DbSession,
+) -> dict[str, Any]:
+    return {"items": await message_edit.history(db, await _message(db, id))}

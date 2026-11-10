@@ -556,6 +556,12 @@ permissions:
       - "POST /threads/{id}/messages"
       - "PATCH /messages/{id}"
       - "POST /messages/{id}/revoke"
+  discussion.history:
+    title: Исходный текст отредактированного и отозванного сообщения (CR-012)
+    spec: [FR-DISC-06]
+    read_only: true
+    endpoints:
+      - "GET /messages/{id}/history"
   thread.resolve:
     title: Закрыть и переоткрыть обычный вопрос (обсуждение)
     spec: [FR-DISC-05, 4.4]
@@ -759,6 +765,7 @@ grants:
     - {permission: trash.restore, context: member, scope: any}
     - {permission: discussion.read, context: member}
     - {permission: discussion.write, context: member}
+    - {permission: discussion.history, context: member}
     - {permission: thread.resolve, context: member, scope: any}
     - {permission: cq.read, context: member}
     - {permission: cq.manage, context: member}
