@@ -3465,6 +3465,12 @@ export type components = {
             nodes_count: number;
             /** @constant */
             nodes_limit: 5000;
+            /** @description CR-013. «Открыто: всего» — открытые вопросы проекта (узлов и проекта), включая вопросы заказчику до «решён»/«снят» (FR-TREE-11, 11.4 №3) */
+            open_questions: number;
+            /** @description CR-013. «Открыто» (мне) — открытые вопросы, где зритель среди адресатов */
+            questions_to_me: number;
+            /** @description CR-013. Счётчик рисков — живые листья с меткой категории «Риск» в комментарии */
+            risks: number;
         };
         NodeCreate: {
             parent_id: components["schemas"]["Uuid"];

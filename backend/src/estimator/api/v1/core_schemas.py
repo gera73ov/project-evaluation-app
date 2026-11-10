@@ -190,6 +190,9 @@ class TreeTotals(_Strict):
     unaccounted_leaves: int
     nodes_count: int
     nodes_limit: Literal[5000]
+    open_questions: int = Field(ge=0)
+    questions_to_me: int = Field(ge=0)
+    risks: int = Field(ge=0)
 
 
 class Tree(_Strict):
@@ -709,3 +712,29 @@ class MessageHistoryEntry(_Strict):
 
 class MessageHistoryList(_Strict):
     items: list[MessageHistoryEntry]
+
+
+# --- вопросы заказчику (CORE-044) -------------------------------------------------------------
+
+
+class CqAnswer(_Strict):
+    body: str = Field(min_length=1, max_length=10000)
+
+
+class CqWithdraw(_Strict):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class CqEdit(_Strict):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class CustomerQuestion(_Strict):
+    thread: Thread
+    path: list[str]
+    answer: Message | None
+
+
+class CustomerQuestionList(_Strict):
+    items: list[CustomerQuestion]
+    next_cursor: str | None

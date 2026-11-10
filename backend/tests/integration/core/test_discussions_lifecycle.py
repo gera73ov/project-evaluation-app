@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from estimator.db.enums import CommentTagCategory
 from estimator.db.models.dictionaries import CommentTag
 from estimator.db.models.discussions import MessageHistory
 from estimator.realtime.bus.memory import InMemoryBus
@@ -178,3 +179,48 @@ async def test_feed_events(world: World, db_session: AsyncSession) -> None:
     last = (await s.moderator.get(f"/nodes/{talk['id']}/messages")).json()["items"][0]
     assert last["event"]["type"] == "question_redirected"
     assert last["event"]["to"]["id"] == str(s.moderator.id)
+
+
+@pytest.mark.spec("FR-TREE-11")
+async def test_open_and_risk_counters(world: World, db_session: AsyncSession) -> None:
+    s = await _setup(world, db_session)
+    branch = await s.branch(db_session, s.backend)
+    leaf = await _leaf(s.backend_expert, s, branch.id, "Вход", o="8", r="12", p="20")
+
+    async def totals(actor) -> tuple[int, int, int]:  # type: ignore[no-untyped-def]
+        t = (await actor.get(f"/projects/{s.pid}/tree")).json()["totals"]
+        return t["open_questions"], t["questions_to_me"], t["risks"]
+
+    assert await totals(s.moderator) == (0, 0, 0)
+    asked = await s.moderator.post(
+        f"/nodes/{leaf['id']}/messages", json={"body": "SSO?", "needs_answer": True}
+    )
+    top = await s.backend_expert.post(
+        f"/projects/{s.pid}/threads", json={"node_id": None, "body": "Срок?"}
+    )
+    assert await totals(s.moderator) == (2, 1, 0)  # вопрос проекта — модераторам
+    assert await totals(s.backend_expert) == (2, 1, 0)  # вопрос узла — дисциплине
+    assert await totals(s.frontend_expert) == (2, 0, 0)
+
+    await s.moderator.post(f"/threads/{top.json()['id']}/resolve", json={})
+    assert await totals(s.moderator) == (1, 0, 0)
+
+    risk = (
+        await db_session.scalars(
+            select(CommentTag.id).where(CommentTag.category == CommentTagCategory.RISK)
+        )
+    ).first()
+    node = next(
+        n
+        for n in (await s.moderator.get(f"/projects/{s.pid}/tree")).json()["nodes"]
+        if n["id"] == leaf["id"]
+    )
+    tagged = await _patch(
+        s.backend_expert,
+        leaf["id"],
+        node["version"],
+        comment_lines=[{"tag_id": str(risk), "text": "Нет протокола 1С"}],
+    )
+    assert tagged.status_code == 200, tagged.text
+    assert await totals(s.frontend_expert) == (1, 0, 1)
+    assert asked.status_code == 201
