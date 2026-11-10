@@ -41,6 +41,13 @@ const contexts: BrowserContext[] = [];
 const cspErrors: string[] = [];
 let admin: Page;
 
+/** Пользователи этого прогона: на общем стенде их легко не найти на первой странице списка. */
+async function onlyThisRun(page: Page): Promise<void> {
+  await page.getByRole('textbox', { name: 'ФИО или логин' }).fill(seed.suffix);
+  // поиск применяется с задержкой: ждём, пока в таблице останутся только строки этого прогона
+  await expect(page.getByRole('table').getByRole('row').filter({ hasNotText: seed.suffix })).toHaveCount(1);
+}
+
 async function code(page: Page, login: string): Promise<string> {
   while (currentStep() <= (lastStep.get(login) ?? 0)) await page.waitForTimeout(1000);
   const step = currentStep();
@@ -95,6 +102,7 @@ test.afterAll(async () => {
 
 test('пользователи: создание с ролью, роли, сброс пароля с подтверждением кодом', async () => {
   await admin.goto('/admin/users');
+  await onlyThisRun(admin);
   const table = admin.getByRole('table');
   await admin.getByRole('button', { name: '+ Добавить' }).click();
   const login = `e2e.new.${seed.suffix}`;
@@ -178,6 +186,7 @@ test('предложенный тип из проекта отклоняется
 
 test('реестр: блокировка модератора, назначение нового, режим поддержки', async () => {
   await admin.goto('/admin/users');
+  await onlyThisRun(admin);
   await admin.getByRole('table').getByRole('button', { name: seed.moderator.name }).click();
   await admin.getByRole('button', { name: 'Заблокировать' }).click();
   await admin
