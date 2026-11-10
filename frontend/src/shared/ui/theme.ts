@@ -27,6 +27,8 @@ export const theme = createTheme({
   radius: { xs: '4px', sm: '6px', md: '8px', lg: '10px', xl: '12px' },
   defaultRadius: 'sm',
   headings: { fontFamily: 'var(--f)', fontWeight: '700' },
+  // FE-080: при «уменьшить движение» в системе окна и меню появляются без анимации
+  respectReducedMotion: true,
 });
 
 /**
