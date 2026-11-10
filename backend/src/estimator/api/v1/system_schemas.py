@@ -191,3 +191,26 @@ class RoleMappingItem(_Strict):
 
 class RoleMappingPreview(_Strict):
     items: list[RoleMappingItem]
+
+
+# --- поиск в AD (AUTH-017) ----------------------------------------------------------------------
+
+
+class AdSearchItem(_Strict):
+    object_guid: uuid.UUID
+    login: str
+    full_name: str
+    email: str | None
+    department: str | None
+    in_access_group: bool
+    user_id: uuid.UUID | None
+
+
+class AdSearchList(_Strict):
+    items: list[AdSearchItem]
+
+
+class ProjectAdCreate(_Strict):
+    object_guid: uuid.UUID
+    discipline_id: uuid.UUID
+    is_reviewer: bool = False

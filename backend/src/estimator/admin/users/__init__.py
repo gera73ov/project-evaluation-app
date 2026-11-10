@@ -6,7 +6,8 @@ FR-AUTH-AD-07, FR-2FA-03, FR-SESS-05, BR-ROLE-08, BR-PRJ-07, SEC-AUTHZ-06; 15.2 
 * Создание — режим «Приложение»: логин (латиница, цифры, ``.``, ``-``, ``_``, 3–64, уникален без
   учёта регистра), ФИО, email (уникален), роли «Модератор», «Пресейл», «Руководитель пресейла».
   Пароль не задаётся: статус «ждёт пароль» и ссылка активации на 72 часа — письмом, а без SMTP
-  или email — в ответе для показа на экране. Заведение из каталога AD — AUTH-013 (этап 4).
+  или email — в ответе для показа на экране. Режим AD: человек из поиска по каталогу
+  (``ad_object_guid``, AUTH-017) — учётка AD до первого входа, без пароля и ссылки.
 * Изменение — ФИО, email и роли. ``roles`` в запросе — полный набор ролей, которые выдаёт
   администратор; остальные роли учётки не трогаются. Правила — :mod:`role_rules` (SEC-017):
   свои роли не меняет никто, «Модератор» и «Пресейл» у пользователя AD при сопоставлении групп
@@ -235,9 +236,13 @@ async def create_user(
     ad_object_guid: uuid.UUID | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """Завести локального пользователя (FR-AUTH-LOC-01); вернуть ``User`` и ссылку активации."""
-    if ad_object_guid is not None or await load_auth_mode(db) != "local":
-        # FR-AUTH-AD-10: заведение из каталога — вместе с поиском AD (AUTH-013, этап 4)
-        raise _validation("ad_object_guid", "Заведение из каталога AD пока недоступно")
+    mode = await load_auth_mode(db)
+    if ad_object_guid is not None or mode != "local":
+        if mode == "local":
+            raise _validation("ad_object_guid", "Из каталога AD заводят только в режиме AD")
+        if ad_object_guid is None:
+            raise _validation("ad_object_guid", "Выберите человека из каталога AD")
+        return await _create_from_ad(db, actor, ad_object_guid, roles)
     login, full_name, email = login.strip(), full_name.strip(), _clean_email(email)
     wanted = sorted({SystemRole(r) for r in roles})
     if not full_name:
@@ -269,6 +274,28 @@ async def create_user(
     link = await passwords.issue_activation(db, user, created_by=actor.user_id)
     activation = Activation(link.link, link.emailed, _expiry(AuthTokenKind.ACTIVATION))
     return user_out(user, (await _roles(db, [user.id]))[user.id]), activation.out()
+
+
+async def _create_from_ad(
+    db: AsyncSession, actor: Principal, guid: uuid.UUID, roles: Iterable[str]
+) -> tuple[dict[str, Any], None]:
+    """Заведение из каталога AD до первого входа (AUTH-017, FR-AUTH-AD-10): без пароля и ссылки."""
+    from estimator.auth import ad_search
+
+    wanted = sorted({SystemRole(r) for r in roles})
+    role_rules.check_change(
+        actor_id=actor.user_id, actor_roles=actor.roles, target_id=uuid.uuid4(), before=(),
+        after=wanted, ad_mapping_locked=await _ad_mapping_enabled(db),
+    )  # fmt: skip
+    user, created = await ad_search.ensure_user(
+        db, actor, guid, source="admin_ad_search", roles=[r.value for r in wanted]
+    )
+    if not created:
+        raise ApiError("ALREADY_EXISTS", detail="Этот человек уже заведён", field="ad_object_guid")
+    for role in wanted:
+        db.add(UserRole(user_id=user.id, role=role, source=RoleSource.MANUAL))
+    await db.flush()
+    return user_out(user, (await _roles(db, [user.id]))[user.id]), None
 
 
 async def _ad_mapping_enabled(db: AsyncSession) -> bool:

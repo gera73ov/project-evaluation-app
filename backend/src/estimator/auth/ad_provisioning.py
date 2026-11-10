@@ -62,6 +62,7 @@ async def _email(db: AsyncSession, entry: Entry, me: uuid.UUID | None) -> str | 
 async def create(
     db: AsyncSession, entry: Entry, *, source: str, actor_id: uuid.UUID | None = None,
     actor_login: str | None = None, project_id: uuid.UUID | None = None,
+    roles: Collection[str] = (),
 ) -> User:  # fmt: skip
     """Новая учётка AD (JIT или заведение заранее из поиска, AUTH-017)."""
     if await _taken(db, User.login, entry.login, None):
@@ -71,7 +72,7 @@ async def create(
                 ad_object_guid=entry.object_guid, status=UserStatus.ACTIVE)  # fmt: skip
     db.add(user)
     await db.flush()
-    details: dict[str, Any] = {"source": source, "roles": []}
+    details: dict[str, Any] = {"source": source, "roles": sorted(roles)}
     if project_id is not None:
         details["project_id"] = str(project_id)
     await audit.write(

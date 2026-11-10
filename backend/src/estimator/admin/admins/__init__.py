@@ -6,8 +6,8 @@ BR-ROLE-02, BR-ROLE-03, Q-07, Q-22, SEC-AUTH-05, SEC-AUTH-07; 15.2 ``/system/adm
   анонимизированных), по ФИО. В ``roles`` — только эти три роли.
 * Создание — локальная учётка со статусом «ждёт пароль» и ссылкой активации (письмом или на экран).
   Суперадминистраторов 2–3: четвёртого создать нельзя (409 ``SUPERADMIN_LIMIT``). Суперадминистратор
-  всегда входит локально (FR-SA-03). Заведение администратора из каталога AD — с поиском AD
-  (AUTH-017): до него ``ad_object_guid`` или режим AD для не-суперадминистратора — 422.
+  всегда входит локально (FR-SA-03). В режиме AD администратор и аудитор ИБ заводятся из каталога
+  по ``ad_object_guid`` из поиска (AUTH-017): логин, ФИО и email берутся из AD, ссылки нет.
 * ``PATCH`` — ``roles``: полный набор ролей «Администратор» и «Аудитор ИБ» учётки (выдача и снятие,
   правила SEC-017: аудитор ИБ совместим только с «Пользователь», свои роли не меняет никто);
   ``status``: блокировка и разблокировка, последнего активного суперадминистратора блокировать
@@ -128,11 +128,16 @@ async def create_admin(
         raise users._validation("login", "Логин: латиница, цифры, «.», «-», «_», 3–64 символа")
     if not full_name:
         raise users._validation("full_name", "Укажите ФИО")
-    if ad_object_guid is not None or (
-        wanted != SystemRole.SUPERADMIN and await load_auth_mode(db) != "local"
-    ):
-        # FR-SA-05: администратор из AD — поиском по каталогу (AUTH-017)
-        raise users._validation("ad_object_guid", "Заведение из каталога AD пока недоступно")
+    mode = await load_auth_mode(db)
+    if wanted == SystemRole.SUPERADMIN and ad_object_guid is not None:
+        raise users._validation("ad_object_guid", "Суперадминистратор — всегда локальная учётка")
+    if wanted != SystemRole.SUPERADMIN and (ad_object_guid is not None or mode != "local"):
+        # FR-SA-05, FR-AUTH-AD-10: администратор и аудитор ИБ в режиме AD — из каталога
+        if mode == "local":
+            raise users._validation("ad_object_guid", "Из каталога AD заводят только в режиме AD")
+        if ad_object_guid is None:
+            raise users._validation("ad_object_guid", "Выберите человека из каталога AD")
+        return await _create_from_ad(db, actor, ad_object_guid, wanted)
     if wanted == SystemRole.SUPERADMIN:
         await role_rules.ensure_superadmin_slot(db)
     await users._unique(db, login=login, email=email_clean, exclude=None)
@@ -158,6 +163,29 @@ async def create_admin(
     link = await passwords.issue_activation(db, user, created_by=actor.user_id)
     expires = users._expiry(AuthTokenKind.ACTIVATION)
     return users.Activation(link.link, link.emailed, expires).out()
+
+
+async def _create_from_ad(
+    db: AsyncSession, actor: Principal, guid: uuid.UUID, role: SystemRole
+) -> dict[str, Any]:
+    """Администратор или аудитор ИБ из каталога AD (AUTH-017): логин, ФИО и email — из AD.
+
+    Пароля и ссылки установки нет — вход через AD; ответ ``ActivationLink`` без ссылки.
+    """
+    import datetime as dt
+
+    from estimator.auth import ad_search
+
+    user, created = await ad_search.ensure_user(
+        db, actor, guid, source="admin_ad_search", roles=[role.value]
+    )
+    if not created:
+        raise ApiError("ALREADY_EXISTS", detail="Этот человек уже заведён", field="ad_object_guid")
+    db.add(UserRole(user_id=user.id, role=role, source=RoleSource.MANUAL))
+    await db.flush()
+    await _privileged_event(db, actor, user, role, "created")
+    return {"emailed": False, "activation_url": None,
+            "expires_at": dt.datetime.now(dt.UTC).isoformat()}  # fmt: skip
 
 
 async def _set_roles(

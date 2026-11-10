@@ -6,6 +6,7 @@
 from fastapi import APIRouter
 
 from estimator.api.v1 import (
+    ad_search,
     admin_calendar,
     admin_dictionaries,
     admin_projects,
@@ -83,3 +84,4 @@ router.include_router(system_setup.router)
 router.include_router(system_users.router)
 router.include_router(system_audit.router)
 router.include_router(system_auth.router)
+router.include_router(ad_search.router)

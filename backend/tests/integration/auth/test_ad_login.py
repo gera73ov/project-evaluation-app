@@ -203,3 +203,20 @@ async def test_blocked_users(
     assert await _events(db_session, "users.unblocked", unblocked.id) == [
         {"previous_reason": "ad_group", "automatic": True}
     ]
+
+
+@pytest.mark.spec("SEC-PD-03")
+async def test_after_anonymization_new_account(
+    api: httpx.AsyncClient, db_session: AsyncSession, ad: FakeDirectory
+) -> None:
+    """Долг SEC-014: повторный вход анонимизированного через AD создаёт новую учётку."""
+    person = ad.add("egorov")
+    assert (await _login(api, "egorov", person.password)).status_code == 200
+    old = await _user(db_session, person)
+    old.status, old.anonymized_no, old.ad_object_guid = UserStatus.ANONYMIZED, 990001, None
+    old.login, old.email = f"deleted.{old.id.hex[:8]}", None
+    await db_session.flush()
+    api.cookies.clear()
+    assert (await _login(api, "egorov", person.password)).status_code == 200
+    fresh = await _user(db_session, person)
+    assert fresh.id != old.id
