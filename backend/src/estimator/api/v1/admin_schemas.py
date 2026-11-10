@@ -140,3 +140,65 @@ class MethodSettings(_Strict):
     medium_expected_units: ExpectedUnits
     pm_percent_default: DecimalString
     autoarchive_days: int = Field(ge=0, le=3650)
+
+
+# --- пользователи (ADM-006) -------------------------------------------------------------------
+
+SystemRoleName = Literal[
+    "superadmin", "admin", "moderator", "presale", "presale_head", "security_auditor"
+]
+GrantableRole = Literal["moderator", "presale", "presale_head"]
+#: Проверка вида адреса; доставку проверяет почта
+_EMAIL = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+
+
+class UserRoleOut(_Strict):
+    role: SystemRoleName
+    source: Literal["manual", "ad_group"]
+
+
+class User(_Strict):
+    id: uuid.UUID
+    login: str
+    full_name: str
+    email: str | None
+    source: Literal["local", "ad"]
+    system_roles: list[UserRoleOut]
+    status: Literal["active", "blocked", "pending_password", "anonymized"]
+    block_reason: Literal["manual", "ad_disabled", "ad_group", "ad_missing", "not_matched"] | None
+    last_login_at: str | None
+    totp_enabled: bool
+
+
+class UserList(_Strict):
+    items: list[User]
+    next_cursor: str | None
+
+
+class UserCreate(_Strict):
+    login: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9._-]{3,64}$")
+    full_name: str = Field(min_length=1, max_length=200)
+    email: str = Field(default=None, max_length=254, pattern=_EMAIL)  # type: ignore[assignment]
+    roles: list[GrantableRole]
+    ad_object_guid: uuid.UUID | None = None
+
+
+class UserPatch(_Strict):
+    full_name: str = Field(default=None, min_length=1, max_length=200)  # type: ignore[assignment]
+    email: str | None = Field(default=None, max_length=254, pattern=_EMAIL)
+    roles: list[GrantableRole] = Field(default=None)  # type: ignore[assignment]
+
+
+class ActivationLink(_Strict):
+    emailed: bool
+    activation_url: str | None
+    expires_at: str
+
+
+class UserCreated(_Strict):
+    user: User
+    activation: ActivationLink | None
+
+
+class BlockRequest(_Strict):
+    reason: str | None = Field(default=None, max_length=500)
