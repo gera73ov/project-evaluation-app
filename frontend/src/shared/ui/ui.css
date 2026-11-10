@@ -627,8 +627,8 @@ tr:target td{background:var(--accent-soft)}
 .sys-health-name{font-weight:600}
 .sys-state{display:flex;align-items:center;gap:6px;font-weight:600}
 .sys-state i{width:8px;height:8px;border-radius:50%;display:inline-block}
-.sys-state.ok{color:var(--ok)} .sys-state.ok i{background:var(--ok)}
-.sys-state.bad{color:var(--bad)} .sys-state.bad i{background:var(--bad)}
+.sys-state.ok{color:var(--ok-ink)} .sys-state.ok i{background:var(--ok)}
+.sys-state.bad{color:var(--bad-ink)} .sys-state.bad i{background:var(--bad)}
 .sys-health-detail{font-size:12.5px}
 .sys-health-at{font-size:11.5px;color:var(--muted)}
 
@@ -771,9 +771,9 @@ table.cq-table td{vertical-align:top}
 .auth-sec{margin-bottom:16px}
 .auth-sec h2{font-size:15px;font-weight:700;margin:0 0 12px}
 .auth-mode{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start;border:1.5px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:12px 16px}
-.auth-mode p{margin:4px 0 0;color:var(--muted);max-width:620px}
+.auth-mode p{margin:4px 0 0;color:var(--muted-ink);max-width:620px}
 .auth-dot{width:16px;height:16px;border-radius:50%;border:5px solid var(--accent);background:#fff;margin-top:2px}
-.auth-mode-side{text-align:right;color:var(--muted);font-size:13px}
+.auth-mode-side{text-align:right;color:var(--muted-ink);font-size:13px}
 .auth-mode-side .auth-counts{display:inline;margin:0}
 .auth-warn{background:var(--warn-soft,#fdf3e1);color:var(--warn-text-strong);border:1px solid var(--warn-border);border-radius:6px;padding:9px 12px;margin:12px 0 0}
 .auth-grid{display:grid;grid-template-columns:200px minmax(0,1fr);gap:10px 14px;align-items:center}
