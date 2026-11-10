@@ -1,4 +1,4 @@
-# E2E (FE-090, FE-091, FE-094, FE-081, QA-018)
+# E2E (FE-090, FE-091, FE-094, FE-081, FE-093, QA-018)
 
 Playwright-сценарии UI против настоящего API.
 
@@ -10,13 +10,16 @@ E2E_BASE_URL=https://dev.example.local \
 E2E_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/auth/seed.py' \
 E2E_WORK_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/work/seed.py' \
 E2E_ADMIN_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/admin/seed.py' \
+E2E_STATS_SEED_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/stats/seed.py' \
+E2E_STATS_FILL_CMD='docker compose -f ../deploy/compose/docker-compose.yml exec -T api python /e2e/perf/fill.py' \
 npx playwright test
 ```
 
 ## Запуск без Docker
 
 Нужны Postgres и Redis, применённые миграции (`uv run estimator migrate`) и API на `127.0.0.1:8000`
-с `APP_BASE_URL=https://localhost:8443`. Затем:
+с `APP_BASE_URL=https://localhost:8443`, а также worker Celery (`uv run celery -A
+estimator.jobs.celery_app worker`): он пересчитывает итоги проекта для портфеля после правок. Затем:
 
 ```bash
 (cd frontend && npm run build)
@@ -45,6 +48,12 @@ cd e2e && npm ci && npx playwright test
   последнего модератора → «без модератора», назначение нового, режим поддержки). Данные создаёт
   `admin/seed.py`: администратор, два модератора и пользователь. Системная часть (суперадминистратор,
   AD, журнал аудита) появится вместе с её серверной частью.
+
+- `stats/` — статистика, снимки и портфель (FE-093): итоги вкладки «Итоги» совпадают с сервером и
+  верхней панелью рабочего экрана, «Напомнить не начавшим» уходит эксперту ветки, снимок
+  «v1 — КП отправлено» → правка оценки → сравнение с текущим, руководитель пресейла находит проект в
+  портфеле и становится модератором. Данные создаёт `stats/seed.py` (модератор, руководитель пресейла,
+  эксперт), узлы — `perf/fill.py` на 60 узлов. Выгрузки появятся вместе с серверной частью EXP.
 
 - `perf/` — замеры рабочего экрана на 5 000 узлах (FE-081): открытие, ввод O, прокрутка. В общий
   прогон не входят: `E2E_PERF=1 npx playwright test perf` (на стенде ещё `E2E_PERF_SEED_CMD` и
