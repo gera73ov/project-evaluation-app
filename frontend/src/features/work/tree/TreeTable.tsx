@@ -21,6 +21,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEvent,
   type MouseEvent,
   type ReactNode,
   type Ref,
@@ -235,6 +236,7 @@ const Row = memo(function Row({
   onDiscussion,
 }: RowProps) {
   const { t } = useTranslation();
+  const [dropAt, setDropAt] = useState<'above' | 'below' | null>(null);
   if (row.kind === 'pm') {
     return (
       <div className="tr pm" role="row">
@@ -277,6 +279,12 @@ const Row = memo(function Row({
   if (target) classes.push('target');
   const mark = ctx.collab?.marks.get(id);
   if (mark) classes.push('changed');
+  if (dropAt) classes.push(`drop-${dropAt}`);
+  const movable = menu && (row.kind === 'node' || row.kind === 'leaf');
+  const below = (e: DragEvent) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    return e.clientY > box.top + box.height / 2;
+  };
   const lockOf = (field: 'title' | 'o' | 'r' | 'p' | 'multiplier' | 'comment') =>
     ctx.collab?.locks.get(cellKey(id, field));
   const canForce = ctx.collab?.canForce ?? false;
@@ -352,8 +360,42 @@ const Row = memo(function Row({
             },
           }
         : {})}
+      {...(movable
+        ? {
+            onDragOver: (e: DragEvent) => {
+              if (!menu.drag.canDrop(id)) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              const at = below(e) ? 'below' : 'above';
+              if (at !== dropAt) setDropAt(at);
+            },
+            onDragLeave: () => setDropAt(null),
+            onDrop: (e: DragEvent) => {
+              e.preventDefault();
+              setDropAt(null);
+              menu.drag.drop(id, below(e));
+            },
+          }
+        : {})}
     >
       <div className="td node" role="cell" style={{ paddingLeft: indentOf(row.depth) }}>
+        {movable ? (
+          <span
+            className="drag"
+            draggable
+            title={t('menu.drag')}
+            aria-hidden="true"
+            data-testid={`drag-${id}`}
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', id);
+              menu.drag.start(id);
+            }}
+            onDragEnd={() => menu.drag.end()}
+          >
+            ⋮⋮
+          </span>
+        ) : null}
         {toggle}
         {row.kind === 'node' || row.kind === 'leaf' ? (
           <span className="ic" title={type?.name}>
