@@ -15,10 +15,19 @@ export interface Period {
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-/** Период по умолчанию: с 1-го числа месяца четыре месяца назад по сегодня (как на макете: 01.07 – 03.11). */
-export function defaultPeriod(today: Date): Period {
-  const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 4, 1));
-  return { from: iso(from), to: iso(today) };
+/**
+ * Период по умолчанию: с 1-го числа месяца четыре месяца назад по сегодня (как на макете: 01.07 – 03.11).
+ * «Сегодня» — в поясе пользователя: сервер отбирает проекты по дате создания в поясе приложения, и
+ * около полуночи дата по UTC отставала бы на день — проекты, созданные «сегодня», выпадали бы из периода.
+ */
+export function defaultPeriod(now: Date, timeZone?: string): Period {
+  // en-CA форматирует дату как ГГГГ-ММ-ДД
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+    now,
+  );
+  const [year, month] = today.split('-').map(Number);
+  const from = new Date(Date.UTC(year!, month! - 1 - 4, 1));
+  return { from: iso(from), to: today };
 }
 
 const countOf = (map: object, keys: readonly string[]) => {

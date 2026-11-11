@@ -76,3 +76,5 @@ load/report/
 load/slots*.json
 # QA-021: отчёты ZAP
 deploy/zap/report/
+# Копия эталона «Портала дилеров» для seed-demo — тоже только в образе
+backend/src/estimator/cli/portal-dilerov.json

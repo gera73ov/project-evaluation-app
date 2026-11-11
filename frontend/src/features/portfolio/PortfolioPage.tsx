@@ -91,7 +91,7 @@ export function PortfolioPage({ me }: { me: Me }) {
   const navigate = useNavigate();
   const client = useQueryClient();
   const timeZone = me.timezone ?? undefined;
-  const [period, setPeriod] = useState<Period>(() => defaultPeriod(new Date()));
+  const [period, setPeriod] = useState<Period>(() => defaultPeriod(new Date(), timeZone));
   const [filters, setFilters] = useState<Filters>({ status: null, outcome: null, moderator: null, q: '' });
   const q = useDebounced(filters.q.trim(), 300);
   const search = q.length >= SEARCH_MIN ? q : '';

@@ -49,6 +49,12 @@ describe('правила портфеля', () => {
     expect(defaultPeriod(new Date('2026-11-03T09:00:00Z'))).toEqual({ from: '2026-07-01', to: '2026-11-03' });
   });
 
+  it('«сегодня» — в поясе пользователя: после полуночи по Москве уже следующий день', () => {
+    const lateUtc = new Date('2026-11-30T21:30:00Z');
+    expect(defaultPeriod(lateUtc, 'UTC')).toEqual({ from: '2026-07-01', to: '2026-11-30' });
+    expect(defaultPeriod(lateUtc, 'Europe/Moscow')).toEqual({ from: '2026-08-01', to: '2026-12-01' });
+  });
+
   it('показатели: проекты по статусам, «6 из 13», договор / в КП как отношение', () => {
     expect(kpis(summary)).toMatchObject({
       total: 24,
