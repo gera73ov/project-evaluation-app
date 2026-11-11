@@ -100,6 +100,8 @@ def collect_backend() -> dict:
 class Report:
     markdown: str
     unknown: list[tuple[str, str, str]]  # (вид, ID, тест)
+    #: TC из 17.1 и сценарии 17.2 без теста или только с pending-шагами (``--require-all``)
+    missing: list[str] = field(default_factory=list)
 
 
 def build_report(dumps: list[dict], spec: SpecIndex) -> Report:
@@ -148,7 +150,16 @@ def build_report(dumps: list[dict], spec: SpecIndex) -> Report:
     if unknown:
         lines += ["", "## ID, которых нет в SPEC", "", "| Маркер | ID | Тест |", "|---|---|---|"]
         lines += [f"| {k} | {v} | `{t}` |" for k, v, t in unknown]
-    return Report(markdown="\n".join(lines) + "\n", unknown=unknown)
+    pending_ids = {
+        value
+        for d in dumps
+        for t in d["tests"]
+        if t.get("pending")
+        for value in t.get("gherkin", [])
+    }
+    missing = [tc for tc in spec.tc if not by_kind["tc"].get(tc)]
+    missing += [g for g in spec.gherkin if not by_kind["gherkin"].get(g) or g in pending_ids]
+    return Report(markdown="\n".join(lines) + "\n", unknown=unknown, missing=missing)
 
 
 def _natural(value: str) -> list[object]:
@@ -176,6 +187,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", nargs="*", type=Path, help="готовые выгрузки маркеров")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--strict", action="store_true", help="ошибка, если ID нет в SPEC")
+    parser.add_argument(
+        "--require-all",
+        action="store_true",
+        help="ошибка, если у TC из 17.1 или сценария 17.2 нет теста (или шаги pending) — QA-027",
+    )
     args = parser.parse_args(argv)
 
     spec = parse_spec(SPEC.read_text(encoding="utf-8"))
@@ -189,7 +205,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"отчёт трассировки: {args.output}")
     for kind, value, test in report.unknown:
         print(f"нет в SPEC: {kind}({value}) — {test}", file=sys.stderr)
-    return 1 if args.strict and report.unknown else 0
+    for value in report.missing:
+        print(f"нет теста: {value}", file=sys.stderr)
+    failed = (args.strict and report.unknown) or (args.require_all and report.missing)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

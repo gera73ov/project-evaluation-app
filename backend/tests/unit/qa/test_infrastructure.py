@@ -140,6 +140,25 @@ def test_tool_writes_report_from_dump(tmp_path: Path) -> None:
     assert "## ID, которых нет в SPEC" in out.read_text(encoding="utf-8")
 
 
+@pytest.mark.spec("17.2а")
+def test_require_all_fails_on_missing_or_pending(tmp_path: Path) -> None:
+    """QA-027: ворота CI — у каждого TC 17.1 и сценария 17.2 есть тест, шаги не pending."""
+    spec = traceability.parse_spec((ROOT / "docs/spec/SPEC.md").read_text(encoding="utf-8"))
+    full = [{"nodeid": f"t.py::test_{i}", "tc": [i], "spec": [], "gherkin": []} for i in spec.tc]
+    full += [{"nodeid": f"t.py::test_{g}", "tc": [], "spec": [], "gherkin": [g]}
+             for g in spec.gherkin]  # fmt: skip
+    assert traceability.build_report([{"source": "b", "tests": full}], spec).missing == []
+    full[-1]["pending"] = True
+    gone = full[1:]
+    report = traceability.build_report([{"source": "b", "tests": gone}], spec)
+    assert report.missing == [next(iter(spec.tc)), "G-26"]
+    dump = tmp_path / "b.json"
+    dump.write_text(json.dumps({"source": "b", "tests": gone}), encoding="utf-8")
+    out = tmp_path / "r.md"
+    assert traceability.main(["--json", str(dump), "--output", str(out)]) == 0
+    assert traceability.main(["--json", str(dump), "--output", str(out), "--require-all"]) == 1
+
+
 # --- фабрики ---------------------------------------------------------------------------------
 
 
