@@ -1803,7 +1803,7 @@
   - Артефакты: `deploy/home-stand/README.md`, `deploy/home-stand/setup.sh`, `deploy/home-stand/e2e-stand.sh`, `.github/workflows/e2e-stand.yml`
   - Готово, когда: исполнитель виден в GitHub как Idle; `e2e-stand` на PR с кодом проходит на домашнем стенде и выкладывает отчёт; на PR только с `docs/**` и `PLAN.md` не запускается.
 
-- [ ] **QA-012** · Набор AD на Samba: TC-AUTH-01, TC-AUTH-02 и Gherkin · трек QA
+- [x] **QA-012** · Набор AD на Samba: TC-AUTH-01, TC-AUTH-02 и Gherkin · трек QA · PR (QA-012): `make test-ad` — 22 проверки `tests/integration/ad` и сценарии G-04, G-05, G-06, G-10, G-11, G-26 на Samba AD домашнего стенда (шаг `ad-suite` в `e2e-stand`); найдены и исправлены: отключённая в AD учётка попадала в аудит как `wrong_password` (AD отвечает на bind «data 533»), чужой сертификат контроллера при StartTLS давал 500 вместо 503; шаги — `backend/tests/acceptance/steps/ad_steps.py`, интерфейсная часть G-11 — в FE-094
   - SPEC: TC-AUTH-01, TC-AUTH-02, 17.1 (Samba AD DC), Q-50, G-04, G-05, G-06, G-10, G-11, G-26, CL-10, CL-13
   - Зависит: AUTH-016, AUTH-018, INF-004, QA-002
   - Сделать: TC-AUTH-01 (пустой пароль без bind; логин `*)(uid=*` экранируется; одинаковый ответ для всех причин); TC-AUTH-02 (отключение в AD → сессия завершена ≤ 15 мин; ручная блокировка не снимается синхронизацией); вложенные группы, отключённые учётки, переименование логина; шаги G-04 (`login.failed` с `ad_account_disabled`), G-05 (`ad_not_in_group`), G-06 (вход СА при недоступном AD), G-10 (неоднозначное совпадение), G-11 (`switch-mode mode=local` → 409), G-26 (удалён из группы → блок `ad_group` ≤ 15 мин).

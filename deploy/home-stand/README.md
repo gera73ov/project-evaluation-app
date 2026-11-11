@@ -144,6 +144,7 @@ sudo usermod -aG docker stand
 sudo -iu stand
 git clone https://github.com/gera73ov/project-evaluation-app.git && cd project-evaluation-app
 make up-test && make smoke-test
+make test-ad   # наборы входа через AD на Samba (QA-012)
 make down
 ```
 

@@ -12,7 +12,8 @@
     2. поиск сервисной учёткой по ``user_filter`` с экранированным логином
        (``escape_filter_chars``);
        найдено не ровно одна запись — отказ (``user_not_found`` / ``ad_ambiguous``);
-    3. bind найденной записью и введённым паролем — ``wrong_password``;
+    3. bind найденной записью и введённым паролем — ``wrong_password``; ответ AD «data 533»
+       (пароль верный, учётка отключена) считается верным паролем, отказ даёт шаг 4;
     4. ``userAccountControl`` с ACCOUNTDISABLE — ``ad_account_disabled``;
     5. членство в группах доступа с учётом вложенности (``LDAP_MATCHING_RULE_IN_CHAIN``) —
        ``ad_not_in_group``;
@@ -278,7 +279,7 @@ class Ldap3Directory:
             except (LDAPException, AdUnavailableError, OSError) as exc:
                 log.warning("ad_controller_unavailable", host=controller.host,
                             error=type(exc).__name__)  # fmt: skip
-                conn.unbind()
+                _close_quietly(conn)
                 continue
             return conn
         raise AdUnavailableError("ни один контроллер AD не ответил")
@@ -352,7 +353,7 @@ class Ldap3Directory:
     def _check_password(self, dn: str, password: str) -> bool:
         conn = self._connect(dn, password)
         try:
-            return bool(conn.bound)
+            return bool(conn.bound) or password_ok_but_disabled(conn.result)
         finally:
             conn.unbind()
 
@@ -418,6 +419,31 @@ class Ldap3Directory:
 
     async def search(self, text: str, limit: int) -> list[Entry]:
         return await asyncio.to_thread(self._search_people, text, limit)
+
+
+#: Подкод ответа AD на bind (49 invalidCredentials, «data 533»): пароль верный, но учётная запись
+#: отключена. AD не пускает отключённую учётку даже с верным паролем, поэтому без этого признака
+#: причина в аудите была бы ``wrong_password`` вместо ``ad_account_disabled`` (G-04; найдено на
+#: Samba AD, QA-012). Другие подкоды (истёк пароль или срок учётки, блокировка) — отказ как есть.
+DISABLED_SUBCODE = "data 533"
+
+
+def password_ok_but_disabled(result: Mapping[str, Any] | None) -> bool:
+    """Bind отклонён только потому, что учётка отключена (дальше её отклонит шаг 4 алгоритма)."""
+    result = result or {}
+    return result.get("result") == 49 and DISABLED_SUBCODE in str(result.get("message") or "")
+
+
+def _close_quietly(conn: Any) -> None:
+    """Закрыть соединение, которое не удалось открыть. После сбоя StartTLS (чужой сертификат)
+    ldap3 уже закрыл сокет, и ``unbind`` падает с ``LDAPSocketSendError`` — вход отвечал 500
+    вместо 503 (найдено на Samba AD, QA-012)."""
+    from ldap3.core.exceptions import LDAPException
+
+    try:
+        conn.unbind()
+    except (LDAPException, OSError):
+        log.debug("ad_unbind_failed")
 
 
 def _first(value: Any) -> Any:

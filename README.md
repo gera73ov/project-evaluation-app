@@ -37,7 +37,8 @@ make up        # nginx, api ×2, worker, beat, PostgreSQL 16, Redis 7, ClamAV; �
 
 - `make up-test` — то же плюс эмуляторы корпоративных сервисов: Samba AD DC (LDAPS на 127.0.0.1:1636),
   Mailpit (письма на http://127.0.0.1:8025), syslog-приёмник TLS вместо SIEM (127.0.0.1:6514).
-  `make smoke-test` проверяет их по протоколам.
+  `make smoke-test` проверяет их по протоколам, `make test-ad` — наборы входа через AD на этом Samba
+  (QA-012; тесты идут в контейнере в сети стенда, учётки `qa-ad-…` удаляются после себя).
 - `make help` — список всех команд, `make ps` и `make logs` — состояние и логи, `make down` — остановить
   стенд (данные в томах сохраняются).
 
