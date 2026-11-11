@@ -300,8 +300,12 @@ async def test_portfolio_export(
     world: World, db_session: AsyncSession, export_queue: list[Any]
 ) -> None:
     pid, moderator = await _portal(world, db_session)
-    today = dt.date.today()
-    body = {"from": (today - dt.timedelta(days=30)).isoformat(), "to": today.isoformat()}
+    # период — по поясу приложения (Москва): после 21:00 UTC там уже завтра, «по» — с запасом
+    today = dt.datetime.now(dt.UTC).date()
+    body = {
+        "from": (today - dt.timedelta(days=30)).isoformat(),
+        "to": (today + dt.timedelta(days=1)).isoformat(),
+    }
     denied = await moderator.post("/portfolio/export", json=body)
     assert (denied.status_code, denied.json()["code"]) == (403, "FORBIDDEN")
     head = await world.actor(SystemRole.PRESALE_HEAD)
