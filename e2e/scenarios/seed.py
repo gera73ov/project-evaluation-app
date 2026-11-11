@@ -37,6 +37,9 @@ from estimator.db.session import dispose_engine, transaction
 from estimator.redis_client import make_redis
 from estimator.security.crypto import get_cipher
 
+#: Сессий без TOTP для G-19: по одной на браузер (playwright.config.ts, BROWSER_USE)
+GUARDED_SESSIONS = 5
+
 
 async def seed() -> dict[str, object]:
     suffix = secrets.token_hex(4)
@@ -121,16 +124,20 @@ async def seed() -> dict[str, object]:
             guarded = await _skeleton(
                 db, users["moderator2"], f"E2E деньги {suffix}", phase_names, discipline_names
             )
-            # G-19: сессия без второго фактора у пользователя с TOTP
-            sid, record = await SessionService(redis).create(
-                db,
-                users["moderator2"].id,
-                [SystemRole.MODERATOR],
-                SessionPolicy(),
-                ip="127.0.0.1",
-                user_agent="e2e scenarios seed",
-                mfa_passed=False,
-            )
+            # G-19: сессии без второго фактора у пользователя с TOTP. Сценарий вводит код, и сессия
+            # его запоминает, поэтому у каждого браузера QA-023 своя сессия (до пяти браузеров)
+            sessions = []
+            for _ in range(GUARDED_SESSIONS):
+                sid, record = await SessionService(redis).create(
+                    db,
+                    users["moderator2"].id,
+                    [SystemRole.MODERATOR],
+                    SessionPolicy(),
+                    ip="127.0.0.1",
+                    user_agent="e2e scenarios seed",
+                    mfa_passed=False,
+                )
+                sessions.append({"session": sid, "csrf": record.csrf})
     finally:
         await redis.aclose()
         await dispose_engine()
@@ -143,7 +150,7 @@ async def seed() -> dict[str, object]:
         "disciplines": [str(row.id) for row in disciplines],
         "discipline_names": discipline_names,
         "archived": {"id": str(archived.id), "name": archived_name},
-        "guarded": {"id": str(guarded.id), "session": sid, "csrf": record.csrf},
+        "guarded": {"id": str(guarded.id), "sessions": sessions},
         "password": password,
         "totp": totp,
     }
