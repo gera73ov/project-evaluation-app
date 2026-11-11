@@ -327,7 +327,6 @@ span.person-name{cursor:default}
 .conflict-row b{font-size:15px;font-weight:700}
 
 /* FE-027 · «+» и «⋯» у строки, меню и диалоги (DESIGN.md 9.9, 16.3) */
-.tree .td.node{position:relative}
 .tree .drag{position:absolute;left:2px;top:50%;transform:translateY(-50%);cursor:grab;color:var(--muted);opacity:0;font-size:11px;letter-spacing:-2px;user-select:none}
 .tree .tr:hover .drag{opacity:1}
 .tree .tr.drop-above{box-shadow:inset 0 2px 0 var(--accent)}
