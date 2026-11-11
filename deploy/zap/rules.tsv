@@ -1,0 +1,5 @@
+# QA-021 · правила ZAP: <id> TAB <IGNORE|INFO|WARN|FAIL> TAB (название). Не указанные — WARN.
+# Порог приёмки (17.3) — нет находок риска High; его проверяет deploy/zap/run.sh по отчётам JSON,
+# поэтому здесь только исключения с обоснованием.
+10049	INFO	(Non-Storable Content: API намеренно отдаёт Cache-Control: no-store, SEC-WEB-01)
+10027	INFO	(Information Disclosure - Suspicious Comments: комментарии в собранном бандле Vite)

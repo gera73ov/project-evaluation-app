@@ -53,8 +53,8 @@ logs: ## логи всех сервисов
 	$(COMPOSE_TEST) logs -f --tail=100
 
 lint: ## ruff и eslint
-	$(UV) run --frozen ruff check . ../deploy ../tools
-	$(UV) run --frozen ruff format --check . ../deploy ../tools
+	$(UV) run --frozen ruff check . ../deploy ../tools ../load
+	$(UV) run --frozen ruff format --check . ../deploy ../tools ../load
 	cd frontend && npm run -s lint && npm run -s typecheck
 
 test-backend: ## pytest с порогами покрытия NFR-MNT-01

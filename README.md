@@ -139,6 +139,7 @@ make traceability   # отчёт «требование → тест» в build/
 | `HEALTH_TIMEOUT` | `upgrade.sh`, `rollback.sh` | Сколько секунд ждать зелёного healthcheck сервиса после перезапуска | `180` |
 | `LOG_DIR` | `collect-logs.sh` | Каталог, куда собираются логи контейнеров | `/var/log/estimator` |
 | `LOG_RETENTION_DAYS` | `collect-logs.sh` | Сколько дней хранить собранные логи (NFR-REL-06) | `90` |
+| `API_REPLICAS` | compose (`api`) | Сколько реплик API запустить; Nginx и Prometheus находят их все через DNS сервиса. Больше двух — если нагрузочный тест (`load/README.md`) упирается в процессор | `2` |
 | `BIND_ADDRESS` | compose (`nginx`) | На каком адресе сервера открыты порты HTTPS и HTTP: `127.0.0.1` на dev, `0.0.0.0` на стендах test и stage | `127.0.0.1` |
 | `STAND_SECRETS_DIR` | `deploy/envs/deploy.sh`, compose стендов | Каталог Docker secrets стенда на сервере: в нём файл `encryption_key` (мастер-ключ) | `/etc/estimator/secrets` |
 | `STAND_ACCESS_FILE` | compose стендов (`nginx`) | Список сетей, которым Nginx отвечает; его пишет `deploy/envs/deploy.sh` из `STAND_NETWORKS` | пишет `deploy.sh` |

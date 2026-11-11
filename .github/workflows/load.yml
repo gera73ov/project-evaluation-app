@@ -1,0 +1,73 @@
+# QA-019 · нагрузочный тест на домашнем стенде (load/README.md), только запуском вручную.
+# Поднимает стенд профиля test тем же скриптом, что e2e-stand, создаёт нагрузочные данные
+# (load/seed.py --mark-setup) и гоняет Locust по профилю NFR-PERF-01. Отчёт HTML и CSV — в
+# артефактах, итог с порогами — в сводке запуска. Домашний компьютер слабее stage, а генератор
+# нагрузки стоит на нём же, поэтому решение по NFR принимается по прогону на stage.
+# Правила безопасности те же, что у e2e-stand.yml: только workflow_dispatch, права — чтение.
+name: load
+
+on:
+  workflow_dispatch:
+    inputs:
+      users:
+        description: "Одновременных пользователей"
+        default: "50"
+      duration:
+        description: "Длительность прогона Locust"
+        default: "10m"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-stand-load
+  cancel-in-progress: false
+
+jobs:
+  load:
+    name: Locust на домашнем стенде
+    runs-on: [self-hosted, home-stand]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      LOGS_DIR: ${{ github.workspace }}/stand-logs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Убрать остатки прошлого прогона
+        run: deploy/home-stand/e2e-stand.sh cleanup
+
+      - name: Собрать образы и поднять стенд (make up-test)
+        timeout-minutes: 40
+        run: deploy/home-stand/e2e-stand.sh up
+
+      - name: Нагрузочный тест (load/run.sh)
+        env:
+          LOAD_USERS: ${{ inputs.users }}
+          LOAD_DURATION: ${{ inputs.duration }}
+          LOAD_SEED_ARGS: --mark-setup
+        run: load/run.sh
+
+      - name: Собрать логи стенда
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh logs
+
+      - name: Отчёт Locust
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: load-report-${{ github.run_number }}
+          path: |
+            load/report/
+            !load/report/slots.*
+            stand-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Остановить и почистить стенд
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh cleanup
