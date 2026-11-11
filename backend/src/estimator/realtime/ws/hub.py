@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from estimator.logging import get_logger
+from estimator.realtime import metrics as ws_metrics
 from estimator.realtime.bus.contract import channel_kind, money_keys_in
 from estimator.realtime.ws.protocol import CLOSE_OVERLOADED
 
@@ -180,11 +181,14 @@ class Hub:
     # --- соединения и подписки ---
 
     def add(self, conn: Connection) -> None:
+        if conn.id not in self.connections:
+            ws_metrics.CONNECTIONS.inc()
         self.connections[conn.id] = conn
         self._index(conn, frozenset(), conn.channels)
 
     def remove(self, conn: Connection) -> None:
-        self.connections.pop(conn.id, None)
+        if self.connections.pop(conn.id, None) is not None:
+            ws_metrics.CONNECTIONS.dec()
         self._index(conn, conn.channels, frozenset())
 
     def set_access(self, conn: Connection, access: ProjectAccess) -> None:

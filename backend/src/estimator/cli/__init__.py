@@ -32,6 +32,7 @@ COMMAND_MODULES: tuple[str, ...] = (
     "estimator.cli.config_cmd",
     "estimator.cli.rotate_key",
     "estimator.cli.audit",
+    "estimator.cli.project_purge",
     "estimator.cli.superadmin",
     "estimator.cli.auth_mode",
     "estimator.cli.seed_demo",
@@ -67,7 +68,9 @@ class CommandRun:
 
 #: Аргументы, значения которых можно писать в аудит (логины допустимы, contracts/audit-events.yaml
 #: ``system.cli.executed``); значения остальных не передаются хукам вообще.
-PUBLIC_ARGUMENTS = frozenset({"login", "check", "dry_run", "mode", "before", "kid"})  # не password
+PUBLIC_ARGUMENTS = frozenset(
+    {"login", "check", "dry_run", "mode", "before", "kid", "project_id", "ticket", "approved_by"}
+)  # не password
 
 
 class CommandHook(Protocol):
