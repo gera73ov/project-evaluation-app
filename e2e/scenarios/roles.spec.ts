@@ -46,7 +46,7 @@ interface Seed {
   disciplines: string[];
   discipline_names: string[];
   archived: { id: string; name: string };
-  guarded: { id: string; session: string; csrf: string };
+  guarded: { id: string; sessions: { session: string; csrf: string }[] };
   password: string;
   totp: string;
 }
@@ -70,11 +70,15 @@ let projectId = '';
 let leafId = '';
 
 async function newPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  // QA-023 задаёт экран 1366×768 в проекте браузера; в основном прогоне — 1440×900
+  const context = await browser.newContext({
+    viewport: test.info().project.use.viewport ?? { width: 1440, height: 900 },
+  });
   contexts.push(context);
   const page = await context.newPage();
   page.on('console', (message) => {
-    if (message.type() === 'error' && /Content Security Policy/i.test(message.text())) problems.push(message.text());
+    if (message.type() === 'error' && /Content[ -]Security[ -]Policy/i.test(message.text()))
+      problems.push(message.text());
   });
   page.on('dialog', (dialog) => {
     problems.push(`dialog ${dialog.type()}: ${dialog.message()}`);
@@ -348,9 +352,12 @@ test('G-19 сессия без второго фактора: «🔒 Подтв�
 }) => {
   const page = await newPage(browser);
   const host = new URL(baseURL ?? 'https://localhost:8443').hostname;
+  // у каждого браузера QA-023 своя сессия: введённый код она запоминает
+  const projects = test.info().config.projects.map((p) => p.name);
+  const guarded = seed.guarded.sessions[Math.max(0, projects.indexOf(test.info().project.name))]!;
   await page.context().addCookies([
-    { name: '__Host-session', value: seed.guarded.session, domain: host, path: '/', secure: true, httpOnly: true },
-    { name: '__Host-csrf', value: seed.guarded.csrf, domain: host, path: '/', secure: true },
+    { name: '__Host-session', value: guarded.session, domain: host, path: '/', secure: true, httpOnly: true },
+    { name: '__Host-csrf', value: guarded.csrf, domain: host, path: '/', secure: true },
   ]);
   await page.goto(`/projects/${seed.guarded.id}/settings`);
   const money = page.locator('section[aria-labelledby="set-money"]');
