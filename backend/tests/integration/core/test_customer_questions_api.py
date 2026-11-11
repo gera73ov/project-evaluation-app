@@ -19,7 +19,7 @@ from tests.integration.core.conftest import World, deliver_events
 from tests.integration.core.test_nodes_api import Setup, _setup
 from tests.integration.core.test_structure_api import _leaf
 
-pytestmark = [pytest.mark.integration, pytest.mark.spec("FR-CQ-01"), pytest.mark.spec("TC-CQ-01")]
+pytestmark = [pytest.mark.integration, pytest.mark.spec("FR-CQ-01"), pytest.mark.tc("TC-CQ-01")]
 
 CUSTOMER = [{"target_type": "customer", "target_id": None}]
 

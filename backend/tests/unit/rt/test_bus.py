@@ -82,7 +82,7 @@ def test_check_event_rejects(message: dict[str, Any], fragment: str) -> None:
 
 
 @pytest.mark.spec("SEC-AUTHZ-04")
-@pytest.mark.spec("TC-SEC-03")
+@pytest.mark.tc("TC-SEC-03")
 def test_money_never_leaks_outside_money_channel() -> None:
     """Деньги во вложенных данных события канала проекта — отказ ещё до отправки."""
     assert contract.money_keys_in({"a": [{"b": {"cost_rub": "1"}}]}) == ["data.a[0].b.cost_rub"]

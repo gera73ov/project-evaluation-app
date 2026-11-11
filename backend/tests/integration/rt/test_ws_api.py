@@ -77,6 +77,8 @@ async def test_superadmin_from_foreign_network_is_404(stage: Stage) -> None:
 
 
 @pytest.mark.spec("SEC-AUTHZ-04")
+@pytest.mark.tc("TC-SEC-03")
+@pytest.mark.tc("TC-SEC-07")
 async def test_expert_gets_no_money_channel(stage: Stage) -> None:
     project = await stage.project()
     backend = await stage.discipline()

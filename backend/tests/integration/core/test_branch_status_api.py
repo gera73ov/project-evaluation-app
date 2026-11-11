@@ -129,7 +129,7 @@ async def test_not_needed_only_empty(world: World, db_session: AsyncSession) -> 
 
 
 @pytest.mark.spec("BR-BR-02")
-@pytest.mark.spec("TC-BR-01")
+@pytest.mark.tc("TC-BR-01")
 @pytest.mark.spec("FR-NOTIF-01")
 async def test_done_reset_table(world: World, db_session: AsyncSession) -> None:
     """TC-BR-01, строки для правки и добавления: что сбрасывает «готово», а что нет."""

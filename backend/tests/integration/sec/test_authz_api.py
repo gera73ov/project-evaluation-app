@@ -25,7 +25,7 @@ from estimator.db.models.dictionaries import Discipline
 from estimator.db.models.projects import Project, ProjectMember, SupportSession
 from estimator.db.session import db_session as db_session_dependency
 from estimator.redis_client import get_redis
-from estimator.security.authz import Access, AuthorizerDep, Target, gate, register_resolver
+from estimator.security.authz import Access, AuthorizerDep, Target, gate
 from estimator.security.authz import deps as authz_deps
 from estimator.security.authz.routes import assert_routes_protected
 from estimator.security.web.csrf import CSRF_HEADER
@@ -102,10 +102,14 @@ def _router() -> APIRouter:
 
 
 @pytest.fixture
-async def client(db_session: AsyncSession, redis_client: Redis) -> AsyncIterator[httpx.AsyncClient]:
+async def client(
+    db_session: AsyncSession, redis_client: Redis, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[httpx.AsyncClient]:
     await as_app(db_session)
     await complete_setup(db_session)
-    register_resolver("/nodes/{id}", _node)
+    # тестовый загрузчик узла — только на время теста: иначе он подменяет боевой в процессе
+    # и ломает права на узлы в тестах, которые идут следом в том же процессе
+    monkeypatch.setitem(authz_deps._RESOLVERS, "/nodes/{id}", _node)
     app = FastAPI()
     app.include_router(_router(), prefix="/api/v1")
     assert_routes_protected(app)

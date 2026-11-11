@@ -96,7 +96,7 @@ async def test_not_in_preparation(world: World, db_session: AsyncSession) -> Non
 
 @pytest.mark.spec("FR-SNAP-03")
 @pytest.mark.spec("FR-SNAP-04")
-@pytest.mark.spec("TC-SNAP-01")
+@pytest.mark.tc("TC-SNAP-01")
 async def test_diff(world: World, db_session: AsyncSession) -> None:
     s = await _setup(world, db_session)
     branch = await s.branch(db_session, s.backend)

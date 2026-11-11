@@ -98,9 +98,9 @@ jobs:
           path: ${{ runner.temp }}/api-contract-report.md
           if-no-files-found: warn
           retention-days: 30
-      - name: Отчёт трассировки «требование → тест» (QA-001)
+      - name: Отчёт трассировки «требование → тест» (QA-001, ворота QA-027)
         working-directory: .
-        run: python3 tools/traceability.py --strict --output "$RUNNER_TEMP/traceability.md"
+        run: python3 tools/traceability.py --strict --require-all --output "$RUNNER_TEMP/traceability.md"
       - name: Таблица переменных окружения в README совпадает с конфигом (DOC-001)
         run: uv run estimator config-env --check ../README.md
 

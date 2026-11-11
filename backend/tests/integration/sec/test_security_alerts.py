@@ -112,7 +112,7 @@ async def test_listener_queues_alert_after_commit(
     ]
 
 
-@pytest.mark.spec("TC-AUTH-06")
+@pytest.mark.tc("TC-AUTH-06")
 async def test_smtp_change_alerts_through_old_server_first(
     db_session: AsyncSession, mails: list[tuple[Any, ...]]
 ) -> None:
@@ -132,7 +132,7 @@ async def test_smtp_change_alerts_through_old_server_first(
     assert mails == []
 
 
-@pytest.mark.spec("TC-AUTH-06")
+@pytest.mark.tc("TC-AUTH-06")
 @pytest.mark.parametrize("failure", ["permanent", "not_configured"])
 def test_failed_alert_email_is_recorded(monkeypatch: pytest.MonkeyPatch, failure: str) -> None:
     recorded: list[tuple[str, str]] = []
@@ -154,7 +154,7 @@ def test_failed_alert_email_is_recorded(monkeypatch: pytest.MonkeyPatch, failure
     assert recorded == [("smtp_changed", notify.OLD_SMTP)]
 
 
-@pytest.mark.spec("TC-AUTH-06")
+@pytest.mark.tc("TC-AUTH-06")
 async def test_undelivered_is_audited_and_shown_in_health(
     db_session: AsyncSession, redis_client: Redis
 ) -> None:
@@ -202,7 +202,7 @@ def test_worker_task_dispatches(worker_env: None, mails: list[tuple[Any, ...]]) 
     assert all(m[2]["alert"] == "audit_chain_broken" for m in mails)
 
 
-@pytest.mark.spec("TC-AUTH-06")
+@pytest.mark.tc("TC-AUTH-06")
 def test_worker_records_undelivered(worker_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, str]] = []
 

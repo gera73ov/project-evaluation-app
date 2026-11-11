@@ -101,8 +101,10 @@ async def test_grant_revoke_block_demote(world: World, db_session: AsyncSession)
         ("security_auditor", "granted"), ("admin", "granted"), ("admin", "blocked"),
         ("admin", "unblocked"), ("admin", "revoked"),
     ]  # fmt: skip
+    # свою учётку здесь не меняют (403); последний суперадминистратор получает 409 — G-08
+    await make_user(db_session, SystemRole.SUPERADMIN)
     own = await root.patch(f"/system/admins/{root.id}", json={"status": "blocked"})
-    assert own.status_code == 403
+    assert (own.status_code, own.json()["code"]) == (403, "FORBIDDEN")
     assert (await root.patch(f"/system/admins/{uuid.uuid4()}", json={})).status_code == 404
 
 

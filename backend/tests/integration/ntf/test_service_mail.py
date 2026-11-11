@@ -64,6 +64,7 @@ async def _note(db: AsyncSession, user_id: uuid.UUID) -> Notification:
 
 
 @pytest.mark.spec("FR-NOTIF-03")
+@pytest.mark.tc("TC-NOTIF-01")
 async def test_assigned_mail_on_launch(
     world: World, db_session: AsyncSession, mails: list[tuple[Any, ...]]
 ) -> None:

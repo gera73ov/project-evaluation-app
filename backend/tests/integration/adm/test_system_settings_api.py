@@ -130,7 +130,7 @@ async def test_values_are_checked_by_contract(
 
 
 @pytest.mark.spec("SEC-AUTH-07")
-@pytest.mark.spec("TC-AUTH-06")
+@pytest.mark.tc("TC-AUTH-06")
 async def test_smtp_secret_encrypted_and_old_server_alerted_first(
     world: World, db_session: AsyncSession, mails: list[tuple[Any, ...]]
 ) -> None:

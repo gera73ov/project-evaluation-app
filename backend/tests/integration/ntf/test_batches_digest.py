@@ -60,6 +60,7 @@ def _mine(mails: list[tuple[Any, ...]], kind: str, user: User) -> list[dict[str,
 
 @pytest.mark.spec("Q-45")
 @pytest.mark.spec("FR-NOTIF-03")
+@pytest.mark.tc("TC-NOTIF-01")
 async def test_three_events_one_letter(
     world: World, db_session: AsyncSession, mails: list[tuple[Any, ...]]
 ) -> None:
@@ -85,6 +86,7 @@ async def test_three_events_one_letter(
     assert len(_mine(mails, batches.KIND, user)) == 1, "отправленное не уходит повторно"
 
 
+@pytest.mark.tc("TC-NOTIF-01")
 async def test_batch_opt_out_and_no_smtp(
     world: World, db_session: AsyncSession, mails: list[tuple[Any, ...]]
 ) -> None:
@@ -102,6 +104,7 @@ async def test_batch_opt_out_and_no_smtp(
     assert await batches.flush_due(db_session, t0 + dt.timedelta(minutes=20)) == 0
 
 
+@pytest.mark.tc("TC-NOTIF-01")
 async def test_digest_only_with_new_events(
     world: World, db_session: AsyncSession, mails: list[tuple[Any, ...]]
 ) -> None:

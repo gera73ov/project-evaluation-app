@@ -19,7 +19,7 @@ from estimator.security.authz.routes import (
     problems,
 )
 
-pytestmark = [pytest.mark.spec("SEC-AUTHZ-02"), pytest.mark.spec("TC-SEC-01")]
+pytestmark = [pytest.mark.spec("SEC-AUTHZ-02"), pytest.mark.tc("TC-SEC-01")]
 
 
 def _perm(code: str | list[str]) -> dict[str, object]:

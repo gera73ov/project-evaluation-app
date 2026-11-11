@@ -36,6 +36,8 @@ FROM build AS test
 RUN uv sync --frozen --no-editable
 WORKDIR /repo/backend
 COPY contracts /repo/contracts
+# тексты интерфейса: сценарий G-08 сверяет баннер админки со словарём (QA-013)
+COPY frontend/src/shared/i18n/ru.json /repo/frontend/src/shared/i18n/ru.json
 COPY backend/pyproject.toml backend/alembic.ini ./
 COPY backend/alembic ./alembic
 COPY backend/tests ./tests

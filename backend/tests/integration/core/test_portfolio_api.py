@@ -100,7 +100,7 @@ async def test_registry(world: World, db_session: AsyncSession) -> None:
 
 
 @pytest.mark.spec("R-02")
-@pytest.mark.spec("TC-PORT-01")
+@pytest.mark.tc("TC-PORT-01")
 async def test_first_open_audited_once_per_session(world: World, db_session: AsyncSession) -> None:
     moderator = await world.actor(SystemRole.MODERATOR)
     pid = await create_project(world, moderator)
