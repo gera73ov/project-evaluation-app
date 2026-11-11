@@ -1853,7 +1853,7 @@
   - [x] Списки по меткам
   - [x] Обсуждения и снимки
 
-- [x] **CORE-052** · Динамика итога · трек CORE · ✔ PR-1: строка дня `project_totals_daily` пишется при пересчёте `project_totals` (с запуска оценки, по поясу приложения); ряд и денежный ряд — в `/stats` (CORE-050); тест `test_daily_dynamics`
+- [x] **CORE-052** · Динамика итога · трек CORE · ✔ #109: строка дня `project_totals_daily` пишется при пересчёте `project_totals` (с запуска оценки, по поясу приложения); ряд и денежный ряд — в `/stats` (CORE-050); тест `test_daily_dynamics`
   - SPEC: 10.1 («Динамика»), 11.9 №4, 14.2 `project_totals_daily`
   - Зависит: CORE-026, PM-002
   - Сделать: ряд «итог E и P80 на конец каждого дня с начала оценки» с отметками снимков; переключатель «часы / валюта» (валюта — только с `money.read`). Источник данных (✅ GAP-01): новая таблица `project_totals_daily` (`project_id`, `date`, `e`, `p80`, `p90`, денежные поля как в `project_totals`; PK `project_id, date`) — миграция через CR в DB; фоновая задача обновления `project_totals` делает upsert строки текущего дня (по часовому поясу приложения).
@@ -1891,7 +1891,7 @@
   - [x] Деньги и вклад курса
   - [x] TC-SNAP-01
 
-- [x] **CORE-028** · Автоархивация · трек CORE · ✔ PR-1: `services/projects/tasks.py`, задача 01:30 по поясу приложения; журнал без пользователя («Система»), аудит `automatic: true`; тест `test_autoarchive.py`, шаги G-25 — в QA-017
+- [x] **CORE-028** · Автоархивация · трек CORE · ✔ #109: `services/projects/tasks.py`, задача 01:30 по поясу приложения; журнал без пользователя («Система»), аудит `automatic: true`; тест `test_autoarchive.py`, шаги G-25 — в QA-017
   - SPEC: BR-PRJ-03, Q-13, 7.5 («срок автоархивации … сразу на все»), G-25
   - Зависит: CORE-011, CORE-032, INF-008
   - Сделать: ночная задача (пояс приложения): проекты в «Завершена» дольше `method.autoarchive_days` от `completed_at` → «Архив»; 0 — выключено; запись в ленту проекта от имени «Система» и в аудит.
@@ -2195,14 +2195,14 @@
   - Артефакты: `deploy/logging/*`
   - Готово, когда: на stage логи старше срока удаляются.
 
-- [x] **RT-009** · Метрики WebSocket · трек RT · ✔ PR-1: `realtime/metrics.py` — `estimator_ws_connections`, гистограмма `estimator_ws_delivery_seconds` по виду канала (от `ts` события до отправки кадра); проверка на stage — в INF-013
+- [x] **RT-009** · Метрики WebSocket · трек RT · ✔ #109: `realtime/metrics.py` — `estimator_ws_connections`, гистограмма `estimator_ws_delivery_seconds` по виду канала (от `ts` события до отправки кадра); проверка на stage — в INF-013
   - SPEC: 18.4 (WS-соединения, задержка доставки событий)
   - Зависит: RT-004, INF-010
   - Сделать: число активных WS-соединений, задержка «commit → отправка клиенту» (гистограмма).
   - Артефакты: `realtime/metrics.py`
   - Готово, когда: метрики видны в Prometheus на stage.
 
-- [x] **CORE-090** · Команда `estimator project purge` · трек CORE · ✔ PR-1: `cli/project_purge.py`, `services/projects/purge.py` — `--ticket`, `--approved-by`, состав (dry-run), подтверждение вводом id, каскад и файлы с томов, аудит `project.purged`; тест `test_project_purge.py`
+- [x] **CORE-090** · Команда `estimator project purge` · трек CORE · ✔ #109: `cli/project_purge.py`, `services/projects/purge.py` — `--ticket`, `--approved-by`, состав (dry-run), подтверждение вводом id, каскад и файлы с томов, аудит `project.purged`; тест `test_project_purge.py`
   - SPEC: BR-PRJ-04, SEC-AUD-01 («физическое удаление»), 18.2
   - Зависит: CORE-017, CORE-060, EXP-012, SEC-004, INF-007
   - Сделать: физическое удаление проекта: дерево, обсуждения, заметки, снимки, история, `change_log`, документы заказчика (файлы и ключи), экспорты; записи аудита остаются; обязательные аргументы — номер заявки и логин согласовавшего сотрудника ИБ; сначала dry-run с составом удаляемого, затем подтверждение вводом id проекта; всё — в аудит и SIEM (✅ GAP-12); запуск — в аудит с пользователем ОС.
