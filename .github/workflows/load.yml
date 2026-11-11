@@ -15,6 +15,9 @@ on:
       duration:
         description: "Длительность прогона Locust"
         default: "10m"
+      replicas:
+        description: "Реплик API (API_REPLICAS)"
+        default: "2"
 
 permissions:
   contents: read
@@ -43,13 +46,19 @@ jobs:
 
       - name: Собрать образы и поднять стенд (make up-test)
         timeout-minutes: 40
-        run: deploy/home-stand/e2e-stand.sh up
+        env:
+          API_REPLICAS: ${{ inputs.replicas }}
+        run: |
+          [[ "$API_REPLICAS" =~ ^[1-8]$ ]] || { echo "::error::реплик API — число от 1 до 8"; exit 1; }
+          echo "ядер: $(nproc), память: $(free -g | awk '/^Mem:/ {print $2}') ГБ, реплик API: $API_REPLICAS"
+          deploy/home-stand/e2e-stand.sh up
 
       - name: Нагрузочный тест (load/run.sh)
         env:
           LOAD_USERS: ${{ inputs.users }}
           LOAD_DURATION: ${{ inputs.duration }}
           LOAD_SEED_ARGS: --mark-setup
+          API_REPLICAS: ${{ inputs.replicas }}
         run: load/run.sh
 
       - name: Собрать логи стенда
