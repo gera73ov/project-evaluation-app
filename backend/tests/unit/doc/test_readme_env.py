@@ -83,7 +83,7 @@ def test_cli_write_and_check(tmp_path: Path) -> None:
 
 #: Файлы, из которых переменные окружения читают compose и скрипты эксплуатации (DOC-007).
 OPS_FILES = ("deploy/compose/*.yml", "deploy/backup/*.sh", "deploy/scripts/*.sh",
-             "deploy/logging/*.sh")  # fmt: skip
+             "deploy/logging/*.sh", "deploy/envs/*.yml", "deploy/envs/*.sh")  # fmt: skip
 #: В compose переменная — любое ``${NAME``; в скриптах — только с умолчанием или
 #: обязательная (``${NAME:-…}``, ``${NAME:?}``), остальное — внутренние переменные скрипта.
 COMPOSE_VAR = re.compile(r"\$\{([A-Z][A-Z0-9_]+)")

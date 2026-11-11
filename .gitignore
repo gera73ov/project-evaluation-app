@@ -67,3 +67,6 @@ backend/src/estimator/realtime/bus/ws-events.schema.json
 # Копия contracts/settings.schema.json для проверки настроек (ADM-002) — тоже только в образе
 backend/src/estimator/admin/settings/settings.schema.json
 dump.rdb
+
+# INF-011: список сетей Nginx, его пишет deploy/envs/deploy.sh из stand.env
+deploy/envs/*/access.conf

@@ -1,0 +1,31 @@
+# INF-011 · общее для стендов test и stage (deploy/envs/README.md). Подключается после
+# базового файла: deploy/envs/deploy.sh <стенд> собирает список из COMPOSE_FILES стенда.
+#
+# Мастер-ключ шифрования (SEC-CRYPT-01) — Docker secret: файл на сервере в STAND_SECRETS_DIR
+# (по умолчанию /etc/estimator/secrets, права 0400), в контейнере — /run/secrets/encryption_key.
+# Список разрешённых сетей Nginx (офис, VPN) — deploy/envs/<стенд>/access.conf, его пишет
+# deploy.sh из STAND_NETWORKS.
+
+x-secret: &secret
+  secrets: [encryption_key]
+
+services:
+  migrate: *secret
+  api: *secret
+  worker: *secret
+  beat: *secret
+  nginx:
+    volumes:
+      - ${STAND_ACCESS_FILE:?запускайте через deploy/envs/deploy.sh}:/etc/nginx/access/stand.conf:ro
+
+# Подсеть Docker стенда задана явно: Nginx пускает её (запросы с самого сервера), не открывая
+# остальные частные сети (deploy/envs/README.md)
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: ${STAND_DOCKER_SUBNET:-172.31.250.0/24}
+
+secrets:
+  encryption_key:
+    file: ${STAND_SECRETS_DIR:-/etc/estimator/secrets}/encryption_key

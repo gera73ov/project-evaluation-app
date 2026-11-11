@@ -186,7 +186,10 @@ services:
       - ./certs/nginx.key:/etc/nginx/certs/server.key:ro
     networks: [backend]
     # 8080 — только 301 на HTTPS (SEC-WEB-01)
-    ports: ["127.0.0.1:${HTTPS_PORT:-8443}:8443", "127.0.0.1:${HTTP_PORT:-8080}:8080"]
+    # BIND_ADDRESS — 127.0.0.1 на dev; 0.0.0.0 на стендах test и stage (deploy/envs), где
+    # доступ ограничивают межсетевой экран сервера и список сетей Nginx (deploy/envs/README.md)
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:${HTTPS_PORT:-8443}:8443",
+            "${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8080}:8080"]
     depends_on:
       api: { condition: service_healthy }
     healthcheck:
