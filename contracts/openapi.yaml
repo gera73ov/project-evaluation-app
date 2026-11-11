@@ -501,6 +501,7 @@ paths:
       - PASSWORD_CHANGE_REQUIRED
       - CSRF_FAILED
       - RATE_LIMITED
+      - VALIDATION_FAILED
       responses:
         '204':
           description: Выполнено
@@ -508,6 +509,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '429':
           $ref: '#/components/responses/Problem429'
         '500':
@@ -1671,6 +1674,7 @@ paths:
       - NOT_FOUND
       - FORBIDDEN
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -1699,6 +1703,8 @@ paths:
           $ref: '#/components/responses/Problem403'
         '404':
           $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /system/users/{id}/reset-password:
@@ -1954,6 +1960,7 @@ paths:
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -1980,6 +1987,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /system/audit/export:
@@ -2076,6 +2085,7 @@ paths:
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -2102,6 +2112,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -2498,6 +2510,7 @@ paths:
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - AUTH_SERVICE_UNAVAILABLE
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -2517,6 +2530,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '503':
           $ref: '#/components/responses/Problem503'
         '500':
@@ -2543,6 +2558,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -2562,6 +2578,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -2722,6 +2740,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -2741,6 +2760,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -2901,6 +2922,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -2920,6 +2942,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -3080,6 +3104,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -3099,6 +3124,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -3259,6 +3286,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -3278,6 +3306,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -3438,6 +3468,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -3457,6 +3488,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -3617,6 +3650,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -3636,6 +3670,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -3798,6 +3834,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -3817,6 +3854,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -3977,6 +4016,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -3996,6 +4036,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -4230,6 +4272,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -4249,6 +4292,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -4610,6 +4655,7 @@ paths:
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -4636,6 +4682,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /admin/projects/{id}/moderators:
@@ -4814,6 +4862,7 @@ paths:
       - FORBIDDEN
       - TOTP_REQUIRED
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -4840,6 +4889,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /portfolio/summary:
@@ -4870,6 +4921,7 @@ paths:
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - TOTP_REQUIRED
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -4881,6 +4933,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /portfolio/export:
@@ -5029,6 +5083,7 @@ paths:
       - PASSWORD_CHANGE_REQUIRED
       - FORBIDDEN
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -5055,6 +5110,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -5677,6 +5734,7 @@ paths:
       - NOT_FOUND
       - FORBIDDEN
       - AUTH_SERVICE_UNAVAILABLE
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -5698,6 +5756,8 @@ paths:
           $ref: '#/components/responses/Problem403'
         '404':
           $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '503':
           $ref: '#/components/responses/Problem503'
         '500':
@@ -6488,6 +6548,7 @@ paths:
       - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -6509,6 +6570,8 @@ paths:
           $ref: '#/components/responses/Problem403'
         '404':
           $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /projects/{id}/notes:
@@ -6556,6 +6619,7 @@ paths:
       - FORBIDDEN
       - TOTP_REQUIRED
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -6584,6 +6648,8 @@ paths:
           $ref: '#/components/responses/Problem403'
         '404':
           $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -6761,6 +6827,7 @@ paths:
       - NOT_FOUND
       - FORBIDDEN
       - VERSION_TOO_OLD
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -6776,6 +6843,8 @@ paths:
           $ref: '#/components/responses/Problem404'
         '410':
           $ref: '#/components/responses/Problem410'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /projects/{id}/nodes:
@@ -7672,6 +7741,7 @@ paths:
       - NOT_FOUND
       - FORBIDDEN
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -7700,6 +7770,8 @@ paths:
           $ref: '#/components/responses/Problem403'
         '404':
           $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
     post:
@@ -8324,6 +8396,7 @@ paths:
       - NOT_FOUND
       - FORBIDDEN
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -8352,6 +8425,8 @@ paths:
           $ref: '#/components/responses/Problem403'
         '404':
           $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /projects/{id}/customer-questions/export:
@@ -8658,6 +8733,7 @@ paths:
       - FORBIDDEN
       - PROJECT_STATUS_CONFLICT
       - RATE_LIMITED
+      - VALIDATION_FAILED
       responses:
         '202':
           description: Успех
@@ -8673,6 +8749,8 @@ paths:
           $ref: '#/components/responses/Problem404'
         '409':
           $ref: '#/components/responses/Problem409'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '429':
           $ref: '#/components/responses/Problem429'
         '500':
@@ -8894,6 +8972,7 @@ paths:
       - PASSWORD_CHANGE_REQUIRED
       - NOT_FOUND
       - FORBIDDEN
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -8907,6 +8986,8 @@ paths:
           $ref: '#/components/responses/Problem403'
         '404':
           $ref: '#/components/responses/Problem404'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /snapshots/{id}/diff/export:
@@ -9154,6 +9235,7 @@ paths:
       - TOTP_ENROLL_REQUIRED
       - PASSWORD_CHANGE_REQUIRED
       - CURSOR_INVALID
+      - VALIDATION_FAILED
       responses:
         '200':
           description: Успех
@@ -9167,6 +9249,8 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
+        '422':
+          $ref: '#/components/responses/Problem422'
         '500':
           $ref: '#/components/responses/Problem500'
   /notifications/read:

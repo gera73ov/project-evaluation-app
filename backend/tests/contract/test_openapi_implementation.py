@@ -14,6 +14,7 @@ CI публикует его артефактом.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -76,6 +77,36 @@ def test_operation_matches_contract(op: tuple[str, str]) -> None:
 def test_known_gaps_point_to_implemented_operations() -> None:
     stale = sorted(_id(op) for op in KNOWN_GAPS if op not in IMPLEMENTED)
     assert not stale, f"KNOWN_GAPS ссылается на нереализованные операции: {stale}"
+
+
+#: Признаки схемы, по которым FastAPI проверяет значение параметра запроса и отвечает 422.
+_CHECKED = ('"enum"', '"$ref"', '"boolean"', '"integer"', '"format"', "Length", '"pattern"',
+            '"minimum"', '"maximum"')  # fmt: skip
+#: Курсор и размер страницы сервер проверяет сам: 400 ``CURSOR_INVALID`` (api-conventions.md).
+_PAGING = frozenset({"cursor", "limit"})
+
+
+def _validated_query(op: dict[str, Any]) -> list[str]:
+    """Параметры запроса, неверное значение которых FastAPI отклоняет с 422 ``VALIDATION_FAILED``.
+    Параметры пути сюда не входят: неверный id даёт 404 (API-003)."""
+    return [
+        p["name"]
+        for p in op.get("parameters", [])
+        if p.get("in") == "query"
+        and p["name"] not in _PAGING
+        and (p.get("required") or any(k in json.dumps(p.get("schema", {})) for k in _CHECKED))
+    ]
+
+
+@pytest.mark.parametrize("op", sorted(IMPLEMENTED), ids=_id)
+def test_validated_query_declares_422(op: tuple[str, str]) -> None:
+    """API-007, CR-017: если сервер проверяет параметры запроса, контракт объявляет 422."""
+    checked = _validated_query(IMPLEMENTED[op])
+    if not checked or op not in CONTRACT_OPS:
+        return
+    con_op = CONTRACT_OPS[op]
+    assert "422" in con_op.get("responses", {}), f"{_id(op)}: {checked} проверяются, нет 422"
+    assert "VALIDATION_FAILED" in con_op.get("x-error-codes", []), _id(op)
 
 
 def test_comparison_catches_drift() -> None:
