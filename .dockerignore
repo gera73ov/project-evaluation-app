@@ -10,6 +10,8 @@
 !frontend/**
 !contracts/**
 !deploy/docker/**
+!deploy/backup/pgbackrest.conf
+!deploy/backup/pgbackrest-archive.sh
 !deploy/nginx/**
 !deploy/syslog/**
 !deploy/samba-ad/**

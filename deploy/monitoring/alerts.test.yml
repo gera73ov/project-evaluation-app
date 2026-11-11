@@ -1,0 +1,117 @@
+# INF-013 · имитация срабатывания правил alerts.yml (promtool test rules).
+# Запуск: docker run --rm --entrypoint promtool -v "$PWD/deploy/monitoring:/m:ro" \
+#   prom/prometheus:v3.15.1 test rules /m/alerts.test.yml
+rule_files: [alerts.yml]
+evaluation_interval: 1m
+
+tests:
+  - name: 5xx больше 1% и всплеск неуспешных входов
+    interval: 1m
+    input_series:
+      - series: 'estimator_http_responses_total{status_class="2xx",instance="a"}'
+        values: '0+100x20'
+      - series: 'estimator_http_responses_total{status_class="5xx",instance="a"}'
+        values: '0+5x20'
+      - series: 'estimator_auth_login_failures_total{reason="wrong_password",instance="a"}'
+        values: '0+15x20'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: Estimator5xxRatioHigh
+        exp_alerts:
+          - exp_labels: {severity: critical, team: it}
+            exp_annotations: {summary: "Ошибки 5xx больше 1% запросов за 5 минут"}
+      - eval_time: 10m
+        alertname: EstimatorLoginFailuresBurst
+        exp_alerts:
+          - exp_labels: {severity: warning, team: security}
+            exp_annotations: {summary: "Больше 50 неуспешных входов за 5 минут (возможен перебор паролей)"}
+
+  - name: бэкап старше 26 часов, его нет; свежий — тишина
+    interval: 1h
+    input_series:
+      # метка поставлена в момент 0 и больше не обновлялась
+      - series: 'estimator_backup_last_success_timestamp_seconds{instance="a"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: EstimatorBackupStale
+        exp_alerts: []
+      - eval_time: 28h
+        alertname: EstimatorBackupStale
+        exp_alerts:
+          - exp_labels: {severity: critical, team: it}
+            exp_annotations: {summary: "Последняя резервная копия старше 26 часов (или её нет)"}
+
+  - name: нет метки бэкапа вовсе
+    interval: 1m
+    input_series:
+      - series: 'estimator_component_up{component="db",instance="a"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: EstimatorBackupStale
+        exp_alerts:
+          - exp_labels: {severity: critical, team: it}
+            exp_annotations: {summary: "Последняя резервная копия старше 26 часов (или её нет)"}
+
+  - name: архивация WAL падает 15 минут
+    interval: 1m
+    input_series:
+      - series: 'estimator_wal_archive_failing{instance="a"}'
+        values: '0 0 1x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: EstimatorWalArchiveLag
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: EstimatorWalArchiveLag
+        exp_alerts:
+          - exp_labels: {severity: critical, team: it}
+            exp_annotations: {summary: "Архивация WAL не работает больше 15 минут: RPO под угрозой"}
+
+  - name: сертификат УЦ AD истекает через 20 дней
+    interval: 1m
+    input_series:
+      - series: 'estimator_cert_not_after_timestamp_seconds{cert="ad_ca",instance="a"}'
+        values: '1728000x5'   # 20 дней от начала отсчёта
+      - series: 'estimator_cert_not_after_timestamp_seconds{cert="app",instance="a"}'
+        values: '31536000x5'  # год
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EstimatorCertificateExpiring
+        exp_alerts:
+          - exp_labels: {severity: warning, team: it, cert: ad_ca}
+            exp_annotations: {summary: "Сертификат ad_ca истекает меньше чем через 30 дней"}
+
+  - name: проверка AD не шла больше часа, очередь SIEM, цепочка аудита, ClamAV
+    interval: 1m
+    input_series:
+      - series: 'estimator_ad_sync_last_success_timestamp_seconds{kind="sessions_15min",instance="a"}'
+        values: '0x90'
+      - series: 'estimator_siem_queue_length{instance="a"}'
+        values: '10500x90'
+      - series: 'estimator_audit_chain_ok{instance="a"}'
+        values: '0x90'
+      - series: 'estimator_clamav_up{instance="a"}'
+        values: '0x90'
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: EstimatorAdCheckStale
+        exp_alerts:
+          - exp_labels: {severity: warning, team: it}
+            exp_annotations: {summary: "Проверка пользователей в AD не выполнялась больше часа"}
+      - eval_time: 10m
+        alertname: EstimatorSiemQueueOverflow
+        exp_alerts:
+          - exp_labels: {severity: critical, team: security}
+            exp_annotations: {summary: "Очередь передачи аудита в SIEM больше 10 000 событий"}
+      - eval_time: 10m
+        alertname: EstimatorAuditChainBroken
+        exp_alerts:
+          - exp_labels: {severity: critical, team: security}
+            exp_annotations: {summary: "Проверка цепочки журнала аудита не прошла"}
+      - eval_time: 30m
+        alertname: EstimatorClamavDown
+        exp_alerts:
+          - exp_labels: {severity: warning, team: it}
+            exp_annotations: {summary: "ClamAV недоступен: документы заказчика не проверяются"}

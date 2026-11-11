@@ -12,11 +12,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from estimator import health
+from estimator import health, ops_metrics
 from estimator.api import v1 as api_v1
 from estimator.api.common.docs import docs_urls
 from estimator.api.common.errors import install_error_handlers
 from estimator.config import Settings, get_settings
+from estimator.db.session import get_sessionmaker
 from estimator.jobs.celery_app import queue_lengths
 from estimator.logging import RequestIdMiddleware, configure_logging, get_logger
 from estimator.metrics import (
@@ -47,7 +48,9 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         log.info("app_started", app_env=settings.app_env.value, version=settings.app_version)
         await _app.state.realtime.start()
+        _app.state.ops_metrics.start()
         yield
+        await _app.state.ops_metrics.stop()
         await _app.state.realtime.stop()
         await probes.close()
         await _app.state.redis.aclose()
@@ -65,6 +68,8 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     app.state.redis = make_redis(settings)
     # Совместная работа (RT-003…RT-008): WebSocket /api/v1/ws, Redis pub/sub, присутствие
     app.state.realtime = Realtime(settings, app.state.redis)
+    # INF-013: датчики фоновых проверок и внешних служб для правил оповещений 18.4
+    app.state.ops_metrics = ops_metrics.Refresher(settings, app.state.redis, get_sessionmaker)
     install_error_handlers(app)
     alerts.install()  # письма оповещений ИБ по событиям аудита (SEC-011)
     app.include_router(health.router)

@@ -1,0 +1,7 @@
+# INF-012 · расписание резервного копирования (cron службы эксплуатации, /etc/cron.d/estimator-backup).
+# Путь к репозиторию и пользователь — свои для стенда; пользователь должен иметь доступ к docker.
+# Ежедневная полная копия в 01:00 (архив WAL идёт непрерывно), проверка архивации — каждый час.
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+0 1 * * *  estimator  cd /opt/estimator && deploy/backup/backup.sh >>/var/log/estimator-backup.log 2>&1
+15 * * * * estimator  cd /opt/estimator && deploy/backup/backup.sh --check >>/var/log/estimator-backup.log 2>&1

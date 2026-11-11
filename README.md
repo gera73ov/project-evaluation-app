@@ -97,6 +97,7 @@ make traceability   # отчёт «требование → тест» в build/
 | `APP_TIMEZONE` | Часовой пояс приложения IANA до первичной настройки: по нему считаются ночные задачи (FR-UI-02). После мастера настройки действует `app.timezone` | `Europe/Moscow` |
 | `HEALTH_TIMEOUT_SECONDS` | Таймаут одной проверки `/health/ready`, секунды | `2.0` |
 | `BACKUP_MARKER_PATH` | Файл-метка последней успешной резервной копии (время ISO 8601 или время изменения файла) для «Состояния системы» (FR-SA-07); пишет скрипт бэкапа | `/var/lib/estimator/backup/last-success` |
+| `APP_TLS_CERT_PATH` | Сертификат TLS приложения (PEM, тот же, что у Nginx) — для метрики срока действия и оповещения «истекает < 30 дней» (18.4); пусто — не проверять | `` |
 | `EXPORTS_DIR` | Каталог файлов выгрузок (том `exports`, файлы живут 24 часа, FR-EXP-05) | `/data/exports` |
 | `DOCUMENTS_DIR` | Каталог зашифрованных документов заказчика (том `documents`, SEC-CRYPT-06) | `/data/documents` |
 | `CLAMAV_HOST` | Адрес `clamd` для проверки документов заказчика (SEC-WEB-10) | `clamav` |

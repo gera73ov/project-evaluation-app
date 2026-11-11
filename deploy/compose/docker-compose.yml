@@ -7,7 +7,14 @@
 # Секреты — из .env (dev) или Docker secrets (stage, prod — INF-011), в образах их нет.
 name: estimator
 
+# INF-016 (NFR-REL-06): stdout контейнеров — драйвер local с ограничением размера; за 90 дней
+# логи хранит deploy/logging/collect-logs.sh (ежедневный архив, срок LOG_RETENTION_DAYS).
+x-logging: &logging
+  driver: local
+  options: {max-size: "50m", max-file: "5"}
+
 x-hardening: &hardening
+  logging: *logging
   read_only: true
   security_opt: ["no-new-privileges:true"]
   cap_drop: ["ALL"]
@@ -27,6 +34,10 @@ x-backend: &backend
   volumes:
     - exports:/data/exports
     - documents:/data/documents
+    # файл-метка последней копии (BACKUP_MARKER_PATH) для «Состояния системы»
+    - backupmark:/var/lib/estimator/backup:ro
+    # INF-013: сертификат TLS приложения — только для метрики срока действия (ключ не нужен)
+    - ./certs/nginx.crt:/certs/app.crt:ro
   networks: [backend]
   restart: unless-stopped
   depends_on:
@@ -55,16 +66,34 @@ services:
     restart: "no"
 
   postgres:
-    image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+    # INF-012: PostgreSQL 16 + pgBackRest (deploy/docker/postgres.Dockerfile). WAL уходит в
+    # репозиторий копий непрерывно (archive_timeout 60 с — RPO ≤ 15 мин), полные копии делает
+    # deploy/backup/backup.sh по cron. Репозиторий — том backups (на stage и prod — отдельный
+    # диск или сетевое хранилище: deploy/backup/README.md), пароль шифрования копий —
+    # BACKUP_CIPHER_PASSWORD (на stage и prod — Docker secret, копия — в сейфе ИБ).
+    image: estimator-postgres:${APP_VERSION:-dev}
+    logging: *logging
+    build:
+      context: ../..
+      dockerfile: deploy/docker/postgres.Dockerfile
     read_only: true
     security_opt: ["no-new-privileges:true"]
     tmpfs: ["/tmp", "/var/run/postgresql"]
+    command: ["postgres", "-c", "wal_level=replica", "-c", "archive_mode=on",
+              "-c", "archive_command=/usr/local/bin/pgbackrest-archive.sh %p",
+              "-c", "archive_timeout=60"]
     environment:
       POSTGRES_DB: estimator
       POSTGRES_USER: estimator
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --encoding=UTF8 --locale=C.UTF-8"
-    volumes: ["pgdata:/var/lib/postgresql/data"]
+      PGBACKREST_REPO1_CIPHER_PASS: ${BACKUP_CIPHER_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - backups:/var/lib/pgbackrest
+      - backupmark:/var/lib/estimator/backup
+      # документы заказчика (уже зашифрованы) — только на чтение, для архива тома в backup.sh
+      - documents:/data/documents:ro
     networks: [backend]
     ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]  # только loopback: для psql и тестов
     healthcheck:
@@ -94,6 +123,7 @@ services:
 
   clamav:
     # Официальный образ проекта ClamAV (Cisco Talos); базы скачиваются при первом старте
+    logging: *logging
     image: clamav/clamav:1.5.4@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a
     security_opt: ["no-new-privileges:true"]
     volumes: ["clamdb:/var/lib/clamav"]
@@ -177,6 +207,7 @@ services:
     tmpfs: ["/tmp:size=16m", "/prometheus:size=256m,uid=65534,gid=65534"]
     volumes:
       - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
     networks: [backend]
     ports: ["127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"]
     depends_on:
@@ -193,3 +224,6 @@ volumes:
   # Файлы выгрузок (TTL 24 ч) и документы заказчика (зашифрованы) — SPEC 13.2
   exports: {}
   documents: {}
+  # INF-012: репозиторий pgBackRest (копии БД, архив WAL, архивы тома документов) и файл-метка
+  backups: {}
+  backupmark: {}

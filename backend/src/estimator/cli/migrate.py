@@ -26,11 +26,26 @@ def upgrade_head(config_path: Path) -> None:
     alembic_command.upgrade(Config(str(config_path)), "head")
 
 
+def downgrade_to(config_path: Path, revision: str) -> None:
+    """Откат схемы до ``revision`` (INF-015, ``deploy/scripts/rollback.sh --downgrade``)."""
+    from alembic import command as alembic_command
+    from alembic.config import Config
+
+    alembic_command.downgrade(Config(str(config_path)), revision)
+
+
+_DOWNGRADE = typer.Option(
+    None,
+    "--downgrade",
+    help="Откатить схему до ревизии Alembic (откат версии, SPEC 18.3); без опции — upgrade head.",
+)
+
+
 def register(app: typer.Typer) -> None:
     from estimator.cli import command
 
     @command("migrate", help="Применить миграции БД до последней версии (alembic upgrade head).")
-    def migrate() -> None:
+    def migrate(downgrade: str | None = _DOWNGRADE) -> None:
         path = _config_path()
         if not path.is_file():
             typer.echo(
@@ -39,5 +54,9 @@ def register(app: typer.Typer) -> None:
                 err=True,
             )
             raise typer.Exit(2)
+        if downgrade:
+            downgrade_to(path, downgrade)
+            typer.echo(f"Схема откачена до ревизии {downgrade}.")
+            return
         upgrade_head(path)
         typer.echo("Миграции применены.")

@@ -5,6 +5,7 @@
 #   deploy/home-stand/e2e-stand.sh seed-env      — печатает export E2E_* для Playwright
 #   deploy/home-stand/e2e-stand.sh check-browser — хватает ли системных библиотек Chromium
 #   deploy/home-stand/e2e-stand.sh ad-suite      — наборы AD на Samba (QA-012), если они уже есть
+#   deploy/home-stand/e2e-stand.sh ops-suite     — копия → потеря тома БД → восстановление; обновление и откат (QA-025, INF-015)
 #   deploy/home-stand/e2e-stand.sh logs          — логи и состояние контейнеров в $LOGS_DIR
 #   deploy/home-stand/e2e-stand.sh cleanup       — остановить стенд, удалить данные и старые образы
 # Руками на стенде то же самое: `make up-test`, затем в e2e/ `source <(../deploy/home-stand/e2e-stand.sh
@@ -83,6 +84,34 @@ cmd_ad_suite() {
   fi
 }
 
+# QA-025, INF-012, INF-015: на поднятом стенде — полная копия, имитация потери диска БД,
+# восстановление с проверкой RPO и RTO; затем обновление на «следующую» версию (те же образы под
+# новым тегом) с поочерёдным перезапуском api и откат обратно. Протокол — $LOGS_DIR/ops-report.md
+# и сводка прогона GitHub.
+cmd_ops_suite() {
+  mkdir -p "$LOGS_DIR"
+  local report="$LOGS_DIR/ops-report.md" rc=0 started version
+  export COMPOSE_FILES="$ROOT/deploy/compose/docker-compose.yml $ROOT/deploy/compose/docker-compose.test.yml"
+  export COMPOSE_PROFILES=test
+  version="$(sed -n 's/^APP_VERSION=//p' "$ROOT/.env" | tail -1)"
+  version="${version:-dev}"
+  # что бы ни случилось, стенд остаётся на своей версии
+  trap 'sed -i "s/^APP_VERSION=.*/APP_VERSION=${version}/" "$ROOT/.env"' RETURN
+  deploy/backup/verify-restore.sh "$report" || rc=$?
+  if ((rc == 0)); then
+    started=$(date +%s)
+    if deploy/scripts/upgrade.sh e2e-next --build && deploy/scripts/rollback.sh "$version"; then
+      printf '\n## Обновление и откат\n\nupgrade.sh %s → e2e-next и rollback.sh обратно: УСПЕХ за %s с\n' \
+        "$version" "$(( $(date +%s) - started ))" >>"$report"
+    else
+      rc=1
+      printf '\n## Обновление и откат\n\nПРОВАЛ (см. лог шага)\n' >>"$report"
+    fi
+  fi
+  if [[ -n "${GITHUB_STEP_SUMMARY:-}" && -f "$report" ]]; then cat "$report" >>"$GITHUB_STEP_SUMMARY"; fi
+  return "$rc"
+}
+
 cmd_logs() {
   [[ -f .env ]] || { echo "стенд не поднимался"; return 0; }
   mkdir -p "$LOGS_DIR"
@@ -109,7 +138,8 @@ case "${1:-}" in
   seed-env) cmd_seed_env ;;
   check-browser) cmd_check_browser ;;
   ad-suite) cmd_ad_suite ;;
+  ops-suite) cmd_ops_suite ;;
   logs) cmd_logs ;;
   cleanup) cmd_cleanup ;;
-  *) sed -n '2,11p' "$0"; exit 2 ;;
+  *) sed -n '2,12p' "$0"; exit 2 ;;
 esac
