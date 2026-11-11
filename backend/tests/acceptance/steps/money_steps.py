@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import io
 import re
+from pathlib import Path
 from typing import Any
 
+import pytest
 from openpyxl import load_workbook
 from pytest_bdd import given, parsers, then, when
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +21,9 @@ from estimator.exports import engine
 from tests.acceptance.steps.common import Scene, aio
 from tests.integration.core.conftest import World, deliver_events
 from tests.integration.core.test_nodes_api import _create, _setup
+
+#: Фикстура «Портала дилеров» в репозитории: в образе тестов пакет её рядом с модулем не кладёт.
+DEMO_FIXTURE = Path(__file__).resolve().parents[4] / "contracts/fixtures/calc/portal-dilerov.json"
 
 #: Части ключей с деньгами в ответах API (SEC-AUTHZ-04, TC-SEC-03): ``rate_rub``, ``cost_cur``…
 MONEY_PARTS = {"rate", "rates", "cost", "costs", "currency", "exchange", "money", "vat", "price",
@@ -100,8 +105,10 @@ def stats_without_money(scene: Scene) -> None:
 @aio
 async def portal_example(
     world: World, db_session: AsyncSession, scene: Scene, figure: str, currency: str, rate: str,
-    vat: str,
+    vat: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:  # fmt: skip
+    if DEMO_FIXTURE.is_file():
+        monkeypatch.setenv(seed_demo.ENV_FIXTURE, str(DEMO_FIXTURE))
     result = seed_demo.SeedResult()
     await seed_demo._check_dictionaries(db_session)
     users = await seed_demo._users(db_session, "demo-password-1", result)
