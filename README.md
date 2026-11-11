@@ -139,6 +139,10 @@ make traceability   # отчёт «требование → тест» в build/
 | `HEALTH_TIMEOUT` | `upgrade.sh`, `rollback.sh` | Сколько секунд ждать зелёного healthcheck сервиса после перезапуска | `180` |
 | `LOG_DIR` | `collect-logs.sh` | Каталог, куда собираются логи контейнеров | `/var/log/estimator` |
 | `LOG_RETENTION_DAYS` | `collect-logs.sh` | Сколько дней хранить собранные логи (NFR-REL-06) | `90` |
+| `BIND_ADDRESS` | compose (`nginx`) | На каком адресе сервера открыты порты HTTPS и HTTP: `127.0.0.1` на dev, `0.0.0.0` на стендах test и stage | `127.0.0.1` |
+| `STAND_SECRETS_DIR` | `deploy/envs/deploy.sh`, compose стендов | Каталог Docker secrets стенда на сервере: в нём файл `encryption_key` (мастер-ключ) | `/etc/estimator/secrets` |
+| `STAND_ACCESS_FILE` | compose стендов (`nginx`) | Список сетей, которым Nginx отвечает; его пишет `deploy/envs/deploy.sh` из `STAND_NETWORKS` | пишет `deploy.sh` |
+| `STAND_DOCKER_SUBNET` | compose стендов | Подсеть Docker стенда; Nginx пускает её, чтобы работали проверки с самого сервера | `172.31.250.0/24` |
 <!-- ops-env-table:end -->
 
 Как задать переменные на stage и prod, где лежат секреты и как их менять — в

@@ -17,7 +17,8 @@ RUN npm run build
 
 FROM ${NGINX_IMAGE} AS runtime
 RUN apk upgrade --no-cache \
- && rm -f /etc/nginx/conf.d/default.conf
+ && rm -f /etc/nginx/conf.d/default.conf \
+ && mkdir -p /etc/nginx/access
 COPY deploy/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY deploy/nginx/log_format.conf /etc/nginx/log_format.conf
 COPY deploy/nginx/conf.d/ /etc/nginx/conf.d/

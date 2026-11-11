@@ -14,7 +14,7 @@ HTTP_PORT="${TEST_HTTP_PORT:-18080}"
 FAILED=0
 
 cleanup() {
-  docker rm -f "$NAME-nginx" "$NAME-api" >/dev/null 2>&1 || true
+  docker rm -f "$NAME-nginx" "$NAME-closed" "$NAME-api" >/dev/null 2>&1 || true
   docker network rm "$NAME" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
@@ -33,6 +33,9 @@ chmod 644 "$WORK/server.key"
 mkdir -p "$WORK/html/assets"
 cp "$ROOT/frontend/index.html" "$WORK/html/index.html"
 echo "console.log(1)" > "$WORK/html/assets/app-abc123.js"
+# INF-011: каталог списков сетей стенда; на dev пуст — пускают всех
+mkdir -p "$WORK/access" "$WORK/closed"
+echo "deny all;" > "$WORK/closed/stand.conf"
 
 docker network create "$NAME" >/dev/null
 docker run -d --name "$NAME-api" --network "$NAME" --network-alias api \
@@ -46,6 +49,7 @@ docker run -d --name "$NAME-nginx" --network "$NAME" --user 101:101 --read-only 
   -v "$WORK/server.crt:/etc/nginx/certs/server.crt:ro" \
   -v "$WORK/server.key:/etc/nginx/certs/server.key:ro" \
   -v "$WORK/html:/usr/share/nginx/html:ro" \
+  -v "$WORK/access:/etc/nginx/access:ro" \
   --entrypoint nginx "$IMAGE" -g "daemon off;" >/dev/null
 
 BASE="https://localhost:$HTTPS_PORT"
@@ -141,6 +145,27 @@ get "$WORK/h_503" /api/v1/me --max-time 30 >"$WORK/b_503" || true
 check "API недоступен: 503" status_is "$WORK/h_503" 503
 check "API недоступен: заголовки безопасности" security_headers "$WORK/h_503"
 check "API недоступен: SERVICE_UNAVAILABLE" grep -q '"code":"SERVICE_UNAVAILABLE"' "$WORK/b_503"
+
+# --- INF-011: список сетей стенда — чужой адрес получает 403 и на HTTPS, и на HTTP -----------
+docker run -d --name "$NAME-closed" --network "$NAME" --user 101:101 --read-only --tmpfs /tmp \
+  -p "127.0.0.1:$((HTTPS_PORT + 1)):8443" -p "127.0.0.1:$((HTTP_PORT + 1)):8080" \
+  -v "$ROOT/deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
+  -v "$ROOT/deploy/nginx/log_format.conf:/etc/nginx/log_format.conf:ro" \
+  -v "$ROOT/deploy/nginx/conf.d:/etc/nginx/conf.d:ro" \
+  -v "$ROOT/deploy/nginx/snippets:/etc/nginx/snippets:ro" \
+  -v "$WORK/server.crt:/etc/nginx/certs/server.crt:ro" \
+  -v "$WORK/server.key:/etc/nginx/certs/server.key:ro" \
+  -v "$WORK/html:/usr/share/nginx/html:ro" \
+  -v "$WORK/closed:/etc/nginx/access:ro" \
+  --entrypoint nginx "$IMAGE" -g "daemon off;" >/dev/null
+for _ in $(seq 1 50); do
+  curl -sk -o /dev/null "https://localhost:$((HTTPS_PORT + 1))/" && break
+  sleep 0.2
+done
+curl -sk -D "$WORK/h_closed" -o /dev/null "https://localhost:$((HTTPS_PORT + 1))/"
+curl -s -D "$WORK/h_closed_http" -o /dev/null "http://localhost:$((HTTP_PORT + 1))/"
+check "сеть вне списка стенда: HTTPS 403" status_is "$WORK/h_closed" 403
+check "сеть вне списка стенда: HTTP 403" status_is "$WORK/h_closed_http" 403
 
 if [[ $FAILED -ne 0 ]]; then
   docker logs "$NAME-nginx" 2>&1 | tail -20

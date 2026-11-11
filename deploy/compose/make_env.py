@@ -40,9 +40,16 @@ def render(example: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+#: Пометка в .env стенда: переменная хранится в Docker secret и в .env не дописывается
+#: (INF-011, ``deploy/envs/deploy.sh``), например ``# docker-secret: ENCRYPTION_KEY``.
+DOCKER_FILE_MARK = "# docker-secret:"
+
+
 def missing(example: str, current: str) -> list[str]:
     """Строки ``.env.example`` с переменными, которых в ``current`` нет (новые со временем)."""
     have = {line.split("=", 1)[0] for line in current.splitlines() if "=" in line}
+    have |= {line.removeprefix(DOCKER_FILE_MARK).strip() for line in current.splitlines()
+             if line.startswith(DOCKER_FILE_MARK)}  # fmt: skip
     rendered = render(example).splitlines()
     return [line for line in rendered if "=" in line and not line.startswith("#")
             and line.split("=", 1)[0] not in have]  # fmt: skip

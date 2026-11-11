@@ -2150,7 +2150,7 @@
 
 #### INF — эксплуатационная готовность
 
-- [ ] **INF-011** · Стенды test и stage · трек INF
+- [ ] **INF-011** · Стенды test и stage · трек INF · `deploy/envs/deploy.sh test|stage`: проверка сервера, `.env` из `stand.env`, мастер-ключ в Docker secret, список сетей Nginx (403 остальным), запуск, `seed-demo`, смоук; осталось — развернуть на серверах и проверить на Astra Linux и РЕД ОС
   - SPEC: 18.1, NFR-COMP-03, NFR-ENV-01, Q-35, Q-50, 15.1 (OpenAPI на тестовом стенде)
   - Зависит: INF-004, INF-009, INF-006
   - Сделать: развёртывание test (CI, Samba AD, `seed-demo`) и stage (копия справочников, тестовые проекты, тестовый OU корпоративного AD); секреты — Docker secrets; доступ только из офисной сети и VPN; проверка установки на Ubuntu 22.04+, Astra Linux, РЕД ОС (Docker 24+).
