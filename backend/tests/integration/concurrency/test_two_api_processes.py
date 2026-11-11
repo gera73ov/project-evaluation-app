@@ -63,6 +63,8 @@ class World2:
     pid: uuid.UUID
     leaf: uuid.UUID
     ws: WsConnect
+    #: окружение реплик (база, Redis) — для запуска новых процессов в тесте
+    env: dict[str, str]
 
     async def rest(
         self, api: ApiProcess, who: Session, method: str, path: str, **kw: Any
@@ -117,7 +119,7 @@ async def world2(
     env = {"DATABASE_URL": live_database_url, "REDIS_URL": os.environ[REDIS_ENV_VAR],
            "FORWARDED_ALLOW_IPS": "127.0.0.1"}  # fmt: skip
     first, second = api_processes(2, env=env)
-    w = World2(first, second, moderator, a, b, uuid.uuid4(), uuid.uuid4(), ws_connect)
+    w = World2(first, second, moderator, a, b, uuid.uuid4(), uuid.uuid4(), ws_connect, env)
     created = await w.rest(first, moderator, "POST", "/projects", json={
         "name": "Портал дилеров", "customer": "ООО Ромашка", "phase_ids": [str(phase)],
     })  # fmt: skip
