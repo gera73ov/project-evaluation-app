@@ -64,8 +64,6 @@ EXAMPLES_ELSEWHERE = {
 }
 #: Строки, которые проверяет отдельный тест.
 OWN_TESTS = {"M3.4-09"}
-#: Ответы, которые контракт пока не объявляет, — кандидаты в CR; пропускаются до решения.
-CONTRACT_GAPS = {("GET", "/projects/{id}/member-candidates")}  # 409 в «Завершена» и «Архиве»
 #: Путь из «Оценки» в статус по стрелкам 4.2.
 ROUTE = {
     "estimation": [],
@@ -161,8 +159,6 @@ async def test_matrix_status(
             for method, template in _endpoints(permission):
                 path = _fill(template, st.ids)
                 if path is None or not _in_contract(method, template):
-                    continue
-                if (method, template) in CONTRACT_GAPS:
                     continue
                 body = _has_body(method, template)
                 if allow and method != "GET" and not body:
