@@ -7,8 +7,12 @@ ARG POSTGRES_IMAGE=postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce47705
 
 FROM ${POSTGRES_IMAGE}
 RUN apk upgrade --no-cache \
- && apk add --no-cache pgbackrest \
+ && apk add --no-cache pgbackrest su-exec \
  && pgbackrest version \
+ # gosu базового образа собран старым Go (trivy: CRITICAL/HIGH в stdlib); su-exec из Alpine
+ # принимает те же аргументы («gosu postgres …»), которыми его зовёт docker-entrypoint.sh
+ && ln -sf /sbin/su-exec /usr/local/bin/gosu \
+ && gosu postgres true \
  && install -d -o postgres -g postgres -m 0750 /var/lib/pgbackrest \
  && install -d -o postgres -g postgres -m 0755 /var/lib/estimator/backup \
  # том documents подключается и сюда (только чтение, для архива): если postgres стартует первым,
