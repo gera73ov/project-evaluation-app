@@ -139,14 +139,8 @@ limit_case /api/v1/system/settings/auth 65536
 limit_case /api/v1/admin/calendar 262144
 limit_case /api/v1/projects/0192f1c4-7a1e-7c3b-9f00-1a2b3c4d5e6f/documents 52428800
 
-# --- API недоступен → 503 Problem Details с заголовками ---------------------------------------
-docker stop "$NAME-api" >/dev/null
-get "$WORK/h_503" /api/v1/me --max-time 30 >"$WORK/b_503" || true
-check "API недоступен: 503" status_is "$WORK/h_503" 503
-check "API недоступен: заголовки безопасности" security_headers "$WORK/h_503"
-check "API недоступен: SERVICE_UNAVAILABLE" grep -q '"code":"SERVICE_UNAVAILABLE"' "$WORK/b_503"
-
 # --- INF-011: список сетей стенда — чужой адрес получает 403 и на HTTPS, и на HTTP -----------
+# (до остановки api: upstream разрешается при старте Nginx)
 docker run -d --name "$NAME-closed" --network "$NAME" --user 101:101 --read-only --tmpfs /tmp \
   -p "127.0.0.1:$((HTTPS_PORT + 1)):8443" -p "127.0.0.1:$((HTTP_PORT + 1)):8080" \
   -v "$ROOT/deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
@@ -162,10 +156,17 @@ for _ in $(seq 1 50); do
   curl -sk -o /dev/null "https://localhost:$((HTTPS_PORT + 1))/" && break
   sleep 0.2
 done
-curl -sk -D "$WORK/h_closed" -o /dev/null "https://localhost:$((HTTPS_PORT + 1))/"
-curl -s -D "$WORK/h_closed_http" -o /dev/null "http://localhost:$((HTTP_PORT + 1))/"
+curl -sk -D "$WORK/h_closed" -o /dev/null "https://localhost:$((HTTPS_PORT + 1))/" || true
+curl -s -D "$WORK/h_closed_http" -o /dev/null "http://localhost:$((HTTP_PORT + 1))/" || true
 check "сеть вне списка стенда: HTTPS 403" status_is "$WORK/h_closed" 403
 check "сеть вне списка стенда: HTTP 403" status_is "$WORK/h_closed_http" 403
+
+# --- API недоступен → 503 Problem Details с заголовками ---------------------------------------
+docker stop "$NAME-api" >/dev/null
+get "$WORK/h_503" /api/v1/me --max-time 30 >"$WORK/b_503" || true
+check "API недоступен: 503" status_is "$WORK/h_503" 503
+check "API недоступен: заголовки безопасности" security_headers "$WORK/h_503"
+check "API недоступен: SERVICE_UNAVAILABLE" grep -q '"code":"SERVICE_UNAVAILABLE"' "$WORK/b_503"
 
 if [[ $FAILED -ne 0 ]]; then
   docker logs "$NAME-nginx" 2>&1 | tail -20
