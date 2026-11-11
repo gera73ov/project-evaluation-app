@@ -5,9 +5,10 @@
     uv run --frozen python ../e2e/admin/seed.py
 
 Создаёт с уникальными логинами администратора и двух модераторов с подключённым TOTP (общий
-секрет печатается: сценарий считает коды сам) и пользователя без системных ролей, печатает
-id двух фаз. Мастер первичной настройки отмечается завершённым. Печатает JSON; его читает
-global-setup.ts. Только для dev и тестовых стендов.
+секрет печатается: сценарий считает коды сам), пользователя без системных ролей и пару «уходящий —
+приходящий» для замены участника, печатает id двух фаз и одной дисциплины. Мастер первичной
+настройки отмечается завершённым. Печатает JSON; его читает global-setup.ts. Только для dev и
+тестовых стендов.
 """
 
 from __future__ import annotations
@@ -38,6 +39,8 @@ async def seed() -> dict[str, object]:
         "user": (f"e2e.usr.{suffix}", f"Пользователев П. {suffix}"),
         "moderator": (f"e2e.amod.{suffix}", f"Модераторова Е. {suffix}"),
         "moderator2": (f"e2e.amod2.{suffix}", f"Сменщиков С. {suffix}"),
+        "leaver": (f"e2e.leave.{suffix}", f"Уходящий У. {suffix}"),
+        "newcomer": (f"e2e.new2.{suffix}", f"Приходящий П. {suffix}"),
     }
     roles = {
         "admin": SystemRole.ADMIN,
@@ -83,6 +86,9 @@ async def seed() -> dict[str, object]:
                 )
             ).scalars()
             phase_ids = [str(x) for x in phases]
+            discipline = await db.scalar(
+                text("SELECT id FROM disciplines WHERE is_active ORDER BY name LIMIT 1")
+            )
     finally:
         await dispose_engine()
     return {
@@ -91,6 +97,7 @@ async def seed() -> dict[str, object]:
             for kind, (login, name) in people.items()
         },
         "phases": phase_ids,
+        "discipline": str(discipline),
         "suffix": suffix,
         "password": password,
         "totp": totp,

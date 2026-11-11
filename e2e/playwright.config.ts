@@ -17,7 +17,12 @@ const baseURL = external ?? 'https://localhost:8443';
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.ts',
-  testIgnore: PERF ? [] : ['perf/**'],
+  // FE-094: e2e/ad очищает базу (установка с нуля) и нужен Samba AD — только при E2E_AD=1 (на
+  // домашнем стенде его задаёт seed-env) и последним, после всех остальных наборов
+  projects: [
+    { name: 'main', testIgnore: PERF ? ['ad/**'] : ['perf/**', 'ad/**'] },
+    ...(process.env.E2E_AD === '1' ? [{ name: 'ad', testMatch: 'ad/**/*.spec.ts', dependencies: ['main'] }] : []),
+  ],
   fullyParallel: false,
   workers: 1,
   retries: 0,

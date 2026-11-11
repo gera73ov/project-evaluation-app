@@ -38,6 +38,11 @@ cmd_seed_env() {
   local port
   port="$(sed -n 's/^HTTPS_PORT=//p' "$ROOT/.env" | tail -1)"
   printf 'export E2E_BASE_URL=%q\n' "https://localhost:${port:-8443}"
+  # FE-094 (e2e/ad): установка с нуля на Samba AD — сброс базы, пароль тестовых учёток каталога, УЦ
+  printf 'export E2E_AD=1\n'
+  printf 'export E2E_AD_RESET_CMD=%q\n' "${run}/e2e/ad/reset.py"
+  printf 'export E2E_AD_PASSWORD=%q\n' "$(sed -n 's/^SAMBA_TEST_PASSWORD=//p' "$ROOT/.env" | tail -1)"
+  printf 'export E2E_AD_CA=%q\n' "$ROOT/deploy/compose/certs/ca.crt"
   local name script
   for pair in SEED:auth/seed.py WORK_SEED:work/seed.py ADMIN_SEED:admin/seed.py \
               STATS_SEED:stats/seed.py STATS_FILL:perf/fill.py A11Y_SEED:a11y/seed.py \

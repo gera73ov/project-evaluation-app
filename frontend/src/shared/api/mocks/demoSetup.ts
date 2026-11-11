@@ -1,7 +1,8 @@
 /**
  * FE-064 · мастер первичной настройки в демо (SPEC 7.1, FR-SA-02): пять шагов, у каждого —
- * свои ключи settings.schema.json. Шаг сохраняется с `complete: true` только по порядку;
- * в режиме AD шаг 3 требует обеих проверок (FR-AUTH-AD-03), шаг 5 — заведённого администратора.
+ * свои ключи settings.schema.json. Шаги сохраняются по порядку и отмечаются пройденными, как на
+ * сервере (ADM-001); `complete: true` завершает мастер — когда пройдены все пять шагов и есть
+ * администратор. В режиме AD шаг 3 требует обеих проверок (FR-AUTH-AD-03).
  * По умолчанию демо-мастер уже пройден; `?demo=setup` в адресе (или `restartDemoSetup()` в тестах)
  * начинает его заново, как после `estimator create-superadmin`.
  */
@@ -50,17 +51,21 @@ const KEYS = new Map<Step, readonly string[]>([
 ]);
 
 const done = new Set<Step>(SETUP_STEPS);
+/** Мастер завершён (`completed_at` на сервере). */
+let finished = true;
 
 export function resetDemoSetup() {
   for (const s of SETUP_STEPS) done.add(s);
+  finished = true;
 }
 
 export function restartDemoSetup() {
   done.clear();
+  finished = false;
   firstInstall();
 }
 
-export const setupCompleted = () => done.size === SETUP_STEPS.length;
+export const setupCompleted = () => finished;
 
 const stepOf = (name: string): Step | null =>
   SETUP_STEPS.find((s) => s === name) ?? null;
@@ -97,20 +102,19 @@ export function postStep(
     Object.entries(raw && typeof raw === "object" ? raw : {}),
   );
   const complete = b.get("complete") === true;
-  if (!complete && values.size === 0) return getStep(step);
+  if (!complete && values.size === 0 && setupCompleted()) return getStep(step);
   if (setupCompleted()) return { error: "SETUP_ALREADY_COMPLETED" };
   const index = SETUP_STEPS.indexOf(step);
-  if (complete && SETUP_STEPS.slice(0, index).some((s) => !done.has(s)))
+  if (SETUP_STEPS.slice(0, index).some((s) => !done.has(s)))
     return { error: "VALIDATION_FAILED" };
-  if (step === "auth" && complete && values.get("auth.mode") === "ad") {
+  if (step === "auth" && values.get("auth.mode") === "ad") {
     const missing = checksMissing();
     if (missing.length) return { error: "AD_CHECKS_REQUIRED", missing };
   }
-  if (
-    step === "first_admin" &&
-    complete &&
-    !admins().some((a) => a.roles.includes("admin") && a.status !== "blocked")
-  )
+  const hasAdmin = admins().some(
+    (a) => a.roles.includes("admin") && a.status !== "blocked",
+  );
+  if (step === "first_admin" && !hasAdmin)
     return { error: "VALIDATION_FAILED" };
   const allowed = new Set(KEYS.get(step) ?? []);
   const bySection = new Map<string, Record<string, unknown>>();
@@ -121,6 +125,11 @@ export function postStep(
   }
   for (const [section, part] of bySection) saveSettings(section, part);
   if (step === "auth" && values.get("auth.mode") === "ad") afterSave();
-  if (complete) done.add(step);
+  done.add(step);
+  if (complete) {
+    if (done.size < SETUP_STEPS.length || !hasAdmin)
+      return { error: "VALIDATION_FAILED" };
+    finished = true;
+  }
   return getStep(step);
 }
