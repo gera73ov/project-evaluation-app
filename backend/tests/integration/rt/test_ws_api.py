@@ -357,5 +357,7 @@ async def test_ws_metrics(stage: Stage) -> None:
     assert sample("estimator_ws_connections") == before + 1
     await deliver(_updated(project.id, 3))
     await m.event("project.updated")
-    assert sample("estimator_ws_delivery_seconds_count", channel="project") == sent + 1
+    # Счётчик общий на процесс: в нём бывают доставки соседних тестов того же воркера xdist,
+    # которые ещё в пути (CI #116: 82 вместо 81), поэтому проверяем «не меньше»
+    assert sample("estimator_ws_delivery_seconds_count", channel="project") >= sent + 1
     assert sample("estimator_ws_delivery_seconds_bucket", channel="project", le="+Inf") >= 1
