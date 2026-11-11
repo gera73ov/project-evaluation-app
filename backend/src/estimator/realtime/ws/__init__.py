@@ -33,6 +33,7 @@ from estimator.api.common.errors import problem_response
 from estimator.auth.context import Principal, UnauthenticatedError, resolve_principal
 from estimator.auth.policy import read_settings
 from estimator.logging import get_logger
+from estimator.realtime import metrics as ws_metrics
 from estimator.realtime.bus import build_event
 from estimator.realtime.bus.contract import check_event
 from estimator.realtime.changes import VersionTooOld, changes_since
@@ -187,6 +188,7 @@ class WsSession:
                 await self.ws.send_text(json.dumps(message, ensure_ascii=False))
             except (WebSocketDisconnect, RuntimeError):
                 return
+            ws_metrics.observe_sent(message)
         if self.ws.application_state is WebSocketState.CONNECTED:
             with contextlib.suppress(Exception):
                 await self.ws.close(code=conn.close_code or 1000, reason=conn.close_reason)

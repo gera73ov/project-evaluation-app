@@ -334,3 +334,26 @@ async def test_project_moved_to_preparation_hides_it_from_expert(stage: Stage) -
     await deliver(_updated(project.id, 2))
     await m.event("project.updated")
     assert not m.events("access.revoked")
+
+
+@pytest.mark.spec("18.4")
+async def test_ws_metrics(stage: Stage) -> None:
+    """RT-009: число открытых соединений и задержка доставки события клиенту."""
+    from estimator import metrics
+
+    def sample(name: str, **labels: str) -> float:
+        return metrics.REGISTRY.get_sample_value(name, labels) or 0.0
+
+    project = await stage.project()
+    _, moderator = await stage.user(
+        SystemRole.MODERATOR, member=(project, ProjectRole.MODERATOR, None)
+    )
+    before = sample("estimator_ws_connections")
+    sent = sample("estimator_ws_delivery_seconds_count", channel="project")
+    m = await stage.connect(moderator)
+    await m.subscribe(project.id)
+    assert sample("estimator_ws_connections") == before + 1
+    await deliver(_updated(project.id, 3))
+    await m.event("project.updated")
+    assert sample("estimator_ws_delivery_seconds_count", channel="project") == sent + 1
+    assert sample("estimator_ws_delivery_seconds_bucket", channel="project", le="+Inf") >= 1

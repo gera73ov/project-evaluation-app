@@ -87,3 +87,47 @@ async def test_totals_overflow(
     row = (await cached(db_session, [s.pid], [s.pid]))[s.pid]
     assert row.money is not None
     assert (row.e, row.p80, row.p90, row.money.quote_cur) == (None, None, None, None)
+
+
+@pytest.mark.spec("10.1")
+@pytest.mark.spec("GAP-01")
+async def test_daily_dynamics(world: World, db_session: AsyncSession) -> None:
+    """По строке на день (пояс приложения), последняя правка дня перезаписывает строку; денежного
+    ряда у эксперта нет; в «Подготовке» ряд не пишется."""
+    import datetime as dt
+
+    from sqlalchemy import update
+
+    from estimator.db.enums import ProjectStatus
+    from estimator.db.models.projects import Project
+    from estimator.services.money import totals as money_totals
+
+    s = await _setup(world, db_session)
+    branch = await s.branch(db_session, s.backend)
+    project = await db_session.get(Project, s.pid)
+    day1 = dt.datetime(2026, 11, 9, 20, 0, tzinfo=dt.UTC)  # 23:00 по Москве — ещё 9-е
+    day2 = dt.datetime(2026, 11, 9, 21, 30, tzinfo=dt.UTC)  # 00:30 по Москве — уже 10-е
+    await money_totals.refresh(db_session, project, day1)
+    await _leaf(s.backend_expert, s, branch.id, "Вход", o="8", r="12", p="20")
+    await money_totals.refresh(db_session, project, day2)
+    await _leaf(s.backend_expert, s, branch.id, "Выход", o="8", r="12", p="20")
+    await money_totals.refresh(db_session, project, day2 + dt.timedelta(hours=5))
+
+    rows = await money_totals.daily(db_session, s.pid)
+    assert [r.date for r in rows] == [dt.date(2026, 11, 9), dt.date(2026, 11, 10)]
+    assert rows[0].e in (None, Decimal("0"), Decimal("0.00"))
+    assert rows[1].e == (await cached(db_session, [s.pid], []))[s.pid].e  # итог на конец дня
+
+    moderator = (await s.moderator.get(f"/projects/{s.pid}/stats")).json()
+    assert [d["date"] for d in moderator["dynamics"]] == ["2026-11-09", "2026-11-10"]
+    assert [d["date"] for d in moderator["money"]["dynamics"]] == ["2026-11-09", "2026-11-10"]
+    expert = (await s.backend_expert.get(f"/projects/{s.pid}/stats")).json()
+    assert len(expert["dynamics"]) == 2
+    assert "money" not in expert
+
+    await db_session.execute(
+        update(Project).where(Project.id == s.pid).values(status=ProjectStatus.PREPARATION)
+    )
+    await db_session.refresh(project)
+    await money_totals.refresh(db_session, project, day2 + dt.timedelta(days=3))
+    assert len(await money_totals.daily(db_session, s.pid)) == 2
