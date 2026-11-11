@@ -66,6 +66,10 @@ async def stocked(world: World, db: AsyncSession) -> Stocked:
                            p="3")).json()["node"]  # fmt: skip
     trashed = await s.backend_expert.delete(f"/nodes/{spare['id']}")
     assert trashed.status_code == 200, trashed.text
+    doc = await s.moderator.post(f"/projects/{s.pid}/documents", files={
+        "file": ("ТЗ.pdf", b"%PDF-1.7\n1 0 obj << >> endobj\n%%EOF\n", "application/octet-stream"),
+    })  # fmt: skip
+    assert doc.status_code == 201, doc.text
     plain = await world.actor()
     snap = await s.moderator.post(f"/projects/{s.pid}/snapshots", json={"name": "Версия 1"})
     assert snap.status_code == 201, snap.text
@@ -74,5 +78,5 @@ async def stocked(world: World, db: AsyncSession) -> Stocked:
            "snapshot": snap.json()["id"], "tab": "readiness", "thread": asked.json()["thread_id"],
            "cq_thread": cq.json()["thread_id"], "note": notes[0], "user": plain.id,
            "phase": branch.phase_id, "discipline": s.backend, "section": "security",
-           "batch": trashed.json()["batch_id"]}  # fmt: skip
+           "batch": trashed.json()["batch_id"], "document": doc.json()["id"]}  # fmt: skip
     return Stocked(s, reviewer, presale, ids)
