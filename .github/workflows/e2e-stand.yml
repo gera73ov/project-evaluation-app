@@ -1,0 +1,117 @@
+# INF-018 · e2e на домашнем стенде (PLAN-1.6, deploy/home-stand/README.md).
+# Задание берёт только свой исполнитель home-mint с меткой home-stand: собирает образы, поднимает
+# весь стенд профиля test (`make up-test`: nginx, api, worker, beat, postgres, redis, ClamAV,
+# Samba AD, Mailpit, syslog TLS), запускает сиды e2e/*/seed.py и все сценарии Playwright, затем
+# наборы AD на Samba (QA-012). Отчёт Playwright, трассы, скриншоты и логи стенда — в артефактах.
+# После прогона стенд останавливается, данные удаляются (сигнатуры ClamAV остаются в томе clamdb).
+#
+# Репозиторий публичный, исполнитель стоит дома. Поэтому:
+#   - только pull_request (код PR без секретов и с токеном только на чтение) и workflow_dispatch;
+#     pull_request_target здесь не используется никогда;
+#   - PR из чужого форка задание пропускает (условие if у задания), а запуск workflow для внешних
+#     участников требует одобрения владельца (Settings → Actions → General);
+#   - исполнитель работает под пользователем stand без sudo.
+# Одновременно идёт один прогон: исполнитель один, остальные задания ждут в очереди GitHub.
+# Новый push в тот же PR отменяет его прошлый прогон (группа concurrency на PR).
+# Правило слияния (PLAN-1.6): PR с кодом вливается только после зелёного e2e-stand.
+# Действия закреплены по SHA коммита (AGENTS.md 6.5); права токена — только чтение.
+name: e2e-stand
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "e2e/**"
+      - "contracts/**"
+      - "deploy/**"
+      - "Makefile"
+      - ".env.example"
+      - ".dockerignore"
+      - ".github/workflows/e2e-stand.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-stand-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: e2e на домашнем стенде
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, home-stand]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      PLAYWRIGHT_HTML_OPEN: never
+      LOGS_DIR: ${{ github.workspace }}/stand-logs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Убрать остатки прошлого прогона (если компьютер выключали посреди прогона)
+        run: deploy/home-stand/e2e-stand.sh cleanup
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Собрать образы и поднять стенд (make up-test)
+        timeout-minutes: 40
+        run: deploy/home-stand/e2e-stand.sh up
+
+      - name: Смоук-проверка стенда (TLS, LDAPS, StartTLS, SMTP, syslog)
+        run: make smoke-test
+
+      - name: Установить Playwright и Chromium
+        working-directory: e2e
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install chromium
+          ../deploy/home-stand/e2e-stand.sh check-browser
+
+      - name: Сценарии Playwright (сиды e2e/*/seed.py в контейнере api)
+        working-directory: e2e
+        run: |
+          source <(../deploy/home-stand/e2e-stand.sh seed-env)
+          npx playwright test --reporter=list,html
+
+      - name: Наборы AD на Samba (QA-012)
+        if: success() || failure()
+        run: deploy/home-stand/e2e-stand.sh ad-suite
+
+      - name: Собрать логи стенда
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh logs
+
+      - name: Отчёт Playwright, трассы и скриншоты
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report-${{ github.run_number }}
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Логи стенда
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stand-logs-${{ github.run_number }}
+          path: stand-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Остановить и почистить стенд
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh cleanup

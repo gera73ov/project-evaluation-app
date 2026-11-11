@@ -2,6 +2,21 @@
 
 Playwright-сценарии UI против настоящего API.
 
+## Запуск на домашнем стенде (INF-018)
+
+На каждый PR с кодом сценарии запускает workflow `e2e-stand` на исполнителе `home-stand`
+(`deploy/home-stand/README.md`). Руками на том же компьютере под `stand`:
+
+```bash
+deploy/home-stand/e2e-stand.sh up
+cd e2e && npm ci && npx playwright install chromium
+source <(../deploy/home-stand/e2e-stand.sh seed-env) && npx playwright test
+../deploy/home-stand/e2e-stand.sh cleanup
+```
+
+`seed-env` задаёт `E2E_BASE_URL` и все `E2E_*_CMD`: сиды запускаются одноразовым контейнером из
+образа api с каталогом `e2e` только на чтение.
+
 ## Запуск на dev-стенде
 
 ```bash
