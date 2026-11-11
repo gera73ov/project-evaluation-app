@@ -1,0 +1,66 @@
+# QA-021 · OWASP ZAP на домашнем стенде (deploy/zap/README.md), только запуском вручную.
+# Поднимает одноразовый стенд профиля test, сканирует baseline и API с сессиями эксперта,
+# модератора и администратора. Отчёты — в артефактах, итог — в сводке запуска; задание падает
+# при находках High (17.3). Правила безопасности те же, что у e2e-stand.yml.
+name: zap
+
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Предел активного сканирования на роль, минут"
+        default: "10"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-stand-zap
+  cancel-in-progress: false
+
+jobs:
+  zap:
+    name: OWASP ZAP на домашнем стенде
+    runs-on: [self-hosted, home-stand]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      LOGS_DIR: ${{ github.workspace }}/stand-logs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Убрать остатки прошлого прогона
+        run: deploy/home-stand/e2e-stand.sh cleanup
+
+      - name: Собрать образы и поднять стенд (make up-test)
+        timeout-minutes: 40
+        run: deploy/home-stand/e2e-stand.sh up
+
+      - name: Сканирование (deploy/zap/run.sh)
+        env:
+          ZAP_MAX_MINUTES: ${{ inputs.minutes }}
+          ZAP_MARK_SETUP: "1"  # одноразовый стенд без мастера первичной настройки
+        run: deploy/zap/run.sh
+
+      - name: Собрать логи стенда
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh logs
+
+      - name: Отчёты ZAP
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: zap-report-${{ github.run_number }}
+          path: |
+            deploy/zap/report/
+            stand-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Остановить и почистить стенд
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh cleanup

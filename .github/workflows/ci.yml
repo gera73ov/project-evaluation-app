@@ -237,4 +237,4 @@ jobs:
           docker run --rm --entrypoint promtool -v "$PWD/deploy/monitoring:/m:ro" "$img" check rules /m/alerts.yml
           docker run --rm --entrypoint promtool -v "$PWD/deploy/monitoring:/m:ro" "$img" test rules /m/alerts.test.yml
       - name: shellcheck скриптов эксплуатации
-        run: shellcheck -x -P SCRIPTDIR -S warning deploy/backup/*.sh deploy/scripts/*.sh deploy/logging/*.sh deploy/home-stand/*.sh deploy/envs/*.sh load/*.sh
+        run: shellcheck -x -P SCRIPTDIR -S warning deploy/backup/*.sh deploy/scripts/*.sh deploy/logging/*.sh deploy/home-stand/*.sh deploy/envs/*.sh load/*.sh deploy/zap/*.sh

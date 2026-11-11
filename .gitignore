@@ -74,3 +74,5 @@ deploy/envs/*/access.conf
 # QA-019: окружение Locust и отчёты нагрузочного теста (слоты содержат действующие сессии)
 load/report/
 load/slots*.json
+# QA-021: отчёты ZAP
+deploy/zap/report/
