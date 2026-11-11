@@ -5310,6 +5310,8 @@ paths:
         без `role` — любой из них. Поиск по ФИО без учёта регистра; логин, почта и статус в
         ответ не попадают. Порядок — по ФИО. Руководитель пресейла, пока он не модератор
         проекта, получает 403: себя он добавляет кнопкой «Стать модератором» (FR-PORT-03).
+        CR-016: в статусах «Завершена» и «Архив» команду менять нельзя (таблица 3.4), поэтому
+        поиск отвечает 409 `PROJECT_STATUS_CONFLICT`.
       tags:
       - Проекты
       x-permission: team.write
@@ -5350,6 +5352,7 @@ paths:
       - NOT_FOUND
       - FORBIDDEN
       - VALIDATION_FAILED
+      - PROJECT_STATUS_CONFLICT
       responses:
         '200':
           description: Успех
@@ -5371,6 +5374,8 @@ paths:
           $ref: '#/components/responses/Problem403'
         '404':
           $ref: '#/components/responses/Problem404'
+        '409':
+          $ref: '#/components/responses/Problem409'
         '422':
           $ref: '#/components/responses/Problem422'
         '500':

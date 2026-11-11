@@ -50,6 +50,8 @@ PLACEHOLDERS = {
     ("users", "id"): "user", ("admins", "id"): "user", ("view-state", "project_id"): "project",
     ("branches", "phase"): "phase", ("*", "discipline"): "discipline", ("stats", "tab"): "tab",
     ("settings", "section"): "section", ("members", "user_id"): "user",
+    ("trash", "batch_id"): "batch", ("documents", "id"): "document",
+    ("disciplines", "discipline_id"): "discipline",
 }  # fmt: skip
 PROBE_BODY = {"__probe__": "права проверяются раньше тела"}
 #: Области ячеек, которые объект проверки (лист Бэкенда, вопрос эксперта Бэкенда модератору)
@@ -204,7 +206,7 @@ def test_matrix_coverage_report() -> None:
     uncovered = [r for r in rows if not COVERAGE.get(r)]
     print(f"\nTC-SEC-02: проверено строк {len(rows) - len(uncovered)} из {len(rows)}; "
           f"без проверок: {', '.join(uncovered) or 'нет'}")  # fmt: skip
-    assert len(uncovered) <= len(rows) // 5, uncovered
+    assert uncovered == [], uncovered
 
 
 # --- SEC-AUTHZ-05: контекстные строки ------------------------------------------------------------
