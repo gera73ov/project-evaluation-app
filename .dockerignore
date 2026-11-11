@@ -5,6 +5,8 @@
 !backend/src/**
 !backend/alembic.ini
 !backend/alembic/**
+# тесты — только для стадии test образа api (make test-ad, QA-012)
+!backend/tests/**
 !frontend/**
 !contracts/**
 !deploy/docker/**

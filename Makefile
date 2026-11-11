@@ -9,7 +9,7 @@ UV := uv --directory backend
 SEMGREP := uv run --project backend/tools/semgrep --frozen semgrep
 
 .PHONY: help env certs build up up-test smoke smoke-test down ps logs \
-        lint test test-backend test-frontend security check traceability
+        lint test test-backend test-frontend test-ad security check traceability
 
 help: ## список команд
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -65,6 +65,22 @@ test-frontend: ## vitest и сборка без inline-скриптов
 	cd frontend && npm test && npm run -s build
 
 test: test-backend test-frontend ## все юнит-тесты
+
+# QA-012 · наборы AD на настоящем Samba AD DC: tests/integration/ad и сценарии tests/acceptance
+# (G-04, G-05, G-10, G-26 — с тегом @samba). Нужен поднятый `make up-test`. Тесты идут в контейнере
+# из стадии test образа api в сети стенда: своя база estimator_test_* на postgres стенда, Redis —
+# база 15, Samba — dc1.test.estimator.local с dev-УЦ. Учётки тестов — qa-ad-…, удаляются после.
+TEST_AD_IMAGE := estimator-api-test:dev
+test-ad: env ## наборы AD на Samba (QA-012; сначала make up-test)
+	docker build -f deploy/docker/api.Dockerfile --target test -t $(TEST_AD_IMAGE) .
+	set -a && . ./.env && set +a && docker run --rm --network estimator_backend \
+	  -v $(CURDIR)/deploy/compose/certs/ca.crt:/certs/ca.crt:ro \
+	  -e TEST_DATABASE_URL="postgresql+asyncpg://estimator:$${POSTGRES_PASSWORD}@postgres:5432/postgres" \
+	  -e TEST_REDIS_URL="redis://:$${REDIS_PASSWORD}@redis:6379/15" \
+	  -e TEST_SAMBA_HOST=dc1.test.estimator.local -e TEST_SAMBA_CA_FILE=/certs/ca.crt \
+	  -e TEST_SAMBA_ADMIN_PASSWORD="$${SAMBA_ADMIN_PASSWORD}" \
+	  -e TEST_SAMBA_SERVICE_PASSWORD="$${SAMBA_TEST_PASSWORD}" \
+	  $(TEST_AD_IMAGE) pytest -p no:cacheprovider -rs tests/integration/ad tests/acceptance
 
 traceability: ## отчёт «требование → тест» по маркерам tc/spec/gherkin в build/traceability.md
 	python3 tools/traceability.py

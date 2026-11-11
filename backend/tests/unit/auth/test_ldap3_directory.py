@@ -20,6 +20,7 @@ from estimator.auth.providers.ldap import (
     AdConfigError,
     AdUnavailableError,
     Ldap3Directory,
+    password_ok_but_disabled,
 )
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -75,6 +76,17 @@ def test_search_bind_guid() -> None:
     assert directory._by_guid(uuid.uuid4()) is None
     assert [e.login for e in directory._search_people("Иван", 10)] == ["ivan"]
     directory._ping()
+
+
+@pytest.mark.gherkin("G-04")
+def test_disabled_account_bind_subcode() -> None:
+    """AD отклоняет bind отключённой учётки (49, «data 533»), даже если пароль верный (QA-012)."""
+    ad = "80090308: LdapErr: DSID-0C0903A9, comment: AcceptSecurityContext error, data {}, v1db1"
+    assert password_ok_but_disabled({"result": 49, "message": ad.format("533")})
+    assert not password_ok_but_disabled({"result": 49, "message": ad.format("52e")}), "неверный"
+    assert not password_ok_but_disabled({"result": 49, "message": ad.format("775")}), "блокировка"
+    assert not password_ok_but_disabled({"result": 0})
+    assert not password_ok_but_disabled(None)
 
 
 def test_service_bind_failure_is_unavailable() -> None:

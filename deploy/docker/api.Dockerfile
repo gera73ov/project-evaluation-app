@@ -29,6 +29,21 @@ RUN uv sync --frozen --no-dev --no-editable \
  && /opt/venv/bin/python -c "from estimator.realtime.bus.contract import events; assert events()" \
  && /opt/venv/bin/python -c "from estimator.admin.settings.schema import contract; contract()"
 
+# Образ тестов для `make test-ad` (QA-012): зависимости разработки и backend/tests поверх стадии
+# build. Только для стенда профиля test: собирается явно (`--target test`), в образ api не попадает
+# (обычная сборка заканчивается последней стадией runtime и эту стадию пропускает).
+FROM build AS test
+RUN uv sync --frozen --no-editable
+WORKDIR /repo/backend
+COPY contracts /repo/contracts
+COPY backend/pyproject.toml backend/alembic.ini ./
+COPY backend/alembic ./alembic
+COPY backend/tests ./tests
+ENV PATH=/opt/venv/bin:$PATH \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+CMD ["pytest", "-p", "no:cacheprovider", "tests/integration/ad", "tests/acceptance"]
+
 FROM ${PYTHON_IMAGE} AS runtime
 ARG APP_VERSION=0.1.0
 LABEL org.opencontainers.image.title="estimator-api" \

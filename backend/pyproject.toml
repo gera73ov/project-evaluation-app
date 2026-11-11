@@ -103,6 +103,7 @@ markers = [
   "gherkin(id): ID сценария SPEC 17.2, G-01…G-26 (QA-002)",
   "pending: приёмочный сценарий без реализованных шагов (QA-002)",
   "integration: тест требует внешних сервисов (PostgreSQL, Redis, Samba AD…)",
+  "samba: тест против настоящего Samba AD DC профиля test (QA-012, make test-ad)",
   "nightly: долгий тест, только в плановом задании CI (RUN_NIGHTLY=1)",
 ]
 
