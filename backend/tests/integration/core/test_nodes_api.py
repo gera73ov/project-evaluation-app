@@ -343,8 +343,8 @@ async def test_patch_example_rounding_and_errors(world: World, db_session: Async
     assert last == {"o": ["12.5", "50"], "r": ["16", "10"]}
 
 
-@pytest.mark.spec("TC-CONC-01")
-@pytest.mark.spec("TC-CONC-02")
+@pytest.mark.tc("TC-CONC-01")
+@pytest.mark.tc("TC-CONC-02")
 async def test_field_conflicts(world: World, db_session: AsyncSession) -> None:
     s = await _setup(world, db_session)
     branch = await s.branch(db_session, s.backend)

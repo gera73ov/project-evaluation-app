@@ -21,7 +21,7 @@ from estimator.security.serialize import (
 )
 from tests.helpers.money_keys import assert_no_money, find_money_keys
 
-pytestmark = [pytest.mark.spec("SEC-AUTHZ-04"), pytest.mark.spec("TC-SEC-03")]
+pytestmark = [pytest.mark.spec("SEC-AUTHZ-04"), pytest.mark.tc("TC-SEC-03")]
 
 
 def _access(money: bool, notes: bool = False) -> Access:

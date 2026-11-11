@@ -21,6 +21,13 @@ LAYER_TAGS = {"api", "ui"}
 
 # Фикстуры приложения целиком (как у CORE и ADM), Samba AD и шаги сценариев (QA-012…QA-017).
 from tests.acceptance.steps.ad_steps import *  # noqa: E402, F403
+from tests.acceptance.steps.admin_steps import *  # noqa: E402, F403
+from tests.acceptance.steps.auth_steps import *  # noqa: E402, F403
+from tests.acceptance.steps.common import *  # noqa: E402, F403
+from tests.acceptance.steps.cq_steps import *  # noqa: E402, F403
+from tests.acceptance.steps.money_steps import *  # noqa: E402, F403
+from tests.acceptance.steps.portfolio_steps import *  # noqa: E402, F403
+from tests.acceptance.steps.tree_steps import *  # noqa: E402, F403
 from tests.integration.core.conftest import (  # noqa: E402, F401
     api,
     clock,
@@ -28,6 +35,7 @@ from tests.integration.core.conftest import (  # noqa: E402, F401
     events,
     world,
 )
+from tests.integration.rt.conftest import stage  # noqa: E402, F401
 from tests.support.samba import samba, samba_env  # noqa: E402, F401
 
 

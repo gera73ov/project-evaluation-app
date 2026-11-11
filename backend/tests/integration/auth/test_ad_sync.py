@@ -81,7 +81,7 @@ async def ad(
     return fake_ad
 
 
-@pytest.mark.spec("TC-AUTH-02")
+@pytest.mark.tc("TC-AUTH-02")
 async def test_sessions_check_blocks_and_daily_unblocks(
     db_session: AsyncSession, redis_client: Redis, ad: FakeDirectory
 ) -> None:

@@ -141,7 +141,7 @@ async def test_move_and_reorder(
 
 @pytest.mark.spec("5.1")
 @pytest.mark.spec("SEC-AUTHZ-05")
-@pytest.mark.spec("TC-BR-01")
+@pytest.mark.tc("TC-BR-01")
 async def test_move_across_branches(world: World, db_session: AsyncSession) -> None:
     s = await _setup(world, db_session)
     backend = await s.branch(db_session, s.backend)
@@ -186,8 +186,8 @@ async def test_move_across_branches(world: World, db_session: AsyncSession) -> N
 
 
 @pytest.mark.spec("BR-TREE-02")
-@pytest.mark.spec("TC-TREE-01")
-@pytest.mark.spec("TC-BR-01")
+@pytest.mark.tc("TC-TREE-01")
+@pytest.mark.tc("TC-BR-01")
 async def test_split(world: World, db_session: AsyncSession) -> None:
     s = await _setup(world, db_session)
     branch = await s.branch(db_session, s.backend)
@@ -236,8 +236,8 @@ async def test_split(world: World, db_session: AsyncSession) -> None:
 
 
 @pytest.mark.spec("BR-TREE-03")
-@pytest.mark.spec("TC-TREE-01")
-@pytest.mark.spec("TC-BR-01")
+@pytest.mark.tc("TC-TREE-01")
+@pytest.mark.tc("TC-BR-01")
 async def test_collapse(world: World, db_session: AsyncSession, events: InMemoryBus) -> None:
     s = await _setup(world, db_session)
     branch = await s.branch(db_session, s.backend)

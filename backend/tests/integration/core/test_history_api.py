@@ -84,7 +84,7 @@ async def test_moderator_change_notifies_experts(world: World, db_session: Async
 
 
 @pytest.mark.spec("BR-BR-02")
-@pytest.mark.spec("TC-BR-01")
+@pytest.mark.tc("TC-BR-01")
 async def test_done_reset_delete_and_restore(world: World, db_session: AsyncSession) -> None:
     """TC-BR-01, строки «удаление» и «восстановление из корзины»: «готово» → «черновик»."""
     s = await _setup(world, db_session)

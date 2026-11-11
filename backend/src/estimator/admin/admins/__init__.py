@@ -225,6 +225,13 @@ async def patch_admin(
     user_id: uuid.UUID,
     changes: dict[str, Any],
 ) -> dict[str, Any]:
+    if user_id == actor.user_id and (
+        changes.get("status") == "blocked"
+        or ("roles" in changes and SystemRole.SUPERADMIN.value not in changes["roles"])
+    ):
+        # G-08: последний суперадминистратор, блокирующий себя, получает 409 LAST_SUPERADMIN,
+        # а не общий отказ «свою учётку здесь менять нельзя»
+        await role_rules.ensure_not_last_superadmin(db, user_id)
     user = await _account(db, actor, user_id)
     roles_changed = False
     if "roles" in changes:
@@ -250,6 +257,8 @@ async def demote_admin(
     db: AsyncSession, sessions: SessionService, actor: Principal, user_id: uuid.UUID
 ) -> None:
     """Разжалование: снять системные роли раздела, учётка остаётся «Пользователем»."""
+    if user_id == actor.user_id:
+        await role_rules.ensure_not_last_superadmin(db, user_id)  # G-08, как и в patch_admin
     user = await _account(db, actor, user_id)
     held = sorted(await _role_set(db, user.id) & set(SYSTEM_ROLES))
     if not held:

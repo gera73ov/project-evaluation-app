@@ -82,7 +82,7 @@ def _by_title(rows: list[tuple[Any, ...]], title: str) -> tuple[Any, ...]:
 
 @pytest.mark.spec("FR-EXP-01")
 @pytest.mark.spec("FR-EXP-06")
-@pytest.mark.spec("TC-SEC-04")
+@pytest.mark.tc("TC-SEC-04")
 async def test_hours_export(
     world: World, db_session: AsyncSession, export_queue: list[Any]
 ) -> None:
@@ -153,7 +153,7 @@ async def test_hours_export(
 
 @pytest.mark.spec("FR-EXP-02")
 @pytest.mark.spec("BR-MONEY-04")
-@pytest.mark.spec("TC-MONEY-01")
+@pytest.mark.tc("TC-MONEY-01")
 async def test_money_export(
     world: World, db_session: AsyncSession, export_queue: list[Any]
 ) -> None:

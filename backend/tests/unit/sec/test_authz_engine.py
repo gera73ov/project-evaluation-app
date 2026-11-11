@@ -143,7 +143,7 @@ def _gate_cases() -> list[tuple[str, str, str, str]]:
 
 
 @pytest.mark.spec("3.4")
-@pytest.mark.spec("TC-SEC-06")
+@pytest.mark.tc("TC-SEC-06")
 @pytest.mark.parametrize(("gate_id", "member", "code", "status"), _gate_cases())
 def test_status_gates(gate_id: str, member: str, code: str, status: str) -> None:
     subject = subj("moderator", members=(member,), step_up_active=True,

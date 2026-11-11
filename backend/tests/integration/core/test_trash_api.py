@@ -143,7 +143,7 @@ async def test_restore_into_not_needed_branch(world: World, db_session: AsyncSes
 
 
 @pytest.mark.spec("BR-TREE-03")
-@pytest.mark.spec("TC-TREE-01")
+@pytest.mark.tc("TC-TREE-01")
 async def test_restore_collapse_batch(world: World, db_session: AsyncSession) -> None:
     """TC-TREE-01: дети свёрнутого узла восстанавливаются вместе, оценка узла уходит в историю."""
     s = await _setup(world, db_session)

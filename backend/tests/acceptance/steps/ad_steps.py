@@ -9,11 +9,7 @@ test-ad``), без него пропускаются. G-06 и G-11 Samba не н
 
 from __future__ import annotations
 
-import asyncio
-import functools
-import inspect
 import uuid
-from collections.abc import Callable, Coroutine
 from pathlib import Path
 
 import httpx
@@ -32,6 +28,7 @@ from estimator.db.enums import SystemRole, UserBlockReason, UserStatus
 from estimator.db.models.users import User
 from estimator.jobs.schedule import build_beat_schedule
 from estimator.security.crypto import get_cipher
+from tests.acceptance.steps.common import aio, bdd_loop  # noqa: F401 — фикстура шагов
 from tests.integration.adm.helpers import step_up
 from tests.integration.auth.conftest import set_setting
 from tests.integration.auth.helpers import PASSWORD, make_user
@@ -58,28 +55,6 @@ class Ctx:
 @pytest.fixture
 def ctx() -> Ctx:
     return Ctx()
-
-
-@pytest.fixture
-async def bdd_loop() -> asyncio.AbstractEventLoop:
-    """Цикл событий теста: шаги pytest-bdd синхронные, а БД и API — асинхронные."""
-    return asyncio.get_running_loop()
-
-
-def aio(step: Callable[..., Coroutine[object, object, None]]) -> Callable[..., None]:
-    """Асинхронный шаг → синхронный: выполняется в цикле событий теста (``bdd_loop``)."""
-    sig = inspect.signature(step)
-
-    @functools.wraps(step)
-    def run(**kwargs: object) -> None:  # pytest-bdd передаёт аргументы шага по именам
-        loop = kwargs.pop("bdd_loop")
-        assert isinstance(loop, asyncio.AbstractEventLoop)
-        loop.run_until_complete(step(**kwargs))
-
-    params = [*sig.parameters.values(),
-              inspect.Parameter("bdd_loop", inspect.Parameter.POSITIONAL_OR_KEYWORD)]  # fmt: skip
-    run.__signature__ = sig.replace(parameters=params)  # type: ignore[attr-defined]
-    return run
 
 
 @pytest.fixture(autouse=True)

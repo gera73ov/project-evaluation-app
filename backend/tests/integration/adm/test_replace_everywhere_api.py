@@ -16,7 +16,7 @@ from tests.integration.core.conftest import Actor, World
 from tests.integration.core.helpers import create_project
 from tests.integration.core.test_nodes_api import _setup
 
-pytestmark = [pytest.mark.integration, pytest.mark.spec("FR-ADM-05"), pytest.mark.spec("TC-ADM-01")]
+pytestmark = [pytest.mark.integration, pytest.mark.spec("FR-ADM-05"), pytest.mark.tc("TC-ADM-01")]
 
 
 async def _kinds(db: AsyncSession, user: Actor) -> set[str]:

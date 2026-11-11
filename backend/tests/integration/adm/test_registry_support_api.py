@@ -116,7 +116,7 @@ async def test_admin_assigns_self_with_mark(world: World, db_session: AsyncSessi
 
 
 @pytest.mark.spec("FR-ADM-06")
-@pytest.mark.spec("TC-ADM-02")
+@pytest.mark.tc("TC-ADM-02")
 async def test_support_session(world: World, db_session: AsyncSession) -> None:
     admin = await world.actor(SystemRole.ADMIN)
     moderator = await world.actor(SystemRole.MODERATOR)
