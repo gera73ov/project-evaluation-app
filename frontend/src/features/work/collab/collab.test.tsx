@@ -232,7 +232,7 @@ describe('совместная работа на рабочем экране', (
     const { push } = await open('expert');
     push('access.revoked', { project_id: project, reason: 'removed_from_team' });
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('Доступ к проекту закрыт');
+    expect(alert.textContent).toContain('Доступ к проекту отозван');
     expect(alert.textContent).toContain('Модератор исключил вас из команды проекта');
     expect(within(alert).getByRole('link', { name: '← К моим оценкам' }).getAttribute('href')).toBe('/');
     expect(screen.queryByRole('treegrid')).toBeNull();
