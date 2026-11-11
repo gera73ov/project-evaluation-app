@@ -18,12 +18,10 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from estimator.db.enums import ProjectStatus
 from estimator.db.models.money import ProjectMoney, ProjectTotals, ProjectTotalsDaily
 from estimator.db.models.projects import Project
 from estimator.domain import calc
 from estimator.domain.calc.money import fits_hours_cache
-from estimator.services.common import app_today
 from estimator.services.money.project import money_settings
 from estimator.services.tree.load import compute
 
@@ -35,7 +33,6 @@ def _hours(value: Decimal) -> Decimal | None:
 
 async def refresh(db: AsyncSession, project: Project, now: dt.datetime | None = None) -> None:
     """Пересчитать итоги проекта и записать строку кэша (upsert)."""
-    moment = now or dt.datetime.now(dt.UTC)
     result = (await compute(db, project)).result
     settings = await money_settings(db, project.id)
     money = None if settings is None else calc.calculate_money(result, settings)
@@ -50,36 +47,11 @@ async def refresh(db: AsyncSession, project: Project, now: dt.datetime | None = 
         "quote_cur": None if quote is None else quote.total_cur,
         "rates_missing": bool(money and money.rates_missing),
         "project_version": project.version,
-        "updated_at": moment,
+        "updated_at": now or dt.datetime.now(dt.UTC),
     }
     stmt = insert(ProjectTotals).values(project_id=project.id, **values)
     await db.execute(
         stmt.on_conflict_do_update(index_elements=[ProjectTotals.project_id], set_=values)
-    )
-    if project.status is not ProjectStatus.PREPARATION:
-        await _upsert_day(db, project.id, moment, values)
-
-
-#: Столбцы строки дня (``project_totals_daily``, GAP-01)
-_DAILY = ("e", "p80", "p90", "cost_rub", "quote_rub", "quote_cur", "updated_at")
-
-
-async def _upsert_day(
-    db: AsyncSession, project_id: uuid.UUID, moment: dt.datetime, values: dict[str, object]
-) -> None:
-    """Строка динамики на текущий день по часовому поясу приложения (CORE-052, 10.1).
-
-    Ряд начинается с запуска оценки: в «Подготовке» строки не пишутся. Последний пересчёт дня
-    перезаписывает строку, так что в ней итог на конец дня.
-    """
-    day = {k: values[k] for k in _DAILY}
-    stmt = insert(ProjectTotalsDaily).values(
-        project_id=project_id, date=await app_today(db, moment), **day
-    )
-    await db.execute(
-        stmt.on_conflict_do_update(
-            index_elements=[ProjectTotalsDaily.project_id, ProjectTotalsDaily.date], set_=day
-        )
     )
 
 
