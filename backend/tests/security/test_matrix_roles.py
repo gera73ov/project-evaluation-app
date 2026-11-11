@@ -50,6 +50,7 @@ PLACEHOLDERS = {
     ("users", "id"): "user", ("admins", "id"): "user", ("view-state", "project_id"): "project",
     ("branches", "phase"): "phase", ("*", "discipline"): "discipline", ("stats", "tab"): "tab",
     ("settings", "section"): "section", ("members", "user_id"): "user",
+    ("trash", "batch_id"): "batch",
 }  # fmt: skip
 PROBE_BODY = {"__probe__": "права проверяются раньше тела"}
 #: Области ячеек, которые объект проверки (лист Бэкенда, вопрос эксперта Бэкенда модератору)

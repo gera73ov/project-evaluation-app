@@ -62,6 +62,10 @@ async def stocked(world: World, db: AsyncSession) -> Stocked:
         note = await s.moderator.post(f"/projects/{s.pid}/notes", json=body)
         assert note.status_code == 201, note.text
         notes.append(note.json()["id"])
+    spare = (await _create(s.backend_expert, s.pid, branch.id, title="Старое", o="1", r="2",
+                           p="3")).json()["node"]  # fmt: skip
+    trashed = await s.backend_expert.delete(f"/nodes/{spare['id']}")
+    assert trashed.status_code == 200, trashed.text
     plain = await world.actor()
     snap = await s.moderator.post(f"/projects/{s.pid}/snapshots", json={"name": "Версия 1"})
     assert snap.status_code == 201, snap.text
@@ -69,5 +73,6 @@ async def stocked(world: World, db: AsyncSession) -> Stocked:
     ids = {"project": s.pid, "node": leaf["id"], "message": asked.json()["id"],
            "snapshot": snap.json()["id"], "tab": "readiness", "thread": asked.json()["thread_id"],
            "cq_thread": cq.json()["thread_id"], "note": notes[0], "user": plain.id,
-           "phase": branch.phase_id, "discipline": s.backend, "section": "security"}  # fmt: skip
+           "phase": branch.phase_id, "discipline": s.backend, "section": "security",
+           "batch": trashed.json()["batch_id"]}  # fmt: skip
     return Stocked(s, reviewer, presale, ids)
