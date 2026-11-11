@@ -2,8 +2,9 @@
  * FE-064 · мастер первичной настройки (SPEC 7.1 шаги 1–5, FR-SA-02): адрес и часовой пояс; почта;
  * способ входа с ветвлением «Приложение» (политика паролей) / AD (параметры, обе проверки);
  * политики безопасности; первый администратор. Индикатор шагов, продолжение с прерванного шага,
- * пройденные шаги можно открыть и поправить. Шаг сохраняется `POST /system/setup/{step}` с
- * `complete: true`; формы — те же, что в разделе «Система».
+ * пройденные шаги можно открыть и поправить. Шаг сохраняется `POST /system/setup/{step}` и сразу
+ * отмечается пройденным; `complete: true` уходит только с «Завершить настройку» (на сервере он
+ * завершает мастер). Формы — те же, что в разделе «Система».
  */
 import { Button, Radio, Select, Stack, TextInput } from '@mantine/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -106,7 +107,7 @@ function usePersist(step: StepName, onNext: () => void) {
     const res = await call(() =>
       api.POST('/system/setup/{step}', {
         params: { path: { step } },
-        body: { values: values as never, complete: true },
+        body: { values: values as never, complete: false },
       }),
     );
     await qc.invalidateQueries({ queryKey: setupKey });

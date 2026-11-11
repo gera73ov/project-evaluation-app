@@ -122,8 +122,8 @@ describe('мастер первичной настройки', () => {
 
   it('прерванная настройка продолжается с того же шага, пройденный шаг можно открыть', async () => {
     restartDemoSetup();
-    postStep('app', { values: { 'app.base_url': 'https://e.corp.local' }, complete: true });
-    postStep('smtp', { values: {}, complete: true });
+    postStep('app', { values: { 'app.base_url': 'https://e.corp.local' } });
+    postStep('smtp', { values: {} });
     persona.current = PERSONAS.superadmin;
     renderApp('/system/security');
     expect(await heading('Как входят пользователи')).toBeTruthy();

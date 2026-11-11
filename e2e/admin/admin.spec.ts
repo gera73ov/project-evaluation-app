@@ -1,10 +1,11 @@
 /**
  * FE-094 · админка администратора на настоящем API (SPEC 7.5, FR-ADM-01…08): пользователи
  * (создание, роли, блокировка, сброс пароля со step-up), справочники и «Пороги и проценты»,
- * производственный календарь, предложенные типы, реестр проектов (проект без модератора после
- * блокировки, назначение модератора, режим поддержки). Сценарии идут по порядку.
+ * производственный календарь, предложенные типы, замена участника во всех проектах (FR-ADM-05),
+ * реестр проектов (проект без модератора после блокировки, назначение модератора, режим поддержки).
+ * Сценарии идут по порядку.
  *
- * Системная часть (суперадминистратор, AD, журнал аудита) — после серверной части SYS-API.
+ * Системная часть — e2e/system, установка с нуля и AD — e2e/ad.
  */
 import { readFileSync } from 'node:fs';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
@@ -24,7 +25,10 @@ interface Seed {
   user: Person;
   moderator: Person;
   moderator2: Person;
+  leaver: Person;
+  newcomer: Person;
   phases: string[];
+  discipline: string;
   suffix: string;
   password: string;
   totp: string;
@@ -41,6 +45,8 @@ const lastStep = new Map<string, number>();
 const contexts: BrowserContext[] = [];
 const cspErrors: string[] = [];
 let admin: Page;
+let moderator: Page;
+let projectId = '';
 
 /** Пользователи этого прогона: на общем стенде их легко не найти на первой странице списка. */
 async function onlyThisRun(page: Page): Promise<void> {
@@ -84,13 +90,22 @@ async function api<T>(page: Page, method: string, path: string, data?: unknown):
 
 test.beforeAll(async ({ browser }) => {
   // модератор заводит проект и локальный тип узла — они понадобятся реестру и «Предложенным типам»
-  const moderator = await open(browser, seed.moderator);
+  moderator = await open(browser, seed.moderator);
   const { project } = await api<{ project: { id: string } }>(moderator, 'POST', '/projects', {
     name: PROJECT,
     customer: 'ООО «Реестр»',
     phase_ids: seed.phases,
   });
+  projectId = project.id;
   await api(moderator, 'POST', `/projects/${project.id}/node-types`, { name: LOCAL_TYPE, icon: 'module' });
+  // эксперт, которого администратор заменит во всех проектах
+  await api(moderator, 'POST', `/projects/${project.id}/disciplines`, { discipline_id: seed.discipline });
+  await api(moderator, 'PUT', `/projects/${project.id}/members`, {
+    members: [
+      { user_id: seed.moderator.id, role: 'moderator' },
+      { user_id: seed.leaver.id, role: 'expert', discipline_id: seed.discipline },
+    ],
+  });
   admin = await open(browser, seed.admin);
 });
 
@@ -184,6 +199,32 @@ test('предложенный тип из проекта отклоняется
     .click();
   // остаётся только сообщение о решении; в списке типа больше нет
   await expect(admin.getByRole('table').getByText(LOCAL_TYPE)).toHaveCount(0);
+});
+
+test('замена участника во всех проектах: проекты и роли, подтверждение, состав команды (FR-ADM-05)', async () => {
+  await admin.goto('/admin/users');
+  await onlyThisRun(admin);
+  await admin.getByRole('table').getByRole('button', { name: seed.leaver.name }).click();
+  await admin.getByRole('button', { name: 'Заменить участника…' }).click();
+  const wizard = admin.getByRole('dialog', { name: `Заменить участника: ${seed.leaver.name}` });
+  await wizard.getByRole('textbox', { name: 'Кем заменить' }).fill(seed.newcomer.name);
+  await admin.getByRole('option', { name: new RegExp(seed.newcomer.name) }).click();
+  await wizard.getByRole('button', { name: 'Далее' }).click();
+  const project = wizard.getByRole('checkbox', { name: PROJECT });
+  await expect(project).toBeChecked();
+  await wizard.getByRole('button', { name: 'Заменить…' }).click();
+  await expect(wizard.getByText(`Заменить ${seed.leaver.name} на ${seed.newcomer.name} в 1 проекте?`)).toBeVisible();
+  await wizard.getByRole('button', { name: 'Заменить', exact: true }).click();
+  await expect(wizard.getByText(`✓ ${seed.newcomer.name} заменяет участника в 1 проекте`)).toBeVisible();
+  await wizard.getByRole('button', { name: 'Закрыть' }).click();
+
+  const { items } = await api<{ items: { user: { id: string }; role: string; discipline_id: string | null }[] }>(
+    moderator,
+    'GET',
+    `/projects/${projectId}/members`,
+  );
+  const experts = items.filter((m) => m.role === 'expert');
+  expect(experts.map((m) => [m.user.id, m.discipline_id])).toEqual([[seed.newcomer.id, seed.discipline]]);
 });
 
 test('реестр: блокировка модератора, назначение нового, режим поддержки', async () => {
