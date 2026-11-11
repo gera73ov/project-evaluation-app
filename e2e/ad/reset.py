@@ -26,6 +26,9 @@ import sys
 CLI = [sys.executable, "-c", "from estimator.cli import main; main()"]
 
 
+#: Сколько раз повторить сброс, если удаление схем попало в deadlock с переподключившимся API.
+DROP_ATTEMPTS = 5
+
 TERMINATE = (
     "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
     "WHERE datname = current_database() AND pid <> pg_backend_pid()"
@@ -51,6 +54,7 @@ async def terminate_others() -> None:
 async def wipe() -> None:
     from redis.asyncio import Redis
     from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from estimator.config import get_settings
@@ -58,11 +62,21 @@ async def wipe() -> None:
     settings = get_settings()
     engine = create_async_engine(settings.database_url.get_secret_value())
     try:
-        async with engine.begin() as conn:
-            await conn.execute(text(TERMINATE))
-            await conn.execute(text("DROP SCHEMA IF EXISTS audit CASCADE"))
-            await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
-            await conn.execute(text("CREATE SCHEMA public"))
+        # API, worker и beat переподключаются сразу после pg_terminate_backend и успевают взять
+        # блокировки таблиц раньше DROP SCHEMA — PostgreSQL снимает одну из сторон как deadlock.
+        # Тогда соединения закрываются заново и сброс повторяется.
+        for attempt in range(1, DROP_ATTEMPTS + 1):
+            try:
+                async with engine.begin() as conn:
+                    await conn.execute(text(TERMINATE))
+                    await conn.execute(text("DROP SCHEMA IF EXISTS audit CASCADE"))
+                    await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+                    await conn.execute(text("CREATE SCHEMA public"))
+                break
+            except DBAPIError as exc:
+                if "deadlock detected" not in str(exc) or attempt == DROP_ATTEMPTS:
+                    raise
+                await asyncio.sleep(0.5 * attempt)
     finally:
         await engine.dispose()
     redis = Redis.from_url(settings.redis_url.get_secret_value())
