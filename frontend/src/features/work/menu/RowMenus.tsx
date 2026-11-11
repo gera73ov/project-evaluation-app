@@ -58,6 +58,14 @@ export interface RowMenuApi {
   /** Модератор: «Ветка не нужна» / «Ветка снова нужна» (FE-029). */
   canNotNeeded: boolean;
   statusOf: (nodeId: string) => BranchStatus | undefined;
+  /** Перетаскивание строки для порядка внутри родителя (11.5 №4, СЛЕДУЕТ). */
+  drag: {
+    start: (nodeId: string) => void;
+    end: () => void;
+    /** Можно ли бросить перетаскиваемую строку на `targetId` (тот же родитель). */
+    canDrop: (targetId: string) => boolean;
+    drop: (targetId: string, below: boolean) => void;
+  };
 }
 
 function Reason({ children }: { children: ReactNode }) {

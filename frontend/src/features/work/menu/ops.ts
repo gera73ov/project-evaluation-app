@@ -70,6 +70,24 @@ export function reorderAfter(tree: Tree, id: string, dir: -1 | 1): { afterId: st
   return at < 0 || at >= siblings.length - 1 ? null : { afterId: siblings.at(at + 1) ?? null };
 }
 
+/**
+ * `after_id` для перетаскивания `id` на строку `targetId` — выше (`below` false) или ниже неё —
+ * в пределах того же родителя (порядок, 11.5 №4). null — нельзя или порядок не изменится.
+ */
+export function dropAfter(tree: Tree, id: string, targetId: string, below: boolean): { afterId: string | null } | null {
+  const node = tree.nodes.get(id);
+  const target = tree.nodes.get(targetId);
+  if (!node || !target || id === targetId || node.kind !== 'item' || node.parent_id !== target.parent_id) return null;
+  const siblings = childrenOf(tree, node.parent_id);
+  const rest = siblings.filter((s) => s !== id);
+  const at = rest.indexOf(targetId);
+  if (at < 0) return null;
+  const afterId = below ? targetId : at > 0 ? (rest.at(at - 1) ?? null) : null;
+  const cur = siblings.indexOf(id);
+  const currentAfter = cur > 0 ? (siblings.at(cur - 1) ?? null) : null;
+  return afterId === currentAfter ? null : { afterId };
+}
+
 export interface MoveTarget {
   id: string;
   title: string;

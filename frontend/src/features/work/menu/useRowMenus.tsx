@@ -5,7 +5,7 @@
  * новой строке и ставит курсор в название (`onCreated`).
  */
 import { CloseButton } from '@mantine/core';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { formatHoursInput } from '../../../shared/format/number';
@@ -13,7 +13,7 @@ import { ConfirmDialog } from '../../../shared/ui/ConfirmDialog';
 import { branchKey, type BranchStatus } from '../../../shared/calc';
 import type { TreeStore } from '../store/treeStore';
 import { CollapseDialog, CopyBranchDialog, LocalTypeDialog, MoveDialog, ProfileDialog, TypeDialog } from './dialogs';
-import { childrenOf, isLeaf, moveTargets, needsDeleteConfirm, reorderAfter, suggestType } from './ops';
+import { childrenOf, dropAfter, isLeaf, moveTargets, needsDeleteConfirm, reorderAfter, suggestType } from './ops';
 import type { MenuConfig, NodeAction, RowMenuApi } from './RowMenus';
 import type { TreeOps } from './useTreeOps';
 
@@ -60,6 +60,7 @@ export function useRowMenus({
   const { t } = useTranslation();
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [context, setContext] = useState<string | null>(null);
+  const dragging = useRef<string | null>(null);
   if (!setup) return { api: undefined, dialogs: null };
   const { ops, config } = setup;
   const tree = () => store.getState();
@@ -77,6 +78,13 @@ export function useRowMenus({
     const type = typeId ?? suggestType(tree(), parent, config.chainOf(node.discipline_id));
     const id = await ops.create(parent, after, type, t('menu.newTitle'));
     if (id) onCreated(id);
+  };
+
+  const drop = async (nodeId: string, targetId: string, below: boolean) => {
+    const node = tree().nodes.get(nodeId);
+    const to = dropAfter(tree(), nodeId, targetId, below);
+    if (!node?.parent_id || !to || !(await allowed(nodeId))) return;
+    if (await ops.move(nodeId, node.parent_id, to.afterId)) onShow(nodeId);
   };
 
   const act = async (nodeId: string, action: NodeAction) => {
@@ -126,6 +134,26 @@ export function useRowMenus({
     setContext,
     history: Boolean(setup.onHistory),
     canNotNeeded: Boolean(setup.canNotNeeded && setup.setBranchStatus),
+    drag: {
+      start: (nodeId) => {
+        dragging.current = nodeId;
+      },
+      end: () => {
+        dragging.current = null;
+      },
+      canDrop: (targetId) => {
+        const id = dragging.current;
+        if (!id || id === targetId) return false;
+        const a = tree().nodes.get(id);
+        const b = tree().nodes.get(targetId);
+        return Boolean(a && b && a.kind === 'item' && a.parent_id === b.parent_id);
+      },
+      drop: (targetId, below) => {
+        const id = dragging.current;
+        dragging.current = null;
+        if (id) void drop(id, targetId, below);
+      },
+    },
     statusOf: (nodeId) => {
       const node = tree().nodes.get(nodeId);
       return node?.discipline_id ? tree().branchStatus.get(branchKey(node.phase_id, node.discipline_id)) : undefined;

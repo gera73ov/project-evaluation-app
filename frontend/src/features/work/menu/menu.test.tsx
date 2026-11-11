@@ -8,7 +8,7 @@ import { persona, server } from '../../../test/setup';
 import { renderApp } from '../../../test/render';
 import type { TreeNode } from '../store/treeStore';
 import { sourceRows } from './dialogs';
-import { depthOf, moveTargets, needsDeleteConfirm, reorderAfter, suggestType } from './ops';
+import { depthOf, dropAfter, moveTargets, needsDeleteConfirm, reorderAfter, suggestType } from './ops';
 
 function tree(list: [id: string, parent: string | null, kind: TreeNode['kind'], type?: string, extra?: object][]) {
   const nodes = new Map<string, TreeNode>();
@@ -62,6 +62,14 @@ describe('правила меню', () => {
     expect(reorderAfter(t, 'f3', -1)).toEqual({ afterId: 'f1' });
     expect(reorderAfter(t, 'f1', 1)).toEqual({ afterId: 'f2' });
     expect(reorderAfter(t, 'f3', 1)).toBeNull();
+    // перетаскивание: только внутри родителя, «на своё место» — ничего
+    expect(dropAfter(t, 'f3', 'f1', false)).toEqual({ afterId: null });
+    expect(dropAfter(t, 'f1', 'f2', true)).toEqual({ afterId: 'f2' });
+    expect(dropAfter(t, 'f1', 'f3', false)).toEqual({ afterId: 'f2' });
+    expect(dropAfter(t, 'f2', 'f1', true)).toBeNull();
+    expect(dropAfter(t, 'f1', 'f1', true)).toBeNull();
+    expect(dropAfter(t, 'f1', 'bx', true)).toBeNull();
+    expect(dropAfter(t, 'd', 'b', true)).toBeNull();
     expect(depthOf(t, 'f1')).toBe(2);
     expect(depthOf(t, 'd')).toBe(0);
     expect(needsDeleteConfirm(t, 'm')).toBe(true);
@@ -275,6 +283,32 @@ describe('меню строки на рабочем экране', () => {
         after_id: nodeId('Авторизация'),
       }),
     );
+  });
+
+  it('перетаскивание строки меняет порядок внутри родителя; в чужого родителя не бросить', async () => {
+    const { grid, row, calls } = await openTree();
+    const transfer = { setData: () => undefined, effectAllowed: '', dropEffect: '' };
+    const handle = within(grid).getByTestId(`drag-${nodeId('Профиль дилера')}`);
+    fireEvent.dragStart(handle, { dataTransfer: transfer });
+    // другой родитель: бросить нельзя — dragover не отменён
+    expect(fireEvent.dragOver(row('Обмен с 1С'), { dataTransfer: transfer })).toBe(true);
+    expect(fireEvent.dragOver(row('Авторизация'), { dataTransfer: transfer })).toBe(false);
+    expect(row('Авторизация').className).toContain('drop-above');
+    fireEvent.drop(row('Авторизация'), { dataTransfer: transfer });
+    await waitFor(() =>
+      expect(calls.find((c) => c.path.endsWith('/move'))?.body).toMatchObject({
+        new_parent_id: nodeId('Личный кабинет'),
+        after_id: null,
+      }),
+    );
+    await waitFor(() => {
+      const titles = within(grid)
+        .getAllByRole('row')
+        .map((r) => r.textContent ?? '');
+      expect(titles.findIndex((x) => x.includes('Профиль дилера'))).toBeLessThan(
+        titles.findIndex((x) => x.includes('Авторизация')),
+      );
+    });
   });
 
   it('свой тип в проекте: иконка сеткой, тип сразу работает — лист этого типа рядом', async () => {

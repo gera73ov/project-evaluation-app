@@ -22,6 +22,7 @@ from estimator.db.models.money import ProjectMoney, ProjectTotals, ProjectTotals
 from estimator.db.models.projects import Project
 from estimator.domain import calc
 from estimator.domain.calc.money import fits_hours_cache
+from estimator.services.common import app_timezone
 from estimator.services.money.project import money_settings
 from estimator.services.tree.load import compute
 
@@ -53,6 +54,19 @@ async def refresh(db: AsyncSession, project: Project, now: dt.datetime | None = 
     await db.execute(
         stmt.on_conflict_do_update(index_elements=[ProjectTotals.project_id], set_=values)
     )
+    # Строка дня для динамики (CORE-052, GAP-01): последняя запись дня — итог на конец дня.
+    day = values["updated_at"].astimezone(await app_timezone(db)).date()
+    daily_values = {k: values[k] for k in _DAILY_COLUMNS}
+    daily_stmt = insert(ProjectTotalsDaily).values(project_id=project.id, date=day, **daily_values)
+    await db.execute(
+        daily_stmt.on_conflict_do_update(
+            index_elements=[ProjectTotalsDaily.project_id, ProjectTotalsDaily.date],
+            set_=daily_values,
+        )
+    )
+
+
+_DAILY_COLUMNS = ("e", "p80", "p90", "cost_rub", "quote_rub", "quote_cur", "updated_at")
 
 
 @dataclass(frozen=True)
