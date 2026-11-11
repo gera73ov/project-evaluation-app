@@ -45,6 +45,7 @@ e2e/.e2e-stats-data.json
 e2e/.e2e-a11y-data.json
 e2e/.e2e-discussions-data.json
 e2e/.e2e-system-data.json
+e2e/.e2e-scenarios-data.json
 
 # Данные и дампы
 *.dump

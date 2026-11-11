@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import uuid
 from typing import Any
@@ -37,11 +38,16 @@ _ACCESS = {"member": "member", "any_project": "presale_head", "support_session":
 
 
 async def my_permissions(authz: Authorizer, project: Project) -> list[str]:
-    """Права пользователя в проекте (контекст проекта, без глобальных выдач)."""
+    """Права пользователя в проекте (контекст проекта, без глобальных выдач).
+
+    Право с ``totp_gate`` входит в список и без пройденного в сессии TOTP: интерфейс показывает на
+    месте денег «🔒 Подтвердите вход кодом» с вводом кода (FR-2FA-05), а не прячет блок. Сами
+    денежные эндпоинты по-прежнему отвечают 403 ``TOTP_REQUIRED``.
+    """
     catalog = authz.catalog
     codes = tuple(c for c in catalog.permissions if c not in PSEUDO)
     target = Target(project_id=project.id, project_status=str(project.status))
-    subject = await authz.subject(project.id, codes)
+    subject = dataclasses.replace(await authz.subject(project.id, codes), mfa_passed=True)
     found: list[str] = []
     for code in codes:
         try:

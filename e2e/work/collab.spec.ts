@@ -226,7 +226,7 @@ test('исключение из команды закрывает экран у 
   const team = moderator.getByRole('region', { name: 'Команда' });
   await team.getByRole('button', { name: `Убрать ${seed.expert2.name}` }).click();
   await expect(team.getByText(seed.expert2.name)).toHaveCount(0);
-  const notice = second.getByRole('alert').filter({ hasText: 'Доступ к проекту закрыт' });
+  const notice = second.getByRole('alert').filter({ hasText: 'Доступ к проекту отозван' });
   await expect(notice).toBeVisible({ timeout: 15_000 });
   await expect(notice).toContainText('Модератор исключил вас из команды проекта');
   await expect(tree(second)).toHaveCount(0);

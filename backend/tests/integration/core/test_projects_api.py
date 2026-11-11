@@ -48,6 +48,21 @@ async def _audit(db: AsyncSession, event: str, project_id: str) -> list[dict[str
     return [r[0] for r in rows.all()]
 
 
+@pytest.mark.spec("FR-2FA-05")
+async def test_money_permission_hint_without_totp(world: World) -> None:
+    """Без TOTP в сессии ``money.read`` остаётся в подсказке: интерфейс показывает «🔒 Подтвердите
+    вход кодом» вместо денег, а сами деньги сервер не отдаёт (QA-018, G-19)."""
+    moderator = await world.actor(SystemRole.MODERATOR)
+    phases = await world.phases()
+    pid = (await _create(moderator, [phases["Разработка"]]))["project"]["id"]
+    no_totp = await world.session_for(moderator.id, SystemRole.MODERATOR, mfa=False)
+    project = await no_totp.get(f"/projects/{pid}")
+    assert project.status_code == 200, project.text
+    assert "money.read" in project.json()["my_permissions"]
+    money = await no_totp.get(f"/projects/{pid}/money")
+    assert (money.status_code, money.json()["code"]) == (403, "TOTP_REQUIRED")
+
+
 @pytest.mark.spec("FR-PRJ-05")
 @pytest.mark.spec("BR-CALC-05")
 @pytest.mark.spec("BR-MONEY-06")

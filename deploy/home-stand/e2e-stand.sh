@@ -49,6 +49,7 @@ cmd_seed_env() {
               STATS_SEED:stats/seed.py STATS_FILL:perf/fill.py A11Y_SEED:a11y/seed.py \
               A11Y_FILL:perf/fill.py DISCUSSIONS_SEED:discussions/seed.py \
               DISCUSSIONS_FILL:perf/fill.py SYSTEM_SEED:system/seed.py \
+              SCENARIOS_SEED:scenarios/seed.py \
               PERF_SEED:perf/seed.py PERF_FILL:perf/fill.py; do
     name="${pair%%:*}" script="${pair#*:}"
     printf 'export E2E_%s_CMD=%q\n' "$name" "${run}/e2e/${script}"
