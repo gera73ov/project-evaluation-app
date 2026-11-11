@@ -137,6 +137,9 @@ sudo usermod -aG docker stand
 
 ### 5. Проверить стенд руками (по желанию)
 
+Проверка прогона целиком: GitHub → **Actions → e2e-stand → Run workflow**. Отчёт Playwright и логи
+стенда — в артефактах прогона (хранятся 14 дней).
+
 ```bash
 sudo -iu stand
 git clone https://github.com/gera73ov/project-evaluation-app.git && cd project-evaluation-app
@@ -147,8 +150,14 @@ make down
 
 ## Обслуживание
 
-- Workflow `e2e-stand` после прогона удаляет тома (`down -v`) и старые образы
-  (`docker image prune`); если диск всё равно заполняется — `docker system prune -af` под `stand`.
+- Workflow `e2e-stand` (`.github/workflows/e2e-stand.yml`, шаги — `deploy/home-stand/e2e-stand.sh`)
+  после прогона останавливает стенд, удаляет тома с данными (том `clamdb` с сигнатурами ClamAV
+  остаётся, чтобы не качать их каждый раз), висячие образы и кэш сборки старше недели. Если диск
+  всё равно заполняется — `docker system prune -af` под `stand`.
+- Под `stand` стенд руками не поднимать, пока идёт прогон: имя проекта compose одно (`estimator`).
+- Chromium для Playwright ставится без системных зависимостей (у `stand` нет `sudo`). Если шаг
+  «Установить Playwright и Chromium» пишет, каких библиотек не хватает, — поставить их из своей
+  учётки через `sudo apt install`.
 - Обновления исполнителя ставятся автоматически.
 - Если компьютер долго был выключен, ничего делать не нужно: после включения служба заберёт
   задания из очереди.

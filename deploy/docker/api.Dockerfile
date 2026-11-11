@@ -39,9 +39,13 @@ RUN apt-get update -o APT::Update::Error-Mode=any \
  && apt-get -y upgrade --no-install-recommends \
  && rm -rf /var/lib/apt/lists/* \
  && pip uninstall -y pip setuptools wheel 2>/dev/null || true
+# /data/exports и /data/documents — точки монтирования томов выгрузок и документов (EXP-003,
+# EXP-011): новый именованный том Docker получает владельца из образа. Без этих каталогов том
+# создаётся root:root, и worker не может записать файл (найдено на домашнем стенде, INF-018).
 RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --no-create-home --home-dir /nonexistent \
-    --shell /usr/sbin/nologin app
+    --shell /usr/sbin/nologin app \
+ && install -d -o app -g app -m 0750 /data/exports /data/documents
 COPY --from=build --chown=root:root /opt/venv /opt/venv
 WORKDIR /app
 # Миграции Alembic для `estimator migrate` (DB-002): /app/alembic.ini → /app/alembic
