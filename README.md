@@ -17,6 +17,10 @@
 - [DESIGN.md](DESIGN.md) — правила дизайна интерфейса.
 - [AGENTS.md](AGENTS.md) — обязательный регламент работы агентов и субагентов. Журнал решений
   и инцидентов — [agents/journal/](agents/journal/).
+- [manuals/](manuals/) — руководства: [пользователя](manuals/user.md),
+  [администратора](manuals/admin.md), [суперадминистратора](manuals/superadmin.md),
+  [инструкция службы эксплуатации ИТ](manuals/operations.md) и
+  [регламенты сопровождения](manuals/regulations.md).
 - [contracts/](contracts/README.md) — контракты между треками: OpenAPI, права, ошибки, события
   WebSocket, аудит, уведомления, выгрузки, настройки, эталонные фикстуры расчёта.
 
@@ -106,6 +110,40 @@ make traceability   # отчёт «требование → тест» в build/
 | `TRUSTED_HOSTS` | Разрешённые значения заголовка Host через запятую; на stage и prod — имя сервера | `*` |
 <!-- env-table:end -->
 
+Переменные стенда и скриптов эксплуатации. Их читают `docker compose` (файлы
+`deploy/compose/*.yml`) и скрипты `deploy/backup`, `deploy/scripts`, `deploy/logging`, а не
+приложение. CI проверяет, что каждая переменная из этих файлов есть в таблице ниже.
+
+<!-- ops-env-table:begin -->
+| Переменная | Кто читает | Описание | По умолчанию |
+|---|---|---|---|
+| `APP_VERSION` | compose | Тег образов `estimator-*` и версия в «Состоянии системы»; на stage и prod — тег релиза | `dev` |
+| `FORWARDED_ALLOW_IPS` | Uvicorn (`api`) | Каким адресам верить в `X-Forwarded-For`: на stage и prod — адрес контейнера Nginx, не `*` | `127.0.0.1` (Uvicorn) |
+| `POSTGRES_PASSWORD` | compose | Пароль роли `estimator` в PostgreSQL; из него compose собирает `DATABASE_URL` | обязателен |
+| `REDIS_PASSWORD` | compose | Пароль Redis; из него собираются `REDIS_URL` и `CELERY_BROKER_URL` | обязателен |
+| `BACKUP_CIPHER_PASSWORD` | compose (`postgres`) | Пароль шифрования репозитория копий pgBackRest (AES-256); хранится отдельно от копий, копия — в сейфе ИБ | обязателен |
+| `HTTPS_PORT`, `HTTP_PORT` | compose (`nginx`) | Порты Nginx на 127.0.0.1 в dev; на stage и prod порты задаёт файл стенда | `8443`, `8080` |
+| `POSTGRES_PORT`, `REDIS_PORT` | compose | Порты PostgreSQL и Redis на 127.0.0.1 (только dev) | `5432`, `6379` |
+| `PROMETHEUS_PORT` | compose (профиль `monitoring`) | Порт Prometheus на 127.0.0.1 | `9090` |
+| `CERTS_UID`, `CERTS_GID` | compose | Владелец файлов сертификатов, которые выпускает сервис `certs` | `10001` |
+| `SAMBA_ADMIN_PASSWORD`, `SAMBA_TEST_PASSWORD` | `docker-compose.test.yml` | Пароли эмулятора AD (Samba) на test | обязателен на test |
+| `LDAPS_PORT`, `LDAP_PORT` | `docker-compose.test.yml` | Порты эмулятора AD на 127.0.0.1 | `1636`, `1389` |
+| `MAILPIT_UI_PORT` | `docker-compose.test.yml` | Веб-интерфейс эмулятора почты | `8025` |
+| `SYSLOG_TLS_PORT`, `SYSLOG_REQUIRE_CLIENT_CERT` | `docker-compose.test.yml` | Эмулятор SIEM: порт syslog over TLS и требование клиентского сертификата (mTLS) | `6514`, `0` |
+| `ROOT` | `deploy/backup` | Корень рабочей копии репозитория на сервере | каталог над `deploy/` |
+| `ENV_FILE` | `deploy/backup`, `deploy/scripts` | Файл переменных стенда | `.env` в корне репозитория |
+| `COMPOSE_FILES` | `deploy/backup`, `deploy/scripts` | Файлы compose через двоеточие, например основной и файл стенда | `deploy/compose/docker-compose.yml` |
+| `COMPOSE_PROJECT_NAME` | `deploy/backup`, `deploy/scripts` | Имя проекта compose | `estimator` |
+| `BACKUP_KEEP_DAYS` | `backup.sh` | Сколько дней хранить полные копии (NFR-REL-06) | `30` |
+| `WAIT_ARCHIVE` | `verify-restore.sh` | Сколько секунд ждать архивации WAL перед аварией в проверке восстановления | `75` |
+| `HEALTH_TIMEOUT` | `upgrade.sh`, `rollback.sh` | Сколько секунд ждать зелёного healthcheck сервиса после перезапуска | `180` |
+| `LOG_DIR` | `collect-logs.sh` | Каталог, куда собираются логи контейнеров | `/var/log/estimator` |
+| `LOG_RETENTION_DAYS` | `collect-logs.sh` | Сколько дней хранить собранные логи (NFR-REL-06) | `90` |
+<!-- ops-env-table:end -->
+
+Как задать переменные на stage и prod, где лежат секреты и как их менять — в
+[инструкции службы эксплуатации](manuals/operations.md#3-установка-на-stage-и-prod).
+
 Настройки, которые меняет суперадминистратор в интерфейсе (режим входа, SMTP, SIEM, политики),
 хранятся в БД, а не в окружении; их ключи описаны в `contracts/settings.schema.json`.
 
@@ -120,3 +158,4 @@ make traceability   # отчёт «требование → тест» в build/
 | `e2e/` | Сквозные тесты Playwright |
 | `tools/` | Служебные скрипты репозитория (отчёт трассировки) |
 | `docs/` | Спецификация, решения по пробелам, презентация |
+| `manuals/` | Руководства пользователей и службы эксплуатации, регламенты |

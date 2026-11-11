@@ -79,3 +79,33 @@ def test_cli_write_and_check(tmp_path: Path) -> None:
 
     fresh = runner.invoke(cli.app, ["config-env", "--check", str(target)])
     assert fresh.exit_code == 0
+
+
+#: Файлы, из которых переменные окружения читают compose и скрипты эксплуатации (DOC-007).
+OPS_FILES = ("deploy/compose/*.yml", "deploy/backup/*.sh", "deploy/scripts/*.sh",
+             "deploy/logging/*.sh")  # fmt: skip
+#: В compose переменная — любое ``${NAME``; в скриптах — только с умолчанием или
+#: обязательная (``${NAME:-…}``, ``${NAME:?}``), остальное — внутренние переменные скрипта.
+COMPOSE_VAR = re.compile(r"\$\{([A-Z][A-Z0-9_]+)")
+SCRIPT_VAR = re.compile(r"\$\{([A-Z][A-Z0-9_]+):[-?]")
+
+
+def _ops_variables() -> set[str]:
+    found: set[str] = set()
+    for pattern in OPS_FILES:
+        for path in ROOT.glob(pattern):
+            rx = COMPOSE_VAR if path.suffix == ".yml" else SCRIPT_VAR
+            found |= set(rx.findall(path.read_text(encoding="utf-8")))
+    return found
+
+
+def test_readme_describes_ops_variables() -> None:
+    """DOC-007: каждая переменная compose и скриптов эксплуатации описана в README."""
+    text = README.read_text(encoding="utf-8")
+    table = text[
+        text.index("<!-- ops-env-table:begin -->") : text.index("<!-- ops-env-table:end -->")
+    ]
+    variables = _ops_variables()
+    assert {"POSTGRES_PASSWORD", "BACKUP_KEEP_DAYS", "LOG_DIR"} <= variables
+    missing = sorted(v for v in variables if f"`{v}`" not in table)
+    assert missing == []
