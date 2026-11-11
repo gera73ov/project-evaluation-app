@@ -26,7 +26,7 @@ Workflow `zap`, запуск 43082419680. Условия прогона:
 |---|---|---|
 | 90004 Cross-Origin-Embedder-Policy / Cross-Origin-Resource-Policy не заданы | статика и ответы API | Заголовки изоляции COEP/CORP в SPEC не требуются. Сайт и API на одном домене, встраивания с других сайтов нет. Добавить `Cross-Origin-Resource-Policy: same-origin` можно в Nginx — кандидат в задачу INF |
 | 10015 Re-examine Cache-control Directives | `/`, `robots.txt`, `sitemap.xml` | Главная страница отдаётся с `no-cache` из-за nonce в CSP. Это намеренно, находка ложная |
-| 2 Private IP Disclosure | бандл `assets/client-*.js` | В бандле есть строка, похожая на частный адрес. Проверить, что это не адрес из конфигурации стенда |
+| 2 Private IP Disclosure | бандл `assets/client-*.js` | Ложная: это пример `10.0.0.0/8` в подсказке к полю сетей администраторов (`ru.json`), а не адрес стенда |
 | 10109 Modern Web Application | `/` | Информационная: SPA |
 | 100001 Unexpected Content-Type was returned | ответы API на подставленные данные | Информационная: ZAP ждал HTML, API отвечает `application/problem+json` |
 
