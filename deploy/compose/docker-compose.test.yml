@@ -7,6 +7,33 @@
 # Сертификаты всех трёх выпущены dev-УЦ (deploy/compose/certs/ca.crt): в настройках
 # приложения этот УЦ загружается как «сертификат УЦ» контроллера AD и SIEM.
 services:
+  # INF-014 (SEC-CRYPT-05): на тестовом стенде, как на stage и prod, приложение ходит в PostgreSQL
+  # по TLS с проверкой сертификата и имени (`DATABASE_SSLMODE=verify-full`, УЦ — ca.crt).
+  # Ключ сервера PostgreSQL принимает только от своего пользователя с правами 0600, поэтому
+  # перед стартом он копируется в /tmp контейнера. Параметры архивации WAL — как в основном файле.
+  postgres:
+    entrypoint: ["sh", "-ec", "install -m 0600 -o postgres -g postgres /certs/postgres.key /tmp/server.key && exec docker-entrypoint.sh \"$$@\"", "--"]
+    command: ["postgres", "-c", "wal_level=replica", "-c", "archive_mode=on",
+              "-c", "archive_command=/usr/local/bin/pgbackrest-archive.sh %p",
+              "-c", "archive_timeout=60",
+              "-c", "ssl=on", "-c", "ssl_cert_file=/certs/postgres.crt",
+              "-c", "ssl_key_file=/tmp/server.key", "-c", "ssl_min_protocol_version=TLSv1.2"]
+    volumes:
+      - ./certs/postgres.crt:/certs/postgres.crt:ro
+      - ./certs/postgres.key:/certs/postgres.key:ro
+    depends_on:
+      certs: { condition: service_completed_successfully }
+
+  api: &tls-client
+    environment:
+      DATABASE_SSLMODE: verify-full
+      DATABASE_SSLROOTCERT: /certs/ca.crt
+    volumes:
+      - ./certs/ca.crt:/certs/ca.crt:ro
+  worker: *tls-client
+  beat: *tls-client
+  migrate: *tls-client
+
   samba-ad:
     profiles: ["test"]
     build:

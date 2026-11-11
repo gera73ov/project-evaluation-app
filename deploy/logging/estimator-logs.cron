@@ -1,0 +1,5 @@
+# INF-016 · ежедневный архив логов стенда и удаление старше 90 дней (/etc/cron.d/estimator-logs).
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+LOG_RETENTION_DAYS=90
+10 0 * * *  estimator  cd /opt/estimator && deploy/logging/collect-logs.sh >>/var/log/estimator-collect.log 2>&1

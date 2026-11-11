@@ -129,6 +129,13 @@ class Settings(BaseSettings):
             "файла) для «Состояния системы» (FR-SA-07); пишет скрипт бэкапа"
         ),
     )
+    app_tls_cert_path: str = Field(
+        default="",
+        description=(
+            "Сертификат TLS приложения (PEM, тот же, что у Nginx) — для метрики срока действия и "
+            "оповещения «истекает < 30 дней» (18.4); пусто — не проверять"
+        ),
+    )
     exports_dir: str = Field(
         default="/data/exports",
         description="Каталог файлов выгрузок (том `exports`, файлы живут 24 часа, FR-EXP-05)",

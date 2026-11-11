@@ -88,6 +88,11 @@ jobs:
         if: success() || failure()
         run: deploy/home-stand/e2e-stand.sh ad-suite
 
+      - name: Резервная копия, восстановление, обновление и откат (QA-025, INF-012, INF-015)
+        if: success() || failure()
+        timeout-minutes: 40
+        run: deploy/home-stand/e2e-stand.sh ops-suite
+
       - name: Собрать логи стенда
         if: always()
         run: deploy/home-stand/e2e-stand.sh logs

@@ -55,14 +55,21 @@ async def recreate_database(server_url: str, name: str, *, drop_only: bool = Fal
         await engine.dispose()
 
 
+#: INF-015: каталог backend другой версии, чьи миграции накатываются вместо своих — проверка CI
+#: «старый код на новой схеме» (тесты прежней версии на схеме из PR).
+ALEMBIC_DIR_ENV = "TEST_ALEMBIC_DIR"
+
+
 def prepare_schema(url: str) -> None:
     """Накатить схему на пустую базу. До DB-002 (Alembic) схемы нет — ничего не делает."""
-    if not (BACKEND / "alembic.ini").is_file():
+    source = Path(os.environ.get(ALEMBIC_DIR_ENV) or BACKEND)
+    if not (source / "alembic.ini").is_file():
         return
     subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=BACKEND,
-        env={**os.environ, "DATABASE_URL": url},
+        cwd=source,
+        env={**os.environ, "DATABASE_URL": url}
+        | ({"PYTHONPATH": str(source / "src")} if source != BACKEND else {}),
         check=True,
     )
 

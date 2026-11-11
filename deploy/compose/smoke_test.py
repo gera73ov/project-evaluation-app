@@ -7,7 +7,9 @@
 * api: /health/ready = ok (PostgreSQL и Redis);
 * профиль test: syslog по TLS принимает событие RFC 5424; Mailpit принимает письмо по
   STARTTLS; Samba AD отвечает по LDAPS и StartTLS, вложенная группа даёт доступ, отключённая
-  учётка помечена ACCOUNTDISABLE (тестовые данные deploy/samba-ad/seed.sh).
+  учётка помечена ACCOUNTDISABLE (тестовые данные deploy/samba-ad/seed.sh); PostgreSQL отвечает
+  по TLS сертификатом на имя ``postgres`` от dev-УЦ, а с чужим УЦ или чужим именем соединение
+  отклоняется (INF-014, SEC-CRYPT-05).
 """
 
 from __future__ import annotations
@@ -124,6 +126,28 @@ def check_ad() -> None:
         conn.unbind()
 
 
+SSL_REQUEST = (8).to_bytes(4, "big") + (80877103).to_bytes(4, "big")
+
+
+def postgres_tls(context: ssl.SSLContext, hostname: str) -> None:
+    """Рукопожатие TLS с PostgreSQL (SSLRequest протокола v3) и проверка сертификата."""
+    with socket.create_connection(("postgres", 5432), timeout=10) as raw:
+        raw.sendall(SSL_REQUEST)
+        expect(raw.recv(1) == b"S", "PostgreSQL не предлагает TLS")
+        with context.wrap_socket(raw, server_hostname=hostname) as conn:
+            expect(conn.version() in ("TLSv1.2", "TLSv1.3"), conn.version())
+
+
+def check_postgres_tls() -> None:
+    postgres_tls(tls(), "postgres")
+    for context, name in ((ssl.create_default_context(), "postgres"), (tls(), "evil.example")):
+        try:
+            postgres_tls(context, name)
+        except ssl.SSLCertVerificationError:
+            continue
+        raise RuntimeError(f"соединение с неверным сертификатом или именем ({name}) не отклонено")
+
+
 def run(name: str, check: Callable[[], None], attempts: int = 10) -> bool:
     for attempt in range(1, attempts + 1):
         try:
@@ -146,7 +170,12 @@ def main() -> int:
     args = parser.parse_args()
     checks: list[tuple[str, Callable[[], None]]] = [("api", check_api), ("nginx", check_nginx)]
     if args.test_profile:
-        checks += [("syslog", check_syslog), ("mailpit", check_mail), ("samba-ad", check_ad)]
+        checks += [
+            ("syslog", check_syslog),
+            ("mailpit", check_mail),
+            ("samba-ad", check_ad),
+            ("postgres-tls", check_postgres_tls),
+        ]
     results = [run(name, check) for name, check in checks if name not in args.skip]
     return 0 if all(results) else 1
 

@@ -29,6 +29,8 @@ LEAVES: dict[str, tuple[list[str], list[str], list[x509.ObjectIdentifier]]] = {
         ["127.0.0.1", "::1"],
         [ExtendedKeyUsageOID.SERVER_AUTH],
     ),
+    # TLS до PostgreSQL (INF-014, SEC-CRYPT-05): приложение проверяет имя postgres (verify-full)
+    "postgres": (["postgres", "localhost"], ["127.0.0.1"], [ExtendedKeyUsageOID.SERVER_AUTH]),
     "syslog": (["syslog", "localhost"], ["127.0.0.1"], [ExtendedKeyUsageOID.SERVER_AUTH]),
     "samba-ad": (
         ["samba-ad", "dc1.test.estimator.local", "test.estimator.local"],

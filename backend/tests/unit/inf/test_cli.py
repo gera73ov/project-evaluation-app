@@ -129,6 +129,12 @@ def test_migrate_calls_alembic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert result.exit_code == 0, result.output
     assert calls == [(str(ini), "head")]
 
+    downgrades: list[str] = []
+    monkeypatch.setattr("alembic.command.downgrade", lambda _c, rev: downgrades.append(rev))
+    result = runner.invoke(cli.app, ["migrate", "--downgrade", "0010_x"])
+    assert result.exit_code == 0, result.output
+    assert downgrades == ["0010_x"]
+
 
 def test_main_entrypoint(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]

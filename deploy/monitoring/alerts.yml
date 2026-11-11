@@ -1,0 +1,111 @@
+# INF-013 · правила оповещений SPEC 18.4 (NFR-REL-01, NFR-REL-02, FR-AUTH-AD-08, SEC-AUD-03,
+# SEC-AUD-05). Метрики — backend/src/estimator/{metrics,ops_metrics,realtime/metrics}.py и очередь
+# SIEM (security/siem/shipper.py). Несколько экземпляров api отдают одинаковые датчики — правила
+# берут max/min по экземплярам. Получатели (почта ИБ, дежурный службы эксплуатации) — Alertmanager
+# стенда, настраивает служба эксплуатации (manuals/operations.md, «Мониторинг»).
+# Проверка: tests/unit/inf/test_alert_rules.py (все правила 18.4 есть, метрики объявлены);
+# на стенде — `promtool check rules deploy/monitoring/alerts.yml`.
+groups:
+  - name: estimator-18.4
+    rules:
+      - alert: Estimator5xxRatioHigh
+        expr: >-
+          sum(rate(estimator_http_responses_total{status_class="5xx"}[5m]))
+          / clamp_min(sum(rate(estimator_http_responses_total[5m])), 1e-9) > 0.01
+        for: 5m
+        labels: {severity: critical, team: it}
+        annotations:
+          summary: "Ошибки 5xx больше 1% запросов за 5 минут"
+
+      - alert: EstimatorLoginFailuresBurst
+        expr: sum(increase(estimator_auth_login_failures_total[5m])) > 50
+        labels: {severity: warning, team: security}
+        annotations:
+          summary: "Больше 50 неуспешных входов за 5 минут (возможен перебор паролей)"
+
+      - alert: EstimatorAdCheckStale
+        # проверка пользователей в AD раз в 15 минут не выполнялась больше часа (только режим AD)
+        expr: time() - max(estimator_ad_sync_last_success_timestamp_seconds{kind="sessions_15min"}) > 3600
+        labels: {severity: warning, team: it}
+        annotations:
+          summary: "Проверка пользователей в AD не выполнялась больше часа"
+
+      - alert: EstimatorAdDailySyncStale
+        expr: time() - max(estimator_ad_sync_last_success_timestamp_seconds{kind="daily"}) > 26 * 3600
+        labels: {severity: warning, team: it}
+        annotations:
+          summary: "Ежедневная синхронизация с AD не выполнялась больше 26 часов"
+
+      - alert: EstimatorBackupStale
+        expr: >-
+          time() - max(estimator_backup_last_success_timestamp_seconds) > 26 * 3600
+          or absent(estimator_backup_last_success_timestamp_seconds)
+        for: 10m
+        labels: {severity: critical, team: it}
+        annotations:
+          summary: "Последняя резервная копия старше 26 часов (или её нет)"
+
+      - alert: EstimatorWalArchiveLag
+        # архивация WAL падает или стоит при работающей БД дольше 15 минут (RPO, NFR-REL-02)
+        expr: max(estimator_wal_archive_failing) == 1
+        for: 15m
+        labels: {severity: critical, team: it}
+        annotations:
+          summary: "Архивация WAL не работает больше 15 минут: RPO под угрозой"
+
+      - alert: EstimatorCertificateExpiring
+        expr: min by (cert) (estimator_cert_not_after_timestamp_seconds) - time() < 30 * 86400
+        labels: {severity: warning, team: it}
+        annotations:
+          summary: "Сертификат {{ $labels.cert }} истекает меньше чем через 30 дней"
+
+      - alert: EstimatorSiemQueueOverflow
+        expr: max(estimator_siem_queue_length) > 10000 or max(estimator_siem_overflow) == 1
+        labels: {severity: critical, team: security}
+        annotations:
+          summary: "Очередь передачи аудита в SIEM больше 10 000 событий"
+
+      - alert: EstimatorAuditChainBroken
+        expr: min(estimator_audit_chain_ok) == 0
+        labels: {severity: critical, team: security}
+        annotations:
+          summary: "Проверка цепочки журнала аудита не прошла"
+
+      - alert: EstimatorClamavDown
+        expr: max(estimator_clamav_up) == 0
+        for: 10m
+        labels: {severity: warning, team: it}
+        annotations:
+          summary: "ClamAV недоступен: документы заказчика не проверяются"
+
+      - alert: EstimatorClamavDbOld
+        expr: time() - max(estimator_clamav_db_timestamp_seconds) > 3 * 86400
+        labels: {severity: warning, team: it}
+        annotations:
+          summary: "Базы сигнатур ClamAV старше 3 дней"
+
+  # Дополнительно к 18.4: целевые показатели NFR-PERF-03/04 и доступность служб
+  - name: estimator-nfr
+    rules:
+      - alert: EstimatorApiLatencyP95High
+        expr: >-
+          histogram_quantile(0.95, sum by (le) (rate(estimator_http_request_duration_seconds_bucket[5m]))) > 0.3
+        for: 15m
+        labels: {severity: warning, team: it}
+        annotations:
+          summary: "p95 времени ответа API больше 300 мс (NFR-PERF-03)"
+
+      - alert: EstimatorWsDeliveryP95High
+        expr: >-
+          histogram_quantile(0.95, sum by (le) (rate(estimator_ws_delivery_seconds_bucket[5m]))) > 1
+        for: 15m
+        labels: {severity: warning, team: it}
+        annotations:
+          summary: "p95 доставки событий WebSocket больше 1 с (NFR-PERF-04)"
+
+      - alert: EstimatorComponentDown
+        expr: min by (component) (estimator_component_up{component=~"db|redis|queue|smtp|ldap"}) == 0
+        for: 10m
+        labels: {severity: critical, team: it}
+        annotations:
+          summary: "«Состояние системы»: {{ $labels.component }} красный"
