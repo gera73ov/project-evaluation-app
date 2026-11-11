@@ -68,8 +68,8 @@ jobs:
         run: uv sync --all-groups
       - name: ruff
         run: |
-          uv run ruff check --output-format=github . ../deploy ../tools
-          uv run ruff format --check . ../deploy ../tools
+          uv run ruff check --output-format=github . ../deploy ../tools ../load
+          uv run ruff format --check . ../deploy ../tools ../load
       - name: bandit
         run: uv run bandit -q -c pyproject.toml -r src ../deploy -x ../deploy/syslog/test_receiver.py
       - name: semgrep (самопроверка правил и скан)
@@ -237,4 +237,4 @@ jobs:
           docker run --rm --entrypoint promtool -v "$PWD/deploy/monitoring:/m:ro" "$img" check rules /m/alerts.yml
           docker run --rm --entrypoint promtool -v "$PWD/deploy/monitoring:/m:ro" "$img" test rules /m/alerts.test.yml
       - name: shellcheck скриптов эксплуатации
-        run: shellcheck -x -P SCRIPTDIR -S warning deploy/backup/*.sh deploy/scripts/*.sh deploy/logging/*.sh deploy/home-stand/*.sh deploy/envs/*.sh
+        run: shellcheck -x -P SCRIPTDIR -S warning deploy/backup/*.sh deploy/scripts/*.sh deploy/logging/*.sh deploy/home-stand/*.sh deploy/envs/*.sh load/*.sh

@@ -149,7 +149,7 @@ services:
     <<: *backend
     build: *api-build
     deploy:
-      replicas: 2
+      replicas: ${API_REPLICAS:-2}  # SPEC 13.2: две реплики; больше — при нехватке CPU (QA-019)
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).status != 200)"]

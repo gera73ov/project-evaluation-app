@@ -9,7 +9,7 @@ BR-TREE-04…06, NFR-LIM-01; 15.2 ``GET /projects/{id}/tree``).
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -97,15 +97,35 @@ async def project_disciplines(db: AsyncSession, project_id: uuid.UUID) -> list[D
     return [DisciplineRow(*r) for r in rows.all()]
 
 
-async def live_nodes(db: AsyncSession, project_id: uuid.UUID) -> list[Any]:
-    """Все живые узлы проекта одним запросом (14.3).
+#: Колонки узла, которых хватает расчёту и обходу предков: без jsonb ``field_versions`` и
+#: ``comment_lines``, разбор которых на 2 000 узлах заметно удлинял каждую правку (QA-019)
+CALC_COLUMNS = (
+    "id",
+    "parent_id",
+    "kind",
+    "phase_id",
+    "discipline_id",
+    "type_id",
+    "title",
+    "o",
+    "r",
+    "p",
+    "multiplier",
+)
+
+
+async def live_nodes(
+    db: AsyncSession, project_id: uuid.UUID, columns: Sequence[str] | None = None
+) -> list[Any]:
+    """Все живые узлы проекта одним запросом (14.3); ``columns`` — только эти колонки.
 
     Строки таблицы, а не объекты ORM: на 5 000 узлах сборка объектов и identity map занимали
     большую часть бюджета NFR-LIM-01. Поля читаются теми же именами, что у :class:`Node`.
     """
     table = Node.__table__
+    picked = [table] if columns is None else [table.c[name] for name in columns]
     rows = await db.execute(
-        select(table).where(table.c.project_id == project_id, table.c.deleted_at.is_(None))
+        select(*picked).where(table.c.project_id == project_id, table.c.deleted_at.is_(None))
     )
     return list(rows.all())
 
@@ -212,11 +232,17 @@ class Computed:
     repeating: set[str]
 
 
-async def compute(db: AsyncSession, project: Project) -> Computed:
-    """Строки дерева и расчёт: общий шаг :func:`load_tree` и :func:`mutation_view`."""
+async def compute(
+    db: AsyncSession, project: Project, columns: Sequence[str] | None = None
+) -> Computed:
+    """Строки дерева и расчёт: общий шаг :func:`load_tree` и :func:`mutation_view`.
+
+    ``columns`` — какие колонки узлов читать (:data:`CALC_COLUMNS`, если строки нужны только
+    расчёту); по умолчанию все.
+    """
     phases = await project_phases(db, project.id)
     disciplines = await project_disciplines(db, project.id)
-    nodes = await live_nodes(db, project.id)
+    nodes = await live_nodes(db, project.id, columns)
     status_rows = list(
         (
             await db.execute(
@@ -252,9 +278,10 @@ async def mutation_view(
 
     Считает проект целиком, но собирает выходные строки только для узла и предков.
     """
-    c = await compute(db, project)
+    c = await compute(db, project, CALC_COLUMNS)
     by_id = {n.id: n for n in c.nodes}
-    node = by_id[node_id]
+    table = Node.__table__
+    node = (await db.execute(select(table).where(table.c.id == node_id))).one()
     reviewers = await _reviewers(db, [node])
     cross_cutting = {p.phase_id for p in c.phases if p.is_cross_cutting}
     out = _node_out(node, c.result, reviewers, cross_cutting, c.large, c.repeating)
@@ -263,8 +290,8 @@ async def mutation_view(
     parent = node.parent_id
     while parent is not None:
         row = by_id[parent]
-        figures = _node_out(row, c.result, {}, cross_cutting, c.large, c.repeating)
-        ancestors.append({"id": figures["id"], "e": figures["e"], "sigma": figures["sigma"]})
+        figures = _node_figures(row, c.result, cross_cutting)
+        ancestors.append({"id": str(row.id), "e": figures["e"], "sigma": figures["sigma"]})
         parent = row.parent_id
     return out, ancestors, _figures(c.result.total)
 
@@ -349,7 +376,6 @@ def _node_out(
     counters: Counters | None = None,
 ) -> dict[str, Any]:
     key = str(node.id)
-    calc_node = result.tree[key]
     out: dict[str, Any] = {
         "id": key,
         "parent_id": str(node.parent_id) if node.parent_id else None,
@@ -375,15 +401,22 @@ def _node_out(
         "is_repeating": key in repeating,
         **(counters or Counters()).node(node.id),  # FR-DISC-04
     }
+    return out | _node_figures(node, result, cross_cutting)
+
+
+def _node_figures(
+    node: Any, result: calc.ProjectResult, cross_cutting: set[uuid.UUID]
+) -> dict[str, Any]:
+    """Расчётные поля узла (E, σ, P80, P90, суммы, состояние листа); нужны id, kind, phase_id."""
+    calc_node = result.tree[str(node.id)]
     if node.kind is NodeKind.PHASE and node.phase_id in cross_cutting:
         # строка «Управление проектом»: без листьев, E = k · E базы (6.3, 11.4 №15)
-        out |= _figures(result.pm) | {"sum_o": None, "sum_r": None, "sum_p": None}
-        out |= {"leaf_state": None, "unaccounted_leaves": 0}
-        return out
+        out = _figures(result.pm) | {"sum_o": None, "sum_r": None, "sum_p": None}
+        return out | {"leaf_state": None, "unaccounted_leaves": 0}
     leaf = calc_node.leaf
     if calc_node.is_leaf and leaf is not None:
         counted = leaf.state.counted
-        out |= {
+        return {
             "e": hours(leaf.e) if counted else None,
             "sigma": hours(leaf.sigma) if counted else None,
             "p80": hours(leaf.p80) if counted else None,
@@ -394,16 +427,14 @@ def _node_out(
             "leaf_state": str(leaf.state),
             "unaccounted_leaves": 0 if counted else 1,
         }
-        return out
     totals = calc_node.totals
-    out |= _figures(totals) | {
+    return _figures(totals) | {
         "sum_o": hours(totals.sum_o),
         "sum_r": hours(totals.sum_r),
         "sum_p": hours(totals.sum_p),
         "leaf_state": None,
         "unaccounted_leaves": totals.unaccounted,
     }
-    return out
 
 
 def node_event(node: Node) -> dict[str, Any]:
