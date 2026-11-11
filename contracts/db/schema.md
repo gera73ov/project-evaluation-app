@@ -445,7 +445,8 @@ PK (`user_id`, `project_id`).
 | edited_after_sent | BOOLEAN | ✓ | false | BR-CQ-01 |
 
 Индексы: `threads (project_id) WHERE status = 'open'` (14.3); `UNIQUE (project_id, customer_question_no) WHERE is_customer`
-(14.3, FR-CQ-02); (`node_id`).
+(14.3, FR-CQ-02); (`node_id`); `(project_id, created_at DESC, id DESC)` — лента обсуждений
+проекта (DB-013).
 
 #### `messages`
 

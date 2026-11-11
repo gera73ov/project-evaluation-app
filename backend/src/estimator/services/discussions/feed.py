@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from estimator.db.enums import MessageKind, ThreadStatus, UserStatus
@@ -107,7 +108,7 @@ async def threads_out(db: AsyncSession, rows: Sequence[Thread]) -> list[dict[str
         await db.scalars(
             select(Message)
             .where(Message.thread_id.in_(ids))
-            .distinct(Message.thread_id)
+            .ext(distinct_on(Message.thread_id))
             .order_by(Message.thread_id, Message.created_at, Message.id)
         )
     ).all()

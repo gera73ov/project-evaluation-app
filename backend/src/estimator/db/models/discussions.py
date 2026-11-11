@@ -67,6 +67,13 @@ class Thread(UUIDPrimaryKey, AuditColumns, Base):
             postgresql_where=text("is_customer"),
         ),
         Index("threads_node_id_idx", "node_id"),
+        # DB-013: лента обсуждений проекта, новые сверху
+        Index(
+            "threads_project_created_idx",
+            "project_id",
+            text("created_at DESC"),
+            text("id DESC"),
+        ),
     )
 
     project_id: Mapped[uuid.UUID] = mapped_column(project_fk())
