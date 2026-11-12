@@ -295,18 +295,43 @@ describe('хранилище дерева (FE-021)', () => {
       p: '3',
     } as never);
     store.getState().load(treeOf([...baseNodes(), leaf], new Map(), 5), SETTINGS);
-    store.getState().edit('L', { o: '5' });
-    store.getState().edit('L', { o: '6', r: '7' });
+    const first = store.getState().edit('L', { o: '5' });
+    const second = store.getState().edit('L', { o: '6', r: '7' });
     // подтверждена первая правка (O = 5): O = 6 и R = 7 ещё ждут ответа
-    store.getState().applyNode({ ...leaf, o: '5', version: 2 } as ApiNode, 6, { o: '5' });
+    store.getState().applyNode({ ...leaf, o: '5', version: 2 } as ApiNode, 6, first);
     expect(store.getState().effective('L')?.o).toBe('6');
     expect(store.getState().isPending('L', 'r')).toBe(true);
-    // отказ по старому значению не снимает новое
-    store.getState().revert('L', ['o'], { o: '5' });
+    // отказ по старой правке не снимает новую
+    store.getState().revert('L', ['o'], first);
     expect(store.getState().isPending('L', 'o')).toBe(true);
-    store.getState().applyNode({ ...leaf, o: '6', r: '7', version: 3 } as ApiNode, 7, { o: '6', r: '7' });
+    store.getState().applyNode({ ...leaf, o: '6', r: '7', version: 3 } as ApiNode, 7, second);
     expect(store.getState().pending.size).toBe(0);
     expect(store.getState().nodes.get('L')?.o).toBe('6');
+  });
+
+  it('QA-020: ввод 3 → 4 → 3 — ответ на первую правку не снимает третью с тем же значением', () => {
+    const store = createTreeStore();
+    const leaf = node({
+      id: 'L',
+      kind: 'item',
+      phase_id: 'ph-a',
+      discipline_id: 'd-1',
+      parent_id: 'ph-a/d-1',
+      o: '1',
+      r: '2',
+      p: '3',
+    } as never);
+    store.getState().load(treeOf([...baseNodes(), leaf], new Map(), 5), SETTINGS);
+    const a = store.getState().edit('L', { o: '3' });
+    const b = store.getState().edit('L', { o: '4' });
+    const c = store.getState().edit('L', { o: '3' });
+    store.getState().applyNode({ ...leaf, o: '3', version: 2 } as ApiNode, 6, a);
+    store.getState().applyNode({ ...leaf, o: '4', version: 3 } as ApiNode, 7, b);
+    expect(store.getState().effective('L')?.o).toBe('3');
+    expect(store.getState().isPending('L', 'o')).toBe(true);
+    store.getState().applyNode({ ...leaf, o: '3', version: 4 } as ApiNode, 8, c);
+    expect(store.getState().pending.size).toBe(0);
+    expect(store.getState().nodes.get('L')?.o).toBe('3');
   });
 
   it('отказ сервера возвращает значение; повтор старого события пропускается', () => {

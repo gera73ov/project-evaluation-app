@@ -56,7 +56,7 @@ import { AddMenu, NodeMenu, type RowMenuApi } from '../menu/RowMenus';
 import { useRowMenus, type MenuSetup } from '../menu/useRowMenus';
 import { ConflictDialog } from '../collab/ConflictDialog';
 import { userColor } from '../../../shared/ui/userColor';
-import { extraOf, type NodeEdit, type TreeNode, type TreeStore } from '../store/treeStore';
+import { extraOf, type EditToken, type TreeNode, type TreeStore } from '../store/treeStore';
 import { useTree } from '../store/useProjectTree';
 import { sameSignature, useFresh } from './fresh';
 import { MAX_INDENT_DEPTH, ancestorsOf, buildRows, indentOf, type TreeRow } from './rows';
@@ -560,7 +560,7 @@ export function TreeTable({
   /** Видимые узлы под фильтром; null — без фильтра. */
   visible?: ReadonlySet<string> | null;
   /** Подтверждение правки сервером (`useProjectTree().confirm`); есть — ячейки редактируются. */
-  onConfirm?: (node: components['schemas']['Node'], projectVersion: number, sent?: NodeEdit) => void;
+  onConfirm?: (node: components['schemas']['Node'], projectVersion: number, token?: EditToken) => void;
   /** Захват ячеек при вводе (FE-026). */
   locking?: {
     lock: (cell: CellRef, force?: boolean) => Promise<LockResult>;

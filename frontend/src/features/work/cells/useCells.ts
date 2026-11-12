@@ -23,7 +23,7 @@ import { ApiError, call, errorMessage } from '../../../shared/api/problem';
 import { RESETS_DONE } from '../branch/branch';
 import { dec } from '../../../shared/calc';
 import { formatHoursInput } from '../../../shared/format/number';
-import type { EditableField, NodeEdit, TreeStore } from '../store/treeStore';
+import type { EditableField, EditToken, NodeEdit, TreeStore } from '../store/treeStore';
 import { parseFork, parseHours, parseMultiplier } from './hours';
 
 type ApiNode = components['schemas']['Node'];
@@ -123,8 +123,8 @@ export function useCells({
   guard,
 }: {
   store: TreeStore;
-  /** `sent` — значения подтверждённой правки (снимаются из `pending` только они). */
-  confirm: (node: ApiNode, projectVersion: number, sent?: NodeEdit) => void;
+  /** `token` — метка подтверждённой правки (из `pending` снимаются только её поля). */
+  confirm: (node: ApiNode, projectVersion: number, token?: EditToken) => void;
   /** Листья, которые пользователь может править, в порядке строк. */
   leaves: readonly string[];
   /** Ячейка стала активной (прокрутить к строке). */
@@ -236,7 +236,10 @@ export function useCells({
     for (const field of ['title', 'o', 'r', 'p', 'multiplier'] as const) {
       if (values.has(field)) Object.assign(optimistic, { [field]: values.get(field) });
     }
-    if (Object.keys(optimistic).length) store.getState().edit(nodeId, optimistic);
+    // правка только комментария в расчёт не входит: пустая метка ничего из `pending` не снимает
+    const token: EditToken = Object.keys(optimistic).length
+      ? store.getState().edit(nodeId, optimistic)
+      : { seq: 0, fields: [] };
     if (values.has('comment_lines')) setSavingComments((prev) => new Set(prev).add(nodeId));
     for (const field of fields) setError(cellKey(nodeId, field), null);
     // очередь узла: ждём ответа на предыдущую правку (успех или ошибка — неважно)
@@ -256,7 +259,7 @@ export function useCells({
     queues.current.set(nodeId, request);
     try {
       const result = await request;
-      confirm(result.node as unknown as ApiNode, result.project_version, optimistic);
+      confirm(result.node as unknown as ApiNode, result.project_version, token);
       release(held);
     } catch (error) {
       if (error instanceof ApiError && error.code === 'FIELD_CONFLICT') {
@@ -269,7 +272,7 @@ export function useCells({
         return;
       }
       release(held);
-      store.getState().revert(nodeId, fields.filter((f) => f !== 'comment') as EditableField[], optimistic);
+      store.getState().revert(nodeId, fields.filter((f) => f !== 'comment') as EditableField[], token);
       const message = lockedMessage(error, t) ?? errorMessage(error);
       for (const [field, draft] of drafts) setError(cellKey(nodeId, field), { message, draft });
     } finally {

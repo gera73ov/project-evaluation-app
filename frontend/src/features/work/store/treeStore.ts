@@ -67,16 +67,13 @@ export type EditableField = 'title' | 'o' | 'r' | 'p' | 'multiplier' | 'type_id'
 export type NodeEdit = Partial<Pick<TreeNode, EditableField>>;
 
 /**
- * Несохранённые значения без полей `fields`; с `sent` поле снимается, только если в нём всё ещё
- * отправленное значение: более поздняя правка того же поля ждёт своего ответа.
+ * Метка оптимистичной правки (`edit`): номер правки и её поля. Ответ сервера снимает из `pending`
+ * поле, только если в нём всё ещё правка с этим номером. Сравнивать значения нельзя (QA-020):
+ * при вводе 3 → 4 → 3 ответ на первую правку снял бы третью, ещё не подтверждённую.
  */
-function withoutSent(current: NodeEdit | undefined, fields: readonly EditableField[], sent?: NodeEdit): NodeEdit {
-  const values = new Map(Object.entries(sent ?? {}));
-  return Object.fromEntries(
-    Object.entries(current ?? {}).filter(
-      ([k, v]) => !fields.includes(k as EditableField) || (sent !== undefined && values.get(k) !== v),
-    ),
-  ) as NodeEdit;
+export interface EditToken {
+  seq: number;
+  fields: readonly EditableField[];
 }
 
 const OWN_KEYS = new Set([
@@ -187,23 +184,23 @@ export interface TreeActions {
   /** Применить событие WS; `false` — событие старое и пропущено. */
   applyEvent(event: TreeEvent): boolean;
   /**
-   * Узел из ответа PATCH/POST: сервер подтвердил правку. `sent` — значения подтверждённой правки:
-   * снимаются только они, а более поздние правки тех же полей, ещё ждущие ответа, остаются.
-   * Без `sent` снимаются все несохранённые значения узла.
+   * Узел из ответа PATCH/POST: сервер подтвердил правку. `token` — метка подтверждённой правки:
+   * снимаются только её поля, а более поздние правки тех же полей, ещё ждущие ответа, остаются.
+   * Без метки снимаются все несохранённые значения узла.
    */
-  applyNode(node: ApiNode, projectVersion: number, sent?: NodeEdit): void;
+  applyNode(node: ApiNode, projectVersion: number, token?: EditToken): void;
   /**
    * Ответ операции с поддеревом (FE-027: разбить, свернуть, переместить, дублировать, удалить,
    * скопировать ветку): изменённые узлы, удалённые и новые статусы веток.
    */
   applyMutation(mutation: TreeMutation): void;
   /** Оптимистичная правка: значения сразу в расчёте, ячейки помечены «сохраняется». */
-  edit(nodeId: string, values: NodeEdit): void;
+  edit(nodeId: string, values: NodeEdit): EditToken;
   /**
-   * Сервер отказал: снять несохранённые значения полей. С `sent` поле снимается, только если в нём
-   * всё ещё отправленное значение (более позднюю правку того же поля не трогаем).
+   * Сервер отказал: снять несохранённые значения полей. С `token` поле снимается, только если в нём
+   * всё ещё эта правка (более позднюю правку того же поля не трогаем).
    */
-  revert(nodeId: string, fields: readonly EditableField[], sent?: NodeEdit): void;
+  revert(nodeId: string, fields: readonly EditableField[], token?: EditToken): void;
   isPending(nodeId: string, field: EditableField): boolean;
   /** Узел с наложенными несохранёнными значениями. */
   effective(nodeId: string): TreeNode | undefined;
@@ -254,6 +251,20 @@ function withoutSubtrees(nodes: Map<string, TreeNode>, ids: readonly string[]): 
 
 export function createTreeStore(): TreeStore {
   return createStore<TreeState & TreeActions>()((set, get) => {
+    /** Номер последней правки каждого несохранённого поля: узел → поле → номер (`EditToken`). */
+    const seqs = new Map<string, Map<string, number>>();
+    let lastSeq = 0;
+
+    /** Несохранённые значения узла без полей `fields`; с меткой — только полей этой правки. */
+    function without(nodeId: string, fields: readonly EditableField[], token?: EditToken): NodeEdit {
+      const own = seqs.get(nodeId);
+      const drop = new Set(fields.filter((f) => token === undefined || own?.get(f) === token.seq));
+      for (const field of drop) own?.delete(field);
+      return Object.fromEntries(
+        Object.entries(get().pending.get(nodeId) ?? {}).filter(([k]) => !drop.has(k as EditableField)),
+      ) as NodeEdit;
+    }
+
     /** Пересобрать расчёт по узлам, статусам веток и настройкам. */
     function rebuild(
       nodes: ReadonlyMap<string, TreeNode>,
@@ -396,7 +407,7 @@ export function createTreeStore(): TreeStore {
         return true;
       },
 
-      applyNode(apiNode, projectVersion, sent) {
+      applyNode(apiNode, projectVersion, token) {
         const state = get();
         const node = toTreeNode(apiNode);
         const known = state.nodes.get(node.id);
@@ -404,7 +415,8 @@ export function createTreeStore(): TreeStore {
         // ответ PATCH может прийти позже события той же правки — не откатываем более новый узел
         if (!known || known.version <= node.version) nodes.set(node.id, node);
         const pending = new Map(state.pending);
-        const rest = sent ? withoutSent(pending.get(node.id), Object.keys(sent) as EditableField[], sent) : {};
+        const rest = token ? without(node.id, token.fields, token) : {};
+        if (!token) seqs.delete(node.id);
         if (Object.keys(rest).length) pending.set(node.id, rest);
         else pending.delete(node.id);
         set({ version: Math.max(state.version, projectVersion), ...recompute(nodes, pending, node.id) });
@@ -435,18 +447,23 @@ export function createTreeStore(): TreeStore {
       },
 
       edit(nodeId, values) {
+        lastSeq += 1;
+        const token: EditToken = { seq: lastSeq, fields: Object.keys(values) as EditableField[] };
         const state = get();
-        if (!state.nodes.has(nodeId)) return;
+        if (!state.nodes.has(nodeId)) return token;
+        const own = seqs.get(nodeId) ?? new Map<string, number>();
+        for (const field of token.fields) own.set(field, token.seq);
+        seqs.set(nodeId, own);
         const pending = new Map(state.pending);
         pending.set(nodeId, { ...pending.get(nodeId), ...values });
         set(recompute(state.nodes, pending, nodeId));
+        return token;
       },
 
-      revert(nodeId, fields, sent) {
+      revert(nodeId, fields, token) {
         const state = get();
-        const current = state.pending.get(nodeId);
-        if (!current) return;
-        const rest = withoutSent(current, fields, sent);
+        if (!state.pending.has(nodeId)) return;
+        const rest = without(nodeId, fields, token);
         const pending = new Map(state.pending);
         if (Object.keys(rest).length) pending.set(nodeId, rest);
         else pending.delete(nodeId);
