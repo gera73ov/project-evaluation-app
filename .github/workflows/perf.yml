@@ -1,0 +1,125 @@
+# QA-020 · производительность фронтенда (NFR-PERF-02, NFR-PERF-03, NFR-PERF-06, FR-TREE-15) на
+# домашнем стенде, только запуском вручную. Поднимает стенд профиля test (Nginx, сборка как в prod)
+# тем же скриптом, что e2e-stand, и гоняет замеры e2e/perf в Chromium: открытие рабочего экрана
+# на 2 000 и 5 000 узлах (p95), ввод O, прокрутка 5 000 строк. Эталонный ноутбук (Core i5 / 8 ГБ,
+# 100 Мбит) приближается замедлением CPU страницы и сетью DevTools; прогон повторяется для каждого
+# коэффициента из списка cpu. Цифры каждого прогона — в сводке запуска и в отчёте Playwright.
+# Правила безопасности те же, что у e2e-stand.yml: только workflow_dispatch, права — чтение.
+name: perf
+
+on:
+  workflow_dispatch:
+    inputs:
+      cpu:
+        description: "Замедление CPU страницы, через запятую (1 — без замедления)"
+        default: "1,2"
+      net:
+        description: "Сеть, Мбит/с (0 — без ограничения)"
+        default: "100"
+      runs:
+        description: "Открытий экрана на каждый размер проекта (для p95)"
+        default: "20"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-stand-perf
+  cancel-in-progress: false
+
+jobs:
+  perf:
+    name: Замеры рабочего экрана
+    runs-on: [self-hosted, home-stand]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      PLAYWRIGHT_HTML_OPEN: never
+      LOGS_DIR: ${{ github.workspace }}/stand-logs
+      IN_CPU: ${{ inputs.cpu }}
+      IN_NET: ${{ inputs.net }}
+      IN_RUNS: ${{ inputs.runs }}
+    steps:
+      - name: Проверить параметры
+        run: |
+          [[ "$IN_CPU" =~ ^([1-9](\.[0-9])?)(,[1-9](\.[0-9])?)*$ ]] || { echo "::error::cpu: числа 1–9 через запятую"; exit 1; }
+          [[ "$IN_NET" =~ ^[0-9]{1,4}$ ]] || { echo "::error::net: целое число Мбит/с"; exit 1; }
+          [[ "$IN_RUNS" =~ ^[1-9][0-9]?$ ]] || { echo "::error::runs: от 1 до 99"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Убрать остатки прошлого прогона
+        run: deploy/home-stand/e2e-stand.sh cleanup
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Собрать образы и поднять стенд (make up-test)
+        timeout-minutes: 40
+        run: deploy/home-stand/e2e-stand.sh up
+
+      - name: Установить Playwright и Chromium
+        working-directory: e2e
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install chromium
+          ../deploy/home-stand/e2e-stand.sh check-browser
+
+      - name: Замеры для каждого замедления CPU
+        working-directory: e2e
+        run: |
+          source <(../deploy/home-stand/e2e-stand.sh seed-env)
+          unset E2E_AD
+          export E2E_PERF=1 E2E_PERF_NET="$IN_NET" E2E_PERF_RUNS="$IN_RUNS"
+          {
+            echo "### Замеры QA-020"
+            echo
+            echo "Машина стенда: $(nproc) ядер, $(lscpu | sed -n 's/^Model name: *//p'), $(awk '/MemTotal/ {printf "%.1f ГБ", $2/1048576}' /proc/meminfo); сеть $IN_NET Мбит/с; открытий на размер: $IN_RUNS"
+            echo
+          } >>"$GITHUB_STEP_SUMMARY"
+          rc=0
+          IFS=, read -ra rates <<<"$IN_CPU"
+          for rate in "${rates[@]}"; do
+            log="$LOGS_DIR/perf-cpu$rate.log"
+            mkdir -p "$LOGS_DIR"
+            set +e
+            E2E_PERF_CPU="$rate" npx playwright test perf --project main --reporter=list \
+              --output "test-results/cpu$rate" 2>&1 | tee "$log"
+            status=${PIPESTATUS[0]}
+            set -e
+            ((status == 0)) || rc=1
+            {
+              echo "#### CPU ×$rate: $( ((status == 0)) && echo пройдено || echo есть провалы)"
+              echo
+              echo '```json'
+              sed -n 's/^QA-020 //p' "$log" | tail -1
+              echo '```'
+              grep -E '^\s+(✓|✘)' "$log" | sed 's/^ */- /' || true
+              echo
+            } >>"$GITHUB_STEP_SUMMARY"
+          done
+          exit "$rc"
+
+      - name: Собрать логи стенда
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh logs
+
+      - name: Отчёт, трассы и логи замеров
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-report-${{ github.run_number }}
+          path: |
+            e2e/test-results/
+            stand-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Остановить и почистить стенд
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh cleanup
