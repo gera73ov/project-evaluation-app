@@ -201,9 +201,8 @@ test('ввод O пересчитывает сумму листа и итог в
     await input.fill(String(3 + (i % 2)));
     // от нажатия Enter до смены суммы листа в DOM: обработчик и наблюдатель — в странице
     // строку листа ищем заново на каждой мутации: виртуальный список может заменить её узел DOM
-    // правку ждём до ответа сервера: замер — о пересчёте на экране, а не о гонке нескольких
-    // PATCH одной ячейки подряд (её разбирает отдельная задача FE)
-    const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/nodes/'));
+    // следующий ввод — сразу, без ожидания ответа сервера: правки одного узла должны уйти по очереди
+    // и не откатить последнее введённое значение (дефект, найденный QA-020, исправлен в #128)
     const ms = await input.evaluate(
       (el, title) =>
         new Promise<number>((resolve) => {
@@ -228,10 +227,14 @@ test('ввод O пересчитывает сумму листа и итог в
       LEAF,
     );
     runs.push(Math.round(ms * 10) / 10);
-    await saved;
     await expect(leaf.getByRole('button', { name: `O: ${3 + (i % 2)}` })).toBeVisible();
   }
   await stop();
+  // после перезагрузки на сервере — последнее введённое значение, а не одно из предыдущих
+  await expect(async () => {
+    await page.reload();
+    await expect(firstLeaf().getByRole('button', { name: 'O: 3' })).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 20_000 });
   report.inputMs = runs;
   expect(Math.max(...runs)).toBeLessThanOrEqual(100);
 });
