@@ -35,6 +35,12 @@ const NODES = 5000;
 const RUNS = Number(process.env.E2E_PERF_RUNS ?? 3);
 const CPU = Number(process.env.E2E_PERF_CPU ?? 1);
 const NET = Number(process.env.E2E_PERF_NET ?? 0);
+/**
+ * `cpuBenchMs` машины, сопоставимой с эталонным ноутбуком (Core i5 / 8 ГБ): облачный контейнер агента
+ * даёт 20 мс, домашний стенд — около 41 мс (вдвое медленнее эталона). Строгая проверка FE-081 «долгих
+ * кадров не больше 1%» действует только на машинах не медленнее эталона с запасом 25%.
+ */
+const REF_BENCH_MS = Number(process.env.E2E_PERF_REF_BENCH ?? 25);
 const FILL = process.env.E2E_PERF_FILL_CMD ?? 'uv run --frozen python ../e2e/perf/fill.py';
 
 // не serial: провал одной нормы не должен отменять остальные замеры (после провала Playwright
@@ -288,7 +294,7 @@ test('прокрутка всего дерева — не ниже 30 fps, в DO
   };
   expect(stats.maxRows).toBeLessThanOrEqual(160);
   expect(fps).toBeGreaterThanOrEqual(30);
-  // FE-081: на машине без замедления долгие кадры — только исключение, не больше 1%. При
-  // замедлении CPU (QA-020) норма SPEC — средние 30 fps, доля долгих кадров идёт в отчёт.
-  if (CPU <= 1) expect(stats.slow).toBeLessThanOrEqual(Math.ceil(stats.frames / 100));
+  // FE-081: на машине уровня эталона долгие кадры — только исключение, не больше 1%. На более
+  // медленной (стенд, замедление CPU) норма — средние 30 fps по SPEC, доля долгих кадров идёт в отчёт.
+  if (Number(report.cpuBenchMs) <= REF_BENCH_MS) expect(stats.slow).toBeLessThanOrEqual(Math.ceil(stats.frames / 100));
 });
