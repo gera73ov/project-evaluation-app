@@ -52,7 +52,13 @@ interface Account {
   lastStep: number;
 }
 
-const sa: Account = { login: '', password: `Qw9-${randomBytes(16).toString('hex')}`, secret: '', lastStep: 0 };
+// Логин суперадминистратора — e2e-fe-sa-<hex>, а политика запрещает пароль с частью логина от 3 символов:
+// в случайном hex изредка попадалось «e2e». Поэтому буквы g…v вместо цифр hex.
+const randomLetters = (bytes: number): string =>
+  randomBytes(bytes)
+    .toString('hex')
+    .replace(/[0-9a-f]/g, (c) => 'ghijklmnopqrstuv'[parseInt(c, 16)]);
+const sa: Account = { login: '', password: `Qw9-${randomLetters(16)}`, secret: '', lastStep: 0 };
 const admin: Account = { login: 'moderator.one', password: AD_PASSWORD, secret: '', lastStep: 0 };
 const expert = { login: 'expert.one', password: AD_PASSWORD };
 let activation = '';
