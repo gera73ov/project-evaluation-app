@@ -37,7 +37,9 @@ const CPU = Number(process.env.E2E_PERF_CPU ?? 1);
 const NET = Number(process.env.E2E_PERF_NET ?? 0);
 const FILL = process.env.E2E_PERF_FILL_CMD ?? 'uv run --frozen python ../e2e/perf/fill.py';
 
-test.describe.configure({ mode: 'serial' });
+// не serial: провал одной нормы не должен отменять остальные замеры (после провала Playwright
+// перезапускает воркер, и beforeAll заново готовит проекты)
+test.describe.configure({ mode: 'default' });
 
 let page: Page;
 const projects: Record<number, string> = {};
@@ -126,14 +128,42 @@ for (const [size, limit] of Object.entries(SIZES).map(([n, ms]) => [Number(n), m
   test(`открытие экрана на ${size} узлах — до интерактивности p95 не больше ${limit / 1000} с (NFR-PERF-02)`, async () => {
     test.setTimeout(60_000 + RUNS * 15_000);
     const runs: number[] = [];
+    const parts: { api: number; scripts: number }[] = [];
+    let slowestApi = '';
     for (let i = 0; i < RUNS; i += 1) {
       await page.goto('/');
       const started = Date.now();
       await page.goto(`/projects/${projects[size]}`);
       await expect(firstLeaf()).toBeVisible({ timeout: 15_000 });
       runs.push(Date.now() - started);
+      // из чего сложилось открытие: когда пришёл последний ответ API и последний скрипт сборки
+      const part = await page.evaluate(() => {
+        const entries = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+        const end = (list: PerformanceResourceTiming[]) =>
+          list.reduce((a, e) => (e.responseEnd > a.responseEnd ? e : a));
+        const api = entries.filter((e) => e.name.includes('/api/'));
+        const scripts = entries.filter((e) => e.initiatorType === 'script' || e.name.endsWith('.js'));
+        const lastApi = api.length ? end(api) : null;
+        const slow = api.length ? api.reduce((a, e) => (e.duration > a.duration ? e : a)) : null;
+        return {
+          api: Math.round(lastApi?.responseEnd ?? 0),
+          slowest: slow ? `${new URL(slow.name).pathname} ${Math.round(slow.duration)} мс` : '',
+          scripts: Math.round(scripts.length ? end(scripts).responseEnd : 0),
+        };
+      });
+      parts.push({ api: part.api, scripts: part.scripts });
+      slowestApi = part.slowest;
     }
-    report[`open${size}`] = { ms: runs, p95: p95(runs) };
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+    report[`open${size}`] = {
+      ms: runs,
+      p95: p95(runs),
+      medianMs: median(runs),
+      // медианы от начала загрузки страницы: последний ответ API, последний скрипт; самый долгий запрос API
+      apiDoneMs: median(parts.map((x) => x.api)),
+      scriptsDoneMs: median(parts.map((x) => x.scripts)),
+      slowestApi,
+    };
     const rows = await tree().locator('[role="row"]').count();
     report[`domRows${size}`] = rows;
     expect(rows).toBeLessThanOrEqual(160);
@@ -160,9 +190,9 @@ async function profile(name: string): Promise<() => Promise<void>> {
 }
 
 test('ввод O пересчитывает сумму листа и итог ветки за 100 мс (NFR-PERF-03)', async () => {
-  // экран проекта на 5 000 узлах открыт последним замером открытия
-  await expect(page).toHaveURL(new RegExp(projects[NODES]));
+  await page.goto(`/projects/${projects[NODES]}`);
   const leaf = firstLeaf();
+  await expect(leaf).toBeVisible({ timeout: 15_000 });
   const runs: number[] = [];
   const stop = await profile('input');
   for (let i = 0; i < 5; i += 1) {
@@ -170,26 +200,35 @@ test('ввод O пересчитывает сумму листа и итог в
     const input = leaf.getByRole('textbox', { name: 'O' });
     await input.fill(String(3 + (i % 2)));
     // от нажатия Enter до смены суммы листа в DOM: обработчик и наблюдатель — в странице
+    // строку листа ищем заново на каждой мутации: виртуальный список может заменить её узел DOM
+    // правку ждём до ответа сервера: замер — о пересчёте на экране, а не о гонке нескольких
+    // PATCH одной ячейки подряд (её разбирает отдельная задача FE)
+    const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/nodes/'));
     const ms = await input.evaluate(
-      (el) =>
+      (el, title) =>
         new Promise<number>((resolve) => {
-          const row = el.closest('[role="row"]');
-          const sum = row?.querySelector('.td.e');
-          const before = sum?.textContent ?? '';
+          const grid = el.closest('[role="treegrid"]') ?? document.body;
+          const sumOf = () =>
+            [...grid.querySelectorAll('[role="row"]')]
+              .find((r) => r.textContent?.includes(title))
+              ?.querySelector('.td.e')?.textContent ?? '';
+          const before = sumOf();
           let start = 0;
           const observer = new MutationObserver(() => {
-            if (start && sum?.textContent !== before) {
+            if (start && sumOf() !== before) {
               observer.disconnect();
               resolve(performance.now() - start);
             }
           });
-          observer.observe(row ?? document.body, { subtree: true, childList: true, characterData: true });
+          observer.observe(grid, { subtree: true, childList: true, characterData: true });
           start = performance.now();
           el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
           setTimeout(() => resolve(Number.POSITIVE_INFINITY), 5000);
         }),
+      LEAF,
     );
     runs.push(Math.round(ms * 10) / 10);
+    await saved;
     await expect(leaf.getByRole('button', { name: `O: ${3 + (i % 2)}` })).toBeVisible();
   }
   await stop();
@@ -198,6 +237,8 @@ test('ввод O пересчитывает сумму листа и итог в
 });
 
 test('прокрутка всего дерева — не ниже 30 fps, в DOM не больше ~150 строк (NFR-PERF-06, FR-TREE-15)', async () => {
+  await page.goto(`/projects/${projects[NODES]}`);
+  await expect(firstLeaf()).toBeVisible({ timeout: 15_000 });
   const scroll = tree().locator('.tree-scroll');
   const stop = await profile('scroll');
   const stats = await scroll.evaluate(
