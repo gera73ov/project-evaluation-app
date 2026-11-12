@@ -158,6 +158,16 @@ audit_tamper() {
   # проверка цепочки найдёт подмену и запишет результат для датчика (exit 1 здесь ожидаем)
   "${COMPOSE[@]}" run --rm --no-deps -T api estimator audit verify || true
 }
+# Пока проверка цепочки ни разу не выполнялась, датчик равен 0 и правило горит: неизвестное
+# состояние журнала считается красным (как «Состояние системы»). Поэтому сначала честная проверка
+# на неиспорченном журнале — правило должно погаснуть, — и только потом подмена.
+log "EstimatorAuditChainBroken: проверка цепочки до подмены"
+"${COMPOSE[@]}" run --rm --no-deps -T api estimator audit verify || log "проверка до подмены не прошла"
+if s=$(wait_for EstimatorAuditChainBroken inactive); then
+  echo "| EstimatorAuditChainBroken | первая проверка цепочки на чистом журнале | — | ✔ погасло за $s с |" >>"$REPORT"
+else
+  rc=1; echo "| EstimatorAuditChainBroken | первая проверка цепочки на чистом журнале | — | ✘ не погасло |" >>"$REPORT"
+fi
 check EstimatorAuditChainBroken "изменена запись журнала аудита в обход приложения" audit_tamper
 
 {
@@ -168,6 +178,10 @@ check EstimatorAuditChainBroken "изменена запись журнала а
   echo "EstimatorWsDeliveryP95High (их пороги проверяет нагрузочный тест QA-019)."
   echo
   echo "После прогона журнал аудита стенда испорчен намеренно: стенд пересоздаётся."
+  echo
+  echo "Замечания: на стенде без мастера первичной настройки неверные входы считаются с причиной"
+  echo "setup_in_progress — правило считает все причины. До первой проверки цепочки аудита"
+  echo "EstimatorAuditChainBroken горит (неизвестное состояние — красное), это ожидаемо после установки."
   cat "$REPORT.login" 2>/dev/null || true
 } >>"$REPORT"
 cat "$REPORT"
