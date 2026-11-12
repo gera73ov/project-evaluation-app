@@ -212,6 +212,31 @@ describe('ввод в ячейки на рабочем экране', () => {
     expect(started.filter((p) => p === `/projects/${id}/tree`)).toHaveLength(1);
   });
 
+  it('QA-020: пока правка в очереди, закрытие вкладки переспрашивает', async () => {
+    let open = () => {};
+    const gate = new Promise<void>((resolve) => (open = resolve));
+    server.use(
+      http.patch(api('/nodes/:id'), async () => {
+        await gate;
+      }),
+    );
+    const { row, patches } = await openTree();
+    const leave = () => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(leave()).toBe(false);
+    fireEvent.click(within(row('Авторизация')).getByRole('button', { name: 'O: 8' }));
+    const o = within(row('Авторизация')).getByRole('textbox', { name: 'O' });
+    fireEvent.change(o, { target: { value: '10' } });
+    fireEvent.keyDown(o, { key: 'Enter' });
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(leave()).toBe(true);
+    open();
+    await waitFor(() => expect(leave()).toBe(false));
+  });
+
   it('чужая ветка — без полей ввода', async () => {
     const { grid } = await openTree();
     fireEvent.click(screen.getByRole('button', { name: /Мои ветки/, pressed: true }));

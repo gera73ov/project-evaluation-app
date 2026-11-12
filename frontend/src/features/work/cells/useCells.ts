@@ -15,7 +15,7 @@
  * предыдущий. Параллельные запросы сервер мог применить не по порядку, и в базе оставалось
  * предпоследнее значение. Ответ снимает из `pending` только значения своей правки.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api, type components } from '../../../shared/api/client';
@@ -153,6 +153,16 @@ export function useCells({
   const started = useRef(new Map<string, number>());
   /** Последний запрос правки по узлу: следующая правка узла ждёт его ответа. */
   const queues = useRef(new Map<string, Promise<unknown>>());
+  // QA-020: правки в очереди ещё не дошли до сервера — при закрытии вкладки браузер переспросит
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (queues.current.size === 0) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, []);
 
   const setError = (key: string, error: CellError | null) =>
     setErrors((prev) => {
