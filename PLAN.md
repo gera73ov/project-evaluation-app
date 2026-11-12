@@ -2113,7 +2113,7 @@
   - Артефакты: `deploy/zap/*`, отчёт
   - Готово, когда: нет критичных и высоких находок.
 
-- [ ] **QA-023** · Совместимость браузеров и экранов · трек QA · `E2E_BROWSERS` в `e2e/playwright.config.ts` (экран 1366×768) и workflow `browsers` на домашнем стенде; осталось — прогон и установка Chrome, Edge, Яндекс Браузера на стенд
+- [ ] **QA-023** · Совместимость браузеров и экранов · трек QA · `E2E_BROWSERS` в `e2e/playwright.config.ts` (экран 1366×768) и workflow `browsers` на домашнем стенде (PR #123); прогон 12.11 [43123716792](https://github.com/gera73ov/project-evaluation-app/actions/runs/43123716792): Chromium и Firefox — 20 из 20; осталось — установить на стенд Chrome, Edge и Яндекс Браузер и повторить
   - SPEC: NFR-COMP-01, NFR-COMP-02, FR-UI-03
   - Зависит: QA-018
   - Сделать: прогон E2E в Chrome, Edge, Яндекс Браузере, Firefox (две последние стабильные версии) на 1366×768 и шире.
