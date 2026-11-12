@@ -60,10 +60,11 @@ def refresh(state: CalcState, changed: Iterable[Node]) -> CalcState:
     Узлы с прежним ``parent_id`` остаются на своём месте среди соседей, новый или перенесённый
     узел становится последним ребёнком нового родителя.
     """
+    changed_nodes = list(changed)
     nodes = {i: r.node for i, r in state.tree.nodes.items()}
     children = dict(state.tree.children)
     dirty: set[str] = set()
-    for node in changed:
+    for node in changed_nodes:
         old = nodes.get(node.id)
         if old is None or old.parent_id != node.parent_id:
             if old is not None:
@@ -75,11 +76,10 @@ def refresh(state: CalcState, changed: Iterable[Node]) -> CalcState:
             dirty.add(_key(node.parent_id))
         nodes[node.id] = node
         dirty.add(node.id)
+    for node in changed_nodes:
+        if node.parent_id is not None and node.parent_id not in nodes:
+            raise TreeError(f"у узла {node.id} нет родителя {node.parent_id}")
     dirty.discard("")
-    for node_id in dirty:
-        parent = nodes[node_id].parent_id
-        if parent is not None and parent not in nodes:
-            raise TreeError(f"у узла {node_id} нет родителя {parent}")
 
     depth: dict[str, int] = {}
     for node_id in list(dirty):
