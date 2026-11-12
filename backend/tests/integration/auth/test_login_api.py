@@ -265,6 +265,27 @@ async def test_logout_requires_csrf_and_kills_cookie(
     assert again.status_code == 401
 
 
+@pytest.mark.spec("FR-SESS-01")
+async def test_login_cookie_attributes(api: httpx.AsyncClient, db_session: AsyncSession) -> None:
+    """QA-022 CL-02: cookie сессии — ``__Host-``, ``HttpOnly``, ``Secure``, ``SameSite=Strict``,
+    ``Path=/`` без ``Domain``; CSRF-cookie читается скриптом, остальное то же."""
+    await complete_setup(db_session)
+    user = await make_user(db_session)
+    response = await _login(api, user.login)
+    assert response.status_code == 200
+    cookies = {
+        header.split("=", 1)[0]: [a.strip().lower() for a in header.split(";")[1:]]
+        for header in response.headers.get_list("set-cookie")
+    }
+    session = cookies[COOKIE_NAME]
+    assert {"httponly", "secure", "samesite=strict", "path=/"} <= set(session)
+    assert not any(a.startswith(("domain", "max-age", "expires")) for a in session), session
+    csrf = cookies["__Host-csrf"]
+    assert {"secure", "samesite=strict", "path=/"} <= set(csrf)
+    assert "httponly" not in csrf, "CSRF-токен читает SPA"
+    assert not any(a.startswith("domain") for a in csrf)
+
+
 async def test_options_and_security_headers(api: httpx.AsyncClient) -> None:
     response = await api.get("/api/v1/auth/options")
     assert response.json() == {"auth_mode": "app"}
