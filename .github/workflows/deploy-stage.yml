@@ -1,0 +1,164 @@
+# INF-011 · репетиция stage на домашнем стенде, пока компания не выделила серверы stage.
+# Процедура та же: `deploy/envs/deploy.sh stage ВЕРСИЯ --build` с параметрами deploy/envs/stage/stand.env
+# и добавкой deploy/envs/stage/home-stand.env (свой проект compose, подсеть и порты, чтобы жить рядом
+# со стендом test). Стенд живёт вне рабочей копии исполнителя, в ~/estimator-stage, и остаётся
+# работать после прогона: e2e-stand и deploy-test убирают только проект estimator.
+# Исполнитель работает под stand без sudo, но в группе docker: владельца мастер-ключа (10001, 0400)
+# ставит одноразовый контейнер (STAND_CHOWN_VIA_DOCKER=1).
+# action: deploy — развернуть или обновить до выбранной ветки; superadmin-link — новая ссылка установки
+# пароля суперадминистратору stage.admin (60 минут); stop — остановить (данные остаются);
+# remove — удалить стенд вместе с данными. Ссылка и пароль демо в лог не попадают: они в файлах
+# рядом с мастер-ключом, читать на стенде через sudo cat.
+name: deploy-stage
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Что сделать со stage на домашнем стенде"
+        type: choice
+        options: [deploy, superadmin-link, stop, remove]
+        default: deploy
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-stand-deploy-stage
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    name: stage на домашнем стенде (${{ inputs.action }})
+    runs-on: [self-hosted, home-stand]
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      STAGE_DIR: /home/stand/estimator-stage
+      STAND_SECRETS_DIR: /home/stand/estimator-stage-secrets
+      STAND_ENV_EXTRA: deploy/envs/stage/home-stand.env
+      STAND_CHOWN_VIA_DOCKER: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Рабочая копия stage (вне каталога исполнителя)
+        if: inputs.action == 'deploy'
+        run: |
+          # .env, сертификаты и access.conf не в git: при обновлении они сохраняются
+          [[ -d "$STAGE_DIR/.git" ]] || git clone -q "$GITHUB_WORKSPACE" "$STAGE_DIR"
+          git -C "$STAGE_DIR" fetch -q "$GITHUB_WORKSPACE" HEAD
+          git -C "$STAGE_DIR" reset -q --hard FETCH_HEAD
+          git -C "$STAGE_DIR" log --oneline -1
+
+      - name: Пароль демо-пользователей (в лог не попадает)
+        if: inputs.action == 'deploy'
+        run: |
+          # Репозиторий публичный: пароль не печатается. Он лежит рядом с мастер-ключом:
+          # sudo cat /home/stand/estimator-stage-secrets/demo-password
+          install -d -m 0700 "$STAND_SECRETS_DIR"
+          file="$STAND_SECRETS_DIR/demo-password"
+          if [[ ! -s "$file" ]]; then
+            (umask 077; openssl rand -base64 18 | tr -d '/+=' >"$file")
+          fi
+          pw=$(cat "$file")
+          echo "::add-mask::$pw"
+          echo "DEMO_PASSWORD=$pw" >>"$GITHUB_ENV"
+
+      - name: Развернуть stage (deploy.sh stage --build)
+        if: inputs.action == 'deploy'
+        working-directory: /home/stand/estimator-stage
+        run: |
+          version="stage-$(git rev-parse --short HEAD)"
+          start=$(date +%s)
+          deploy/envs/deploy.sh stage "$version" --build 2>&1 | tee "$GITHUB_WORKSPACE/stage.log"
+          echo "DEPLOY_SEC=$(( $(date +%s) - start ))" >>"$GITHUB_ENV"
+          echo "STAGE_VERSION=$version" >>"$GITHUB_ENV"
+          cp deploy/compose/certs/ca.crt "$GITHUB_WORKSPACE/stage-ca.crt"
+          # ключ: владелец 10001, права 0400 — как под sudo
+          stat -c '%u %a' "$STAND_SECRETS_DIR/encryption_key" | tee /dev/stderr | grep -qx '10001 400' \
+            || { echo "::error::мастер-ключ не 10001/0400"; exit 1; }
+
+      - name: Суперадминистратор stage.admin и ссылка установки пароля
+        if: inputs.action == 'superadmin-link' || (inputs.action == 'deploy' && success())
+        working-directory: /home/stand/estimator-stage
+        run: |
+          link="$STAND_SECRETS_DIR/superadmin-link"
+          # при обновлении stage ссылку заново не выпускаем: суперадминистратор уже есть
+          [[ "${{ inputs.action }}" == deploy && -e "$link" ]] && exit 0
+          files=(); for f in $(sed -n 's/^COMPOSE_FILES=//p' .env | tail -1); do files+=(-f "$f"); done
+          run() { docker compose --env-file .env "${files[@]}" run --rm --no-deps -T api estimator "$@"; }
+          (umask 077
+           run create-superadmin --login stage.admin --email stage.admin@example.local >"$link" 2>/dev/null \
+             || run issue-activation --login stage.admin >"$link")
+          grep -q '^https://' "$link" || { echo "::error::ссылка не выпущена"; exit 1; }
+          echo "Ссылка для stage.admin записана в $link (действует 60 минут)"
+
+      - name: Остановить stage
+        if: inputs.action == 'stop'
+        working-directory: /home/stand/estimator-stage
+        run: |
+          files=(); for f in $(sed -n 's/^COMPOSE_FILES=//p' .env | tail -1); do files+=(-f "$f"); done
+          docker compose --env-file .env "${files[@]}" stop
+
+      - name: Удалить stage вместе с данными
+        if: inputs.action == 'remove'
+        run: |
+          if [[ -f "$STAGE_DIR/.env" ]]; then
+            cd "$STAGE_DIR"
+            files=(); for f in $(sed -n 's/^COMPOSE_FILES=//p' .env | tail -1); do files+=(-f "$f"); done
+            docker compose --env-file .env "${files[@]}" down -v --remove-orphans --timeout 20
+          fi
+          # ключ и сертификаты принадлежат 10001: убираем их тем же одноразовым контейнером
+          for d in "$STAND_SECRETS_DIR" "$STAGE_DIR"; do
+            [[ -d "$d" ]] || continue
+            docker run --rm --network none --user 0 --entrypoint sh -v "$(dirname "$d"):/p" \
+              redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f \
+              -c "rm -rf /p/$(basename "$d")"
+          done
+
+      - name: Сводка
+        if: always()
+        run: |
+          ip=$(hostname -I | awk '{print $1}')
+          {
+            echo "### stage на домашнем стенде: ${{ inputs.action }}"
+            echo
+            if [[ "${{ inputs.action }}" == deploy && -n "${DEPLOY_SEC:-}" ]]; then
+              echo "Версия \`$STAGE_VERSION\`, развёртывание ${DEPLOY_SEC} с."
+              echo
+              echo "Как открыть со своего компьютера в домашней сети:"
+              echo "1. В hosts добавьте строку \`$ip estimator-stage.example.local\`."
+              echo "2. Добавьте в доверенные корневые УЦ файл \`stage-ca.crt\` из артефакта stage-ca."
+              echo "3. Откройте https://estimator-stage.example.local/ и войдите как demo.smirnova (модератор),"
+              echo "   demo.petrov (эксперт), demo.sidorov (пресейл) или demo.kozlov (администратор)."
+              echo "   Пароль: \`sudo cat $STAND_SECRETS_DIR/demo-password\` на стенде."
+              echo "4. Демо-пользователи входят после мастера первичной настройки. Его проходит суперадминистратор"
+              echo "   stage.admin по ссылке из \`sudo cat $STAND_SECRETS_DIR/superadmin-link\` (60 минут; новая —"
+              echo "   action superadmin-link): пароль, TOTP, затем шаги мастера (manuals/superadmin.md)."
+              echo
+              echo '```'
+              grep -E '^[0-9T:-]+Z ' stage.log || true
+              echo '```'
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: УЦ стенда
+        if: success() && inputs.action == 'deploy'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stage-ca
+          path: stage-ca.crt
+          retention-days: 30
+
+      - name: Лог развёртывания
+        if: always() && inputs.action == 'deploy'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deploy-stage-log-${{ github.run_number }}
+          path: stage.log
+          if-no-files-found: ignore
+          retention-days: 14
