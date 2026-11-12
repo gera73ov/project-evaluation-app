@@ -67,13 +67,23 @@ jobs:
         run: |
           host=$(sed -n 's|^APP_BASE_URL=https://||p' .env | tail -1)
           ip=$(hostname -I | awk '{print $1}')
-          # Контейнер в сети docker по умолчанию (172.17.0.0/16) — адрес вне STAND_NETWORKS
-          code=$(docker run --rm --add-host "$host:$ip" curlimages/curl:8.11.1 \
-            -sk -o /dev/null -w '%{http_code}' -m 10 "https://$host/" || true)
+          nginx=$(docker ps -q --filter label=com.docker.compose.project=estimator --filter label=com.docker.compose.service=nginx)
+          # Клиент из отдельной сети docker (172.31.251.0/24, вне STAND_NETWORKS и подсети стенда)
+          # ходит в Nginx напрямую, без NAT: Nginx видит его настоящий адрес. Через опубликованный
+          # порт хоста проверять нельзя: такие запросы с самого сервера проходят через docker-proxy
+          # и приходят с шлюза подсети стенда, которую Nginx пускает (смоук).
+          docker network rm deploy-test-foreign >/dev/null 2>&1 || true
+          docker network create --subnet 172.31.251.0/24 deploy-test-foreign >/dev/null
+          trap 'docker network disconnect deploy-test-foreign "$nginx" >/dev/null 2>&1; docker network rm deploy-test-foreign >/dev/null 2>&1' EXIT
+          docker network connect --ip 172.31.251.10 deploy-test-foreign "$nginx"
+          probe() {
+            docker run --rm --network deploy-test-foreign --add-host "$host:172.31.251.10" \
+              curlimages/curl:8.11.1 -sk -o /dev/null -w '%{http_code}' -m 10 "$1" || true
+          }
+          code=$(probe "https://$host:8443/")
           echo "FOREIGN_CODE=$code" >>"$GITHUB_ENV"
-          [[ "$code" == 403 ]] || { echo "::error::с адреса вне STAND_NETWORKS ответ $code, ждали 403"; exit 1; }
-          code=$(docker run --rm --add-host "$host:$ip" curlimages/curl:8.11.1 \
-            -sk -o /dev/null -w '%{http_code}' -m 10 "http://$host/" || true)
+          [[ "$code" == 403 ]] || { echo "::error::HTTPS с адреса вне STAND_NETWORKS: $code, ждали 403"; exit 1; }
+          code=$(probe "http://$host:8080/")
           [[ "$code" == 403 ]] || { echo "::error::HTTP с адреса вне STAND_NETWORKS: $code, ждали 403"; exit 1; }
           echo "STAND_IP=$ip" >>"$GITHUB_ENV"
           echo "STAND_HOST=$host" >>"$GITHUB_ENV"
