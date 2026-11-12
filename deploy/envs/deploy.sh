@@ -34,6 +34,8 @@ STAND_DIR="$ROOT/deploy/envs/$stand"
 ENV_FILE="$ROOT/.env"
 SECRETS="${STAND_SECRETS_DIR:-/etc/estimator/secrets}"
 APP_UID=10001  # пользователь приложения в образе api (deploy/docker/api.Dockerfile)
+# образ с sh и chown: тот же Redis, что в docker-compose.yml (уже скачан на сервере)
+CHOWN_IMAGE="redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f"
 
 # --- 1. сервер ---------------------------------------------------------------------------------
 version_ge() { [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" == "$2" ]]; }
@@ -83,7 +85,7 @@ prepare_env() {
     [[ -z "$line" || "$line" == \#* ]] && continue
     name="${line%%=*}"
     set_env "$name" "${line#*=}"
-  done <"$STAND_DIR/stand.env"
+  done < <(cat "$STAND_DIR/stand.env" ${STAND_ENV_EXTRA:+"$STAND_ENV_EXTRA"})
   [[ -n "$version" ]] && set_env APP_VERSION "$version"
   log ".env стенда $stand готов (APP_ENV=$(env_value APP_ENV), версия $(env_value APP_VERSION))"
 }
@@ -103,6 +105,13 @@ prepare_secrets() {
   if ((EUID == 0)); then
     chown "$APP_UID:$APP_UID" "$file"
     chmod 0400 "$file"
+  elif [[ "${STAND_CHOWN_VIA_DOCKER:-}" == 1 ]]; then
+    # Пользователь из группы docker без sudo (исполнитель CI на домашнем стенде): владельца и права
+    # ставит одноразовый контейнер от root. Итог тот же, что под sudo: 10001, 0400, каталог 0700.
+    chmod 0700 "$SECRETS"
+    docker run --rm --network none --user 0 --entrypoint sh -v "$SECRETS:/s" "$CHOWN_IMAGE" \
+      -c "chown $APP_UID:$APP_UID /s/encryption_key && chmod 0400 /s/encryption_key"
+    log "ключ $file: владелец $APP_UID, права 0400 (через Docker, без sudo)"
   else
     # Без root (test на машине, где у исполнителя CI нет sudo) сменить владельца нельзя:
     # файл читают все, но каталог 0700 закрыт для остальных пользователей сервера
