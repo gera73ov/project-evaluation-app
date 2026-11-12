@@ -44,6 +44,16 @@ jobs:
           deploy/home-stand/e2e-stand.sh cleanup
           rm -rf "$STAND_SECRETS_DIR" .env deploy/compose/certs
 
+      - name: Пароль демо-пользователей (в лог не попадает)
+        run: |
+          # Репозиторий публичный: пароль seed-demo не должен печататься в лог прогона.
+          # Он лежит на стенде рядом с мастер-ключом, читать: sudo cat …/stand-secrets/demo-password
+          pw=$(openssl rand -base64 18 | tr -d '/+=')
+          echo "::add-mask::$pw"
+          install -d -m 0700 "$STAND_SECRETS_DIR"
+          (umask 077; printf '%s\n' "$pw" >"$STAND_SECRETS_DIR/demo-password")
+          echo "DEMO_PASSWORD=$pw" >>"$GITHUB_ENV"
+
       - name: Первое развёртывание (deploy.sh test --build)
         timeout-minutes: 45
         run: |
@@ -113,7 +123,7 @@ jobs:
             echo "Стенд оставлен работать. На своём компьютере:"
             echo "1. В hosts добавьте строку \`$STAND_IP $STAND_HOST\`."
             echo "2. Добавьте в доверенные УЦ стенда: \`deploy/compose/certs/ca.crt\` из рабочей копии исполнителя (артефакт stand-ca)."
-            echo "3. Откройте https://$STAND_HOST/"
+            echo "3. Откройте https://$STAND_HOST/ и войдите как demo.* (модератор — demo.smirnova, эксперт — demo.petrov) с паролем из файла на стенде: \`sudo cat $STAND_SECRETS_DIR/demo-password\`"
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: УЦ стенда

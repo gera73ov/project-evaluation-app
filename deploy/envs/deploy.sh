@@ -168,7 +168,8 @@ seed() {
   case "$(env_value STAND_SEED)" in
     demo)
       log "демо-данные (seed-demo; уже созданные пропускаются)"
-      compose run --rm --no-deps -T api estimator seed-demo ;;
+      # DEMO_PASSWORD из окружения — пароль demo.*; без него seed-demo придумает и напечатает свой
+      compose run --rm --no-deps -T ${DEMO_PASSWORD:+-e DEMO_PASSWORD} api estimator seed-demo ;;
     none|"") ;;
     *) die "STAND_SEED: demo или none" ;;
   esac
