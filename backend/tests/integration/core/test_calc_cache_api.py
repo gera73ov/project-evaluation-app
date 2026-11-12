@@ -28,20 +28,30 @@ def _count(result: str) -> float:
 
 
 class Paths:
-    """Сколько раз сработал каждый путь кэша с момента создания."""
+    """Сколько раз сработал каждый путь кэша с момента создания (без чтений дерева сверки)."""
 
     def __init__(self) -> None:
         self.start = {r: _count(r) for r in ("hit", "delta", "rebuild")}
+        self.tree = dict.fromkeys(self.start, 0)
+        _SEEN.append(self)
 
     def taken(self) -> dict[str, int]:
-        return {r: int(_count(r) - v) for r, v in self.start.items() if _count(r) - v}
+        out = {r: int(_count(r) - v - self.tree[r]) for r, v in self.start.items()}
+        return {r: n for r, n in out.items() if n}
+
+
+_SEEN: list[Paths] = []
 
 
 async def _same_as_tree(actor: Actor, pid: uuid.UUID, response: Any) -> dict[str, Any]:
     """Ответ правки сверяется с деревом; затем «commit» — состояние запоминается."""
     assert response.status_code in (200, 201), response.text
     body = response.json()
+    before = {r: _count(r) for r in ("hit", "delta", "rebuild")}
     tree = (await actor.get(f"/projects/{pid}/tree")).json()
+    for paths in _SEEN:  # чтение дерева для сверки — не в счёт путей правки
+        for r, v in before.items():
+            paths.tree[r] += int(_count(r) - v)
     by_id = {n["id"]: n for n in tree["nodes"]}
     node = body["node"]
     assert {k: node[k] for k in FIGURES} == {k: by_id[node["id"]][k] for k in FIGURES}
@@ -109,7 +119,7 @@ async def test_mutation_response_matches_tree_on_every_path(
     # статус ветки поменялся мимо кэша — отпечаток параметров другой, строить заново
     snapshot = calc_cache._snapshots[s.pid]
     calc_cache._snapshots[s.pid] = calc_cache.Snapshot(
-        snapshot.version, ("другой",), snapshot.state, snapshot.at
+        snapshot.version, ("другой",), snapshot.state, snapshot.at, snapshot.keys
     )
     paths = Paths()
     await _same_as_tree(expert, s.pid, await _patch(expert, a["id"], a["version"], o="8"))
@@ -132,10 +142,72 @@ def test_remember_keeps_newest_and_limit(monkeypatch: pytest.MonkeyPatch) -> Non
     calc_cache.clear()
     state: Any = object()
     first, second = uuid.uuid4(), uuid.uuid4()
-    calc_cache.remember(first, calc_cache.Snapshot(5, (), state, 0.0))
-    calc_cache.remember(first, calc_cache.Snapshot(4, (), state, 0.0))  # опоздавший commit
+    calc_cache.remember(first, calc_cache.Snapshot(5, (), state, 0.0, {}))
+    calc_cache.remember(first, calc_cache.Snapshot(4, (), state, 0.0, {}))  # опоздавший commit
     assert calc_cache._snapshots[first].version == 5
     monkeypatch.setattr(calc_cache, "MAX_PROJECTS", 1)
-    calc_cache.remember(second, calc_cache.Snapshot(1, (), state, 0.0))
+    calc_cache.remember(second, calc_cache.Snapshot(1, (), state, 0.0, {}))
     assert list(calc_cache._snapshots) == [second]
     calc_cache.clear()
+
+
+async def _tree(actor: Actor, pid: uuid.UUID) -> dict[str, Any]:
+    response = await actor.get(f"/projects/{pid}/tree")
+    assert response.status_code == 200, response.text
+    await deliver_events(actor.world.db)
+    return response.json()
+
+
+async def _fresh_tree(actor: Actor, pid: uuid.UUID) -> dict[str, Any]:
+    """Дерево, посчитанное заново, без кэша экземпляра."""
+    saved = dict(calc_cache._snapshots)
+    calc_cache.clear()
+    try:
+        return await _tree(actor, pid)
+    finally:
+        calc_cache._snapshots.update(saved)
+
+
+@pytest.mark.spec("NFR-PERF-02")
+async def test_tree_reuses_state_checked_against_rows(
+    world: World, db_session: AsyncSession
+) -> None:
+    s = await _setup(world, db_session)
+    expert = s.backend_expert
+    branch = await s.branch(db_session, s.backend)
+    a = (await _create(expert, s.pid, branch.id, title="А", o="8", r="12", p="20")).json()["node"]
+    g = (await _create(expert, s.pid, branch.id, title="Г")).json()["node"]
+    await _create(expert, s.pid, g["id"], title="Б", o="1", r="2", p="40")
+    await deliver_events(db_session)
+    calc_cache.clear()
+
+    paths = Paths()
+    first = await _tree(expert, s.pid)
+    second = await _tree(expert, s.pid)
+    assert paths.taken() == {"rebuild": 1, "hit": 1}
+    assert first == second
+
+    # строка изменилась мимо журнала и версии — дерево всё равно совпадает со строками
+    await db_session.execute(
+        text("UPDATE nodes SET o = 2, r = 20, p = 90, multiplier = 4 WHERE id = :id"),
+        {"id": a["id"]},
+    )
+    paths = Paths()
+    cached = await _tree(expert, s.pid)
+    assert paths.taken() == {"delta": 1}
+    assert cached == await _fresh_tree(expert, s.pid)
+    assert next(n for n in cached["nodes"] if n["id"] == a["id"])["multiplier"] == 4
+
+    # узел исчез — строить заново
+    await db_session.execute(
+        text(
+            "UPDATE nodes SET deleted_at = now(), deleted_batch_id = gen_random_uuid()"
+            " WHERE parent_id = :id"
+        ),
+        {"id": g["id"]},
+    )
+    paths = Paths()
+    rebuilt = await _tree(expert, s.pid)
+    assert paths.taken() == {"rebuild": 1}
+    assert rebuilt == await _fresh_tree(expert, s.pid)
+    assert next(n for n in rebuilt["nodes"] if n["id"] == g["id"])["leaf_state"] == "empty"

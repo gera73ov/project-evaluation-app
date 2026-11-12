@@ -31,6 +31,7 @@ from estimator.db.models.projects import (
 from estimator.db.models.tree import Node
 from estimator.db.models.users import User
 from estimator.domain import calc
+from estimator.domain.calc import incremental
 from estimator.domain.calc.analytics import (
     DEFAULT_LARGE_LEAF_HOURS,
     decomposition,
@@ -341,18 +342,43 @@ async def load_tree(
 ) -> dict[str, Any]:
     """Тело ответа ``Tree`` (contracts/openapi.yaml): узлы, статусы веток, итоги, версия.
 
-    ``viewer`` — зритель для счётчика «вопросы мне» (без него — 0).
+    ``viewer`` — зритель для счётчика «вопросы мне» (без него — 0). Расчёт берётся из кэша
+    экземпляра и сверяется с прочитанными строками (:func:`calc_cache.state_for_rows`), а
+    расчётная часть строки узла переиспользуется, пока результат узла не изменился (QA-020).
     """
-    c = await compute(db, project)
+    phases = await project_phases(db, project.id)
+    disciplines = await project_disciplines(db, project.id)
+    nodes = await live_nodes(db, project.id)
+    status_rows = list(
+        (
+            await db.execute(
+                select(BranchStatus, User.full_name, User.status)
+                .outerjoin(User, User.id == BranchStatus.changed_by)
+                .where(BranchStatus.project_id == project.id)
+            )
+        ).all()
+    )
+    statuses = {(b.phase_id, b.discipline_id): str(b.status) for b, _, _ in status_rows}
+    state = calc_cache.state_for_rows(
+        db,
+        project,
+        calc_cache.fingerprint(project, phases, disciplines, statuses),
+        lambda rows: calc_input(project, phases, disciplines, list(rows), statuses),
+        nodes,
+    )
+    settings = await read_settings(db, "method.large_leaf_hours")
+    threshold = large_leaf_threshold(
+        calc.DetailLevel(str(project.detail_level)),
+        _thresholds(settings.get("method.large_leaf_hours")),
+    )
     counters = await tree_counters(db, project.id, viewer)
-    phases, disciplines, nodes, status_rows = c.phases, c.disciplines, c.nodes, c.status_rows
-    result, large, repeating = c.result, c.large, c.repeating
     reviewers = await _reviewers(db, nodes)
 
     cross_cutting = {str(p.phase_id) for p in phases if p.is_cross_cutting}
     order = {p.phase_id: i for i, p in enumerate(phases)}
+    tree, summary = state.tree, state.summary
     out_nodes = [
-        _node_out(n, result.tree, result.pm, reviewers, cross_cutting, large, repeating, counters)
+        _tree_node(n, state, threshold, reviewers, cross_cutting, counters)
         for n in _ordered(nodes, order)
     ]
     has_expert = {d.discipline_id: d.has_expert for d in disciplines}
@@ -377,20 +403,81 @@ async def load_tree(
         "nodes": out_nodes,
         "branch_statuses": branch_statuses,
         "totals": {
-            "works": _figures(result.works),
-            "pm": _figures(result.pm),
-            "total": _figures(result.total),
-            "unaccounted_leaves": result.unaccounted_leaves,
+            "works": _figures(summary.works),
+            "pm": _figures(summary.pm),
+            "total": _figures(summary.total),
+            "unaccounted_leaves": summary.unaccounted_leaves,
             "nodes_count": len(nodes),
             "nodes_limit": NODES_LIMIT,
             "open_questions": counters.project_open,
             "questions_to_me": counters.project_to_me,
-            "risks": await _risks(db, nodes, result),
+            "risks": await _risks(db, nodes, tree),
         },
     }
 
 
-async def _risks(db: AsyncSession, nodes: list[Node], result: calc.ProjectResult) -> int:
+def _tree_node(
+    node: Any,
+    state: incremental.CalcState,
+    threshold: Decimal | None,
+    reviewers: Mapping[uuid.UUID, dict[str, Any]],
+    cross_cutting: set[str],
+    counters: Counters,
+) -> dict[str, Any]:
+    """Строка узла для :func:`load_tree`; расчётная часть — из ``state.memo``.
+
+    Расчётная часть зависит только от результата узла (тот же объект — те же числа) и порога
+    «крупного» листа. Строка «Управление проектом» зависит ещё от итогов и не кэшируется.
+    """
+    key = str(node.id)
+    result = state.tree[key]
+    cached = state.memo.get(key)
+    if cached is not None and cached[0] is result and cached[1] == threshold:
+        calc_part = cached[2]
+    else:
+        calc_part = _calc_part(result, state.summary.pm, threshold, cross_cutting)
+        if not (result.node.kind is calc.NodeKind.PHASE and result.node.phase_id in cross_cutting):
+            state.memo[key] = (result, threshold, calc_part)
+    return {
+        **calc_part,
+        "position": node.position,
+        "comment_lines": node.comment_lines,
+        "reviewed_by": reviewers.get(node.reviewed_by) if node.reviewed_by else None,
+        "reviewed_at": (
+            node.reviewed_at.isoformat().replace("+00:00", "Z") if node.reviewed_at else None
+        ),
+        "self_review": node.self_review,
+        "version": node.version,
+        "field_versions": node.field_versions,
+        **counters.node(node.id),  # FR-DISC-04
+    }
+
+
+def _calc_part(
+    result: Any, pm: calc.PmResult, threshold: Decimal | None, cross_cutting: set[str]
+) -> dict[str, Any]:
+    """Поля строки узла, которые определяет узел расчёта (:class:`calc.Node`) и его результат."""
+    n = result.node
+    flags = leaf_candidate(result, threshold)
+    return {
+        "id": n.id,
+        "parent_id": n.parent_id,
+        "kind": str(n.kind),
+        "phase_id": n.phase_id,
+        "discipline_id": n.discipline_id,
+        "type_id": n.type,
+        "title": n.title,
+        "o": _dec(n.o),
+        "r": _dec(n.r),
+        "p": _dec(n.p),
+        "multiplier": n.multiplier,
+        "is_large": bool(flags and flags.large),
+        "is_repeating": bool(flags and flags.repeating),
+        **_figures_of(result, pm, n.kind is calc.NodeKind.PHASE and n.phase_id in cross_cutting),
+    }
+
+
+async def _risks(db: AsyncSession, nodes: list[Any], tree: calc.TreeResult) -> int:
     """Счётчик рисков (FR-TREE-11): живые листья с меткой категории «Риск» в комментарии."""
     risk = {
         str(t)
@@ -401,7 +488,7 @@ async def _risks(db: AsyncSession, nodes: list[Node], result: calc.ProjectResult
     return sum(
         1
         for n in nodes
-        if result.tree[str(n.id)].is_leaf
+        if tree[str(n.id)].is_leaf
         and any(str(line.get("tag_id")) in risk for line in (n.comment_lines or []))
     )
 
@@ -452,8 +539,12 @@ def _node_figures(
 
     ``node`` — строка БД или узел расчёта (:class:`calc.Node`, идентификаторы — строки).
     """
-    calc_node = tree[str(node.id)]
-    if str(node.kind) == NodeKind.PHASE and str(node.phase_id) in cross_cutting:
+    is_pm_row = str(node.kind) == NodeKind.PHASE and str(node.phase_id) in cross_cutting
+    return _figures_of(tree[str(node.id)], pm, is_pm_row)
+
+
+def _figures_of(calc_node: Any, pm: calc.PmResult, is_pm_row: bool) -> dict[str, Any]:
+    if is_pm_row:
         # строка «Управление проектом»: без листьев, E = k · E базы (6.3, 11.4 №15)
         out = _figures(pm) | {"sum_o": None, "sum_r": None, "sum_p": None}
         return out | {"leaf_state": None, "unaccounted_leaves": 0}

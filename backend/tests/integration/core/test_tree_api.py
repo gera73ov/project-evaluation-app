@@ -223,3 +223,31 @@ async def test_tree_of_5000_nodes_is_fast(world: World, db_session: AsyncSession
     # строки замедляет сборку в 3–4 раза, поэтому бюджет там втрое больше.
     budget = 3.0 if _coverage_active() else 1.0
     assert elapsed < budget, f"дерево из 5 000 узлов собрано за {elapsed:.2f} с (бюджет {budget} с)"
+
+
+@pytest.mark.spec("NFR-PERF-02")
+async def test_tree_body_matches_schema(world: World, db_session: AsyncSession) -> None:
+    """Ответ дерева отдаётся без pydantic: он должен совпадать с проверкой и выдачей по ``Tree``."""
+    from estimator.api.v1 import core_schemas
+    from tests.integration.core.conftest import deliver_events
+    from tests.integration.core.test_nodes_api import _patch
+    from tests.security.stocked import stocked
+
+    st = await stocked(world, db_session)
+    s, leaf = st.s, st.ids["node"]
+    lines = [{"tag_id": None, "text": 'Без SSO «кавычки» \\ " \n'}]
+    patched = await _patch(s.backend_expert, leaf, 1, comment_lines=lines, multiplier=2)
+    assert patched.status_code == 200, patched.text
+    reviewed = await st.reviewer.post(f"/nodes/{leaf}/review", json={"reviewed": True})
+    assert reviewed.status_code in (200, 409), reviewed.text
+    await deliver_events(db_session)
+
+    response = await s.moderator.get(f"/projects/{s.pid}/tree")
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "application/json"
+    body = response.json()
+    model = core_schemas.Tree.model_validate(body)
+    assert model.model_dump(mode="json", exclude_unset=True) == body
+    node = next(n for n in body["nodes"] if n["id"] == leaf)
+    assert node["comment_lines"] == lines
+    assert body["branch_statuses"]

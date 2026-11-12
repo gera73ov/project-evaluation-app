@@ -6,6 +6,7 @@ SPEC 13.1, 13.2: FastAPI + Uvicorn (ASGI), несколько реплик ``api
 
 from __future__ import annotations
 
+import gc
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -37,6 +38,20 @@ from estimator.security.web.limits import BodySizeLimitMiddleware
 
 log = get_logger(__name__)
 
+#: Пороги сборщика мусора по поколениям (NFR-PERF-02, 15.3). По умолчанию (2000, 10, 10)
+#: ответ дерева на 5 000 узлах создаёт сотни тысяч объектов и запускает полные сборки по всей
+#: куче экземпляра — паузы до 200 мс посреди запроса. Реже собирать молодое поколение и реже
+#: старшее — паузы пропадают; память под циклический мусор растёт на единицы МБ.
+GC_THRESHOLDS = (10_000, 20, 20)
+
+
+def tune_gc() -> None:
+    """Объекты, созданные при старте (модули, схемы, маршруты), — в постоянное поколение:
+    сборщик их больше не обходит. Затем более редкие сборки (:data:`GC_THRESHOLDS`)."""
+    gc.collect()
+    gc.freeze()
+    gc.set_threshold(*GC_THRESHOLDS)
+
 
 def create_app(settings: Settings | None = None, probes: health.Probes | None = None) -> FastAPI:
     """Собрать приложение. Параметры подменяются в тестах."""
@@ -49,6 +64,7 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
         log.info("app_started", app_env=settings.app_env.value, version=settings.app_version)
         await _app.state.realtime.start()
         _app.state.ops_metrics.start()
+        tune_gc()
         yield
         await _app.state.ops_metrics.stop()
         await _app.state.realtime.stop()

@@ -16,7 +16,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from typing import Any
 
 from estimator.domain.calc._decimal import in_calc_context
 from estimator.domain.calc.leaf import estimate
@@ -44,6 +45,9 @@ class CalcState:
     input: ProjectInput
     tree: TreeResult
     summary: Summary
+    #: Кэш представлений для слоя сервиса: ``id → (NodeResult, …)``. Общий у состояния и всех
+    #: его потомков от :func:`refresh`; запись годна, пока результат узла тот же объект
+    memo: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
 
 @in_calc_context
