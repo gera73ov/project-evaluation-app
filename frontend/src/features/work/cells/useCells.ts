@@ -10,6 +10,10 @@
  * FE-026: при начале ввода ячейка захватывается (`lock`), при уходе без изменений и после ответа
  * на сохранение — освобождается; 409 `FIELD_CONFLICT` открывает выбор «Оставить моё» / «Принять»,
  * 423 `CELL_LOCKED` — текст «Сейчас редактирует …».
+ *
+ * QA-020: правки одного узла уходят по очереди — следующий `PATCH` только после ответа на
+ * предыдущий. Параллельные запросы сервер мог применить не по порядку, и в базе оставалось
+ * предпоследнее значение. Ответ снимает из `pending` только значения своей правки.
  */
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -119,7 +123,8 @@ export function useCells({
   guard,
 }: {
   store: TreeStore;
-  confirm: (node: ApiNode, projectVersion: number) => void;
+  /** `sent` — значения подтверждённой правки (снимаются из `pending` только они). */
+  confirm: (node: ApiNode, projectVersion: number, sent?: NodeEdit) => void;
   /** Листья, которые пользователь может править, в порядке строк. */
   leaves: readonly string[];
   /** Ячейка стала активной (прокрутить к строке). */
@@ -146,6 +151,8 @@ export function useCells({
    * затиралось бы молча вместо конфликта FR-TREE-32.
    */
   const started = useRef(new Map<string, number>());
+  /** Последний запрос правки по узлу: следующая правка узла ждёт его ответа. */
+  const queues = useRef(new Map<string, Promise<unknown>>());
 
   const setError = (key: string, error: CellError | null) =>
     setErrors((prev) => {
@@ -222,7 +229,7 @@ export function useCells({
     }
     const fields = [...drafts.keys()];
     const heldKey = held ? cellKey(held.nodeId, held.field) : null;
-    const base = baseVersion ?? (heldKey !== null ? started.current.get(heldKey) : undefined) ?? node.version;
+    const startedAt = heldKey !== null ? started.current.get(heldKey) : undefined;
     if (heldKey !== null) started.current.delete(heldKey);
     const optimistic: NodeEdit = {};
     const values = new Map(Object.entries(changes));
@@ -232,14 +239,24 @@ export function useCells({
     if (Object.keys(optimistic).length) store.getState().edit(nodeId, optimistic);
     if (values.has('comment_lines')) setSavingComments((prev) => new Set(prev).add(nodeId));
     for (const field of fields) setError(cellKey(nodeId, field), null);
-    try {
-      const result = await call(() =>
+    // очередь узла: ждём ответа на предыдущую правку (успех или ошибка — неважно)
+    const previous = queues.current.get(nodeId);
+    const request = (async () => {
+      if (previous) await previous.catch(() => undefined);
+      // своя предыдущая правка конфликтом не считается (FR-TREE-32), поэтому версия начала ввода
+      // годится и после неё; без неё — версия узла после ответа на предыдущую правку
+      const base = baseVersion ?? startedAt ?? store.getState().nodes.get(nodeId)?.version ?? node.version;
+      return call(() =>
         api.PATCH('/nodes/{id}', {
           params: { path: { id: nodeId } },
           body: { base_version: base, changes },
         }),
       );
-      confirm(result.node as unknown as ApiNode, result.project_version);
+    })();
+    queues.current.set(nodeId, request);
+    try {
+      const result = await request;
+      confirm(result.node as unknown as ApiNode, result.project_version, optimistic);
       release(held);
     } catch (error) {
       if (error instanceof ApiError && error.code === 'FIELD_CONFLICT') {
@@ -252,10 +269,11 @@ export function useCells({
         return;
       }
       release(held);
-      store.getState().revert(nodeId, fields.filter((f) => f !== 'comment') as EditableField[]);
+      store.getState().revert(nodeId, fields.filter((f) => f !== 'comment') as EditableField[], optimistic);
       const message = lockedMessage(error, t) ?? errorMessage(error);
       for (const [field, draft] of drafts) setError(cellKey(nodeId, field), { message, draft });
     } finally {
+      if (queues.current.get(nodeId) === request) queues.current.delete(nodeId);
       if (values.has('comment_lines'))
         setSavingComments((prev) => {
           const next = new Set(prev);

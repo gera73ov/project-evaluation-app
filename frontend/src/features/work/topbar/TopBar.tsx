@@ -9,7 +9,7 @@
  * внахлёст, дальше «+N».
  */
 import { Popover } from '@mantine/core';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Link } from '../../../app/router';
@@ -18,7 +18,7 @@ import { formatDate } from '../../../shared/format/date';
 import { formatHours, formatMoney, formatPercent } from '../../../shared/format/number';
 import { isTotpRequired } from '../../../shared/ui/MoneyGuard';
 import { ExportMenu } from '../../exports/ExportMenu';
-import { StatusControl } from '../../settings/status/StatusControl';
+import { StatusControl, type BranchFact } from '../../settings/status/StatusControl';
 import { SnapshotButton } from '../../snapshots/SnapshotButton';
 import type { Project } from '../../settings/useProject';
 import { userColor } from '../../../shared/ui/userColor';
@@ -130,6 +130,15 @@ export function TopBar({
   const { t } = useTranslation();
   const [openList, setOpenList] = useState(false);
   const total = useTree(store, (s) => s.result?.total ?? null);
+  const branchStatus = useTree(store, (s) => s.branchStatus);
+  const branches = useMemo(
+    () =>
+      [...branchStatus].map(([key, status]): BranchFact => {
+        const [phase_id = '', discipline_id = ''] = key.split('/');
+        return { phase_id, discipline_id, status };
+      }),
+    [branchStatus],
+  );
   const quote = project.quote_figure;
   const canMoney = project.my_permissions.includes('money.read');
   const names = new Map(project.disciplines.map((d) => [d.discipline_id, d.name]));
@@ -181,7 +190,7 @@ export function TopBar({
           ) : null}
         </div>
       </div>
-      <StatusControl project={project} readOnly={readOnly} label={false} />
+      <StatusControl project={project} readOnly={readOnly} label={false} branches={branches} />
       <div className="tot" aria-label={t('top.hoursTotal')}>
         {figure('e', 'E')}
         {figure('p80', 'P80')}

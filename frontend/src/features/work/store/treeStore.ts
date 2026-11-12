@@ -66,6 +66,19 @@ export function extraOf(node: TreeNode | undefined): NodeExtra {
 export type EditableField = 'title' | 'o' | 'r' | 'p' | 'multiplier' | 'type_id';
 export type NodeEdit = Partial<Pick<TreeNode, EditableField>>;
 
+/**
+ * Несохранённые значения без полей `fields`; с `sent` поле снимается, только если в нём всё ещё
+ * отправленное значение: более поздняя правка того же поля ждёт своего ответа.
+ */
+function withoutSent(current: NodeEdit | undefined, fields: readonly EditableField[], sent?: NodeEdit): NodeEdit {
+  const values = new Map(Object.entries(sent ?? {}));
+  return Object.fromEntries(
+    Object.entries(current ?? {}).filter(
+      ([k, v]) => !fields.includes(k as EditableField) || (sent !== undefined && values.get(k) !== v),
+    ),
+  ) as NodeEdit;
+}
+
 const OWN_KEYS = new Set([
   'id',
   'parent_id',
@@ -173,8 +186,12 @@ export interface TreeActions {
   setSettings(settings: CalcSettings): void;
   /** Применить событие WS; `false` — событие старое и пропущено. */
   applyEvent(event: TreeEvent): boolean;
-  /** Узел из ответа PATCH/POST: сервер подтвердил правку. */
-  applyNode(node: ApiNode, projectVersion: number): void;
+  /**
+   * Узел из ответа PATCH/POST: сервер подтвердил правку. `sent` — значения подтверждённой правки:
+   * снимаются только они, а более поздние правки тех же полей, ещё ждущие ответа, остаются.
+   * Без `sent` снимаются все несохранённые значения узла.
+   */
+  applyNode(node: ApiNode, projectVersion: number, sent?: NodeEdit): void;
   /**
    * Ответ операции с поддеревом (FE-027: разбить, свернуть, переместить, дублировать, удалить,
    * скопировать ветку): изменённые узлы, удалённые и новые статусы веток.
@@ -182,8 +199,11 @@ export interface TreeActions {
   applyMutation(mutation: TreeMutation): void;
   /** Оптимистичная правка: значения сразу в расчёте, ячейки помечены «сохраняется». */
   edit(nodeId: string, values: NodeEdit): void;
-  /** Сервер отказал: снять несохранённые значения полей. */
-  revert(nodeId: string, fields: readonly EditableField[]): void;
+  /**
+   * Сервер отказал: снять несохранённые значения полей. С `sent` поле снимается, только если в нём
+   * всё ещё отправленное значение (более позднюю правку того же поля не трогаем).
+   */
+  revert(nodeId: string, fields: readonly EditableField[], sent?: NodeEdit): void;
   isPending(nodeId: string, field: EditableField): boolean;
   /** Узел с наложенными несохранёнными значениями. */
   effective(nodeId: string): TreeNode | undefined;
@@ -376,7 +396,7 @@ export function createTreeStore(): TreeStore {
         return true;
       },
 
-      applyNode(apiNode, projectVersion) {
+      applyNode(apiNode, projectVersion, sent) {
         const state = get();
         const node = toTreeNode(apiNode);
         const known = state.nodes.get(node.id);
@@ -384,7 +404,9 @@ export function createTreeStore(): TreeStore {
         // ответ PATCH может прийти позже события той же правки — не откатываем более новый узел
         if (!known || known.version <= node.version) nodes.set(node.id, node);
         const pending = new Map(state.pending);
-        pending.delete(node.id);
+        const rest = sent ? withoutSent(pending.get(node.id), Object.keys(sent) as EditableField[], sent) : {};
+        if (Object.keys(rest).length) pending.set(node.id, rest);
+        else pending.delete(node.id);
         set({ version: Math.max(state.version, projectVersion), ...recompute(nodes, pending, node.id) });
       },
 
@@ -420,13 +442,11 @@ export function createTreeStore(): TreeStore {
         set(recompute(state.nodes, pending, nodeId));
       },
 
-      revert(nodeId, fields) {
+      revert(nodeId, fields, sent) {
         const state = get();
         const current = state.pending.get(nodeId);
         if (!current) return;
-        const rest = Object.fromEntries(
-          Object.entries(current).filter(([k]) => !fields.includes(k as EditableField)),
-        ) as NodeEdit;
+        const rest = withoutSent(current, fields, sent);
         const pending = new Map(state.pending);
         if (Object.keys(rest).length) pending.set(nodeId, rest);
         else pending.delete(nodeId);

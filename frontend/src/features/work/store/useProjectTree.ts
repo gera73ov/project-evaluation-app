@@ -15,6 +15,7 @@ import type { WsEvent } from '../../../shared/ws/client';
 import { useProjectChannel, useWsClient } from '../../../shared/ws/WsProvider';
 import {
   createTreeStore,
+  type NodeEdit,
   settingsOf,
   type TreeEvent,
   type TreeMutation,
@@ -38,7 +39,8 @@ export interface ProjectTree {
   loaded: boolean;
   error: Error | null;
   /** Ответ сервера на правку узла: применить и сообщить WS-клиенту версию. */
-  confirm: (node: components['schemas']['Node'], projectVersion: number) => void;
+  /** `sent` — значения подтверждённой правки: из несохранённых снимаются только они. */
+  confirm: (node: components['schemas']['Node'], projectVersion: number, sent?: NodeEdit) => void;
   /** Ответ операции с поддеревом (`NodesMutation`). */
   confirmMutation: (mutation: TreeMutation) => void;
   reload: () => Promise<void>;
@@ -53,8 +55,13 @@ export function useProjectTree(
   project: Project | undefined,
   onOtherEvent?: (event: WsEvent) => void,
   onTreeEvent?: (event: WsEvent) => void,
+  /**
+   * QA-020: id проекта из адреса — дерево запрашивается сразу, параллельно с карточкой проекта, а
+   * не после неё; в хранилище оно ложится, когда придут оба ответа (настройки расчёта — из проекта).
+   */
+  id?: string,
 ): ProjectTree {
-  const projectId = project?.id ?? null;
+  const projectId = id ?? project?.id ?? null;
   const ws = useWsClient();
   const [store] = useState(createTreeStore);
   const version = useStore(store, (s) => s.version);
@@ -69,15 +76,17 @@ export function useProjectTree(
 
   // свежая выдача дерева заменяет хранилище; правка настроек меняет только расчёт
   const projectRef = useRef(project);
+  const hasProject = project !== undefined;
   useLayoutEffect(() => {
     projectRef.current = project;
   });
   useEffect(() => {
     const current = projectRef.current;
     if (!tree.data || !current) return;
+    if (current.id !== projectId) return;
     store.getState().load(tree.data as components['schemas']['Tree'], settingsOf(current));
     ws?.markApplied(current.id, store.getState().version);
-  }, [tree.data, tree.dataUpdatedAt, store, ws]);
+  }, [tree.data, tree.dataUpdatedAt, store, ws, projectId, hasProject]);
   useEffect(() => {
     if (project && store.getState().settings) store.getState().setSettings(settingsOf(project));
   }, [project, store]);
@@ -94,8 +103,8 @@ export function useProjectTree(
   });
 
   const confirm = useCallback(
-    (node: components['schemas']['Node'], projectVersion: number) => {
-      store.getState().applyNode(node, projectVersion);
+    (node: components['schemas']['Node'], projectVersion: number, sent?: NodeEdit) => {
+      store.getState().applyNode(node, projectVersion, sent);
       if (projectId) ws?.markApplied(projectId, projectVersion);
     },
     [projectId, store, ws],

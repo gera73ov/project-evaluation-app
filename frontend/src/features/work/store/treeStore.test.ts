@@ -282,6 +282,33 @@ describe('хранилище дерева (FE-021)', () => {
     expect(store.getState().version).toBe(6);
   });
 
+  it('QA-020: ответ на раннюю правку снимает только её значения', () => {
+    const store = createTreeStore();
+    const leaf = node({
+      id: 'L',
+      kind: 'item',
+      phase_id: 'ph-a',
+      discipline_id: 'd-1',
+      parent_id: 'ph-a/d-1',
+      o: '1',
+      r: '2',
+      p: '3',
+    } as never);
+    store.getState().load(treeOf([...baseNodes(), leaf], new Map(), 5), SETTINGS);
+    store.getState().edit('L', { o: '5' });
+    store.getState().edit('L', { o: '6', r: '7' });
+    // подтверждена первая правка (O = 5): O = 6 и R = 7 ещё ждут ответа
+    store.getState().applyNode({ ...leaf, o: '5', version: 2 } as ApiNode, 6, { o: '5' });
+    expect(store.getState().effective('L')?.o).toBe('6');
+    expect(store.getState().isPending('L', 'r')).toBe(true);
+    // отказ по старому значению не снимает новое
+    store.getState().revert('L', ['o'], { o: '5' });
+    expect(store.getState().isPending('L', 'o')).toBe(true);
+    store.getState().applyNode({ ...leaf, o: '6', r: '7', version: 3 } as ApiNode, 7, { o: '6', r: '7' });
+    expect(store.getState().pending.size).toBe(0);
+    expect(store.getState().nodes.get('L')?.o).toBe('6');
+  });
+
   it('отказ сервера возвращает значение; повтор старого события пропускается', () => {
     const store = createTreeStore();
     const leaf = node({
