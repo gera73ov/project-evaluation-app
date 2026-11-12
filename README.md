@@ -143,6 +143,8 @@ make traceability   # отчёт «требование → тест» в build/
 | `API_REPLICAS` | compose (`api`) | Сколько реплик API запустить; Nginx и Prometheus находят их все через DNS сервиса. Больше двух — если нагрузочный тест (`load/README.md`) упирается в процессор | `2` |
 | `BIND_ADDRESS` | compose (`nginx`) | На каком адресе сервера открыты порты HTTPS и HTTP: `127.0.0.1` на dev, `0.0.0.0` на стендах test и stage | `127.0.0.1` |
 | `STAND_SECRETS_DIR` | `deploy/envs/deploy.sh`, compose стендов | Каталог Docker secrets стенда на сервере: в нём файл `encryption_key` (мастер-ключ) | `/etc/estimator/secrets` |
+| `STAND_CHOWN_VIA_DOCKER` | `deploy/envs/deploy.sh` | `1` — пользователь без sudo из группы docker: владельца 10001 и права 0400 мастер-ключу ставит одноразовый контейнер (stage на домашнем стенде) | пусто |
+| `STAND_ENV_EXTRA` | `deploy/envs/deploy.sh` | Файл с дополнительными строками `.env` после `stand.env`, например `deploy/envs/stage/home-stand.env` | пусто |
 | `STAND_ACCESS_FILE` | compose стендов (`nginx`) | Список сетей, которым Nginx отвечает; его пишет `deploy/envs/deploy.sh` из `STAND_NETWORKS` | пишет `deploy.sh` |
 | `STAND_DOCKER_SUBNET` | compose стендов | Подсеть Docker стенда; Nginx пускает её, чтобы работали проверки с самого сервера | `172.31.250.0/24` |
 <!-- ops-env-table:end -->
