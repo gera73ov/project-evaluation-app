@@ -12,10 +12,10 @@ import { defineConfig, devices } from '@playwright/test';
 const PERF = Boolean(process.env.E2E_PERF);
 
 /**
- * QA-023 · совместимость: E2E_BROWSERS=firefox,chrome,msedge,yandex гонит сквозные сценарии ролей
+ * QA-023 · совместимость: E2E_BROWSERS=chromium,firefox,chrome гонит сквозные сценарии ролей
  * (scenarios/, QA-018) в каждом браузере на минимальном экране 1366×768 (NFR-COMP-01, FR-UI-03).
- * Chrome и Edge — установленные в системе (channel), Яндекс Браузер — по пути E2E_YANDEX_PATH.
- * Набор main при этом не запускается.
+ * Chrome — установленный в системе (channel). Edge и Яндекс Браузер не проверяются: в компании
+ * ими не пользуются (решение владельца продукта 12.11.2026). Набор main при этом не запускается.
  */
 const SMALL_SCREEN = { width: 1366, height: 768 };
 // Chromium берёт кодировку имён файлов из локали процесса: без UTF-8 (LANG пуст в контейнерах)
@@ -25,11 +25,6 @@ const BROWSER_USE: Record<string, object> = {
   chromium: { ...devices['Desktop Chrome'] },
   firefox: { ...devices['Desktop Firefox'] },
   chrome: { ...devices['Desktop Chrome'], channel: 'chrome' },
-  msedge: { ...devices['Desktop Edge'], channel: 'msedge' },
-  yandex: {
-    ...devices['Desktop Chrome'],
-    launchOptions: { ...LAUNCH_ENV, executablePath: process.env.E2E_YANDEX_PATH ?? '/usr/bin/yandex-browser' },
-  },
 };
 const BROWSERS = (process.env.E2E_BROWSERS ?? '')
   .split(',')
