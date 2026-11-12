@@ -205,6 +205,11 @@ async def refresh_once(
                 await step()
         except Exception as exc:  # noqa: BLE001 — метрики не должны ронять процесс
             log.warning("ops_metrics_failed", step=name, error_type=type(exc).__name__)
+            if name == "components":
+                # Отдельные проверки report() ловит сам; целиком шаг падает, только когда БД не
+                # открывает даже транзакцию. Без этого индикатор db оставался бы прежним (1),
+                # и оповещение «БД красная» при остановленной БД не срабатывало (INF-013).
+                COMPONENT_UP.labels("db").set(0)
     _app_cert(settings)
 
 

@@ -1,0 +1,68 @@
+# INF-013 · имитация сбоев на домашнем стенде: правила оповещений 18.4 проверяются в настоящем
+# Prometheus на метриках работающего приложения (deploy/monitoring/simulate-alerts.sh).
+# Поднимает стенд профиля test тем же скриптом, что e2e-stand, затем по очереди: копий нет →
+# копия; 60 неверных входов; остановка ClamAV; остановка PostgreSQL (5xx и «БД красная»);
+# подмена записи журнала аудита. Отчёт — в сводке запуска. Стенд после прогона удаляется.
+# Решение по stage принимается на stage: там другие получатели оповещений (Alertmanager).
+# Правила безопасности те же, что у e2e-stand.yml: только workflow_dispatch, права — чтение.
+name: alerts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-stand-alerts
+  cancel-in-progress: false
+
+jobs:
+  alerts:
+    name: Имитация сбоев и оповещения
+    runs-on: [self-hosted, home-stand]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      LOGS_DIR: ${{ github.workspace }}/stand-logs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Убрать остатки прошлого прогона
+        run: deploy/home-stand/e2e-stand.sh cleanup
+
+      - name: Собрать образы и поднять стенд (make up-test)
+        timeout-minutes: 40
+        run: deploy/home-stand/e2e-stand.sh up
+
+      - name: Имитация сбоев
+        timeout-minutes: 40
+        run: |
+          deploy/monitoring/simulate-alerts.sh "$LOGS_DIR/alerts-report.md"
+
+      - name: Сводка
+        if: always()
+        run: cat "$LOGS_DIR/alerts-report.md" >>"$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
+      - name: Собрать логи стенда
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh logs
+
+      - name: Логи
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alerts-logs-${{ github.run_number }}
+          path: stand-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Остановить и почистить стенд
+        if: always()
+        run: |
+          docker compose --env-file .env -f deploy/compose/docker-compose.yml --profile monitoring rm -sf prometheus || true
+          deploy/home-stand/e2e-stand.sh cleanup

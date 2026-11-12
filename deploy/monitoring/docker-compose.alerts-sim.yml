@@ -1,0 +1,6 @@
+# INF-013 · только для deploy/monitoring/simulate-alerts.sh: Prometheus стенда test получает
+# правила alerts.yml без задержки for: (файл готовит скрипт). Остальное — как в профиле monitoring.
+services:
+  prometheus:
+    volumes:
+      - ${ALERTS_SIM_RULES:?запускайте через deploy/monitoring/simulate-alerts.sh}:/etc/prometheus/alerts.yml:ro
