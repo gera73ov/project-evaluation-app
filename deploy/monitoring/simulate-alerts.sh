@@ -37,18 +37,22 @@ chmod 755 "$(dirname "$RULES")"
 log "Prometheus с правилами без задержки for:"
 "${COMPOSE[@]}" up -d --wait prometheus
 
-state() { # state ПРАВИЛО → firing | pending | inactive
+state() { # state ПРАВИЛО [МЕТКА=ЗНАЧЕНИЕ] → firing | pending | inactive
   curl -fsS "$PROM/api/v1/alerts" | python3 -c '
 import json, sys
-name = sys.argv[1]
-states = {a["state"] for a in json.load(sys.stdin)["data"]["alerts"] if a["labels"].get("alertname") == name}
-print("firing" if "firing" in states else "pending" if "pending" in states else "inactive")' "$1"
+name, label = sys.argv[1], sys.argv[2]
+key, _, value = label.partition("=")
+states = {
+    a["state"] for a in json.load(sys.stdin)["data"]["alerts"]
+    if a["labels"].get("alertname") == name and (not key or a["labels"].get(key) == value)
+}
+print("firing" if "firing" in states else "pending" if "pending" in states else "inactive")' "$1" "${2:-}"
 }
 
-wait_for() { # wait_for ПРАВИЛО firing|inactive → секунды или пусто
-  local name="$1" want="$2" started=$SECONDS
+wait_for() { # wait_for ПРАВИЛО firing|inactive [МЕТКА=ЗНАЧЕНИЕ] → секунды или пусто
+  local name="$1" want="$2" label="${3:-}" started=$SECONDS
   while ((SECONDS - started < WAIT)); do
-    [[ "$(state "$name")" == "$want" ]] && { echo $((SECONDS - started)); return 0; }
+    [[ "$(state "$name" "$label")" == "$want" ]] && { echo $((SECONDS - started)); return 0; }
     sleep 5
   done
   return 1
@@ -68,6 +72,10 @@ mkdir -p "$(dirname "$REPORT")"
 check() { # check ПРАВИЛО "описание" ФУНКЦИЯ_СБОЯ [ФУНКЦИЯ_ВОССТАНОВЛЕНИЯ]
   local name="$1" what="$2" fire="$3" heal="${4:-}" t_fire="✘" t_heal="—" s
   log "$name: $what"
+  # до сбоя правило не должно гореть, иначе «сработало» ничего не доказывает (копий нет — исключение)
+  if [[ "$fire" != noop && "$(state "$name")" != inactive ]]; then
+    echo "| $name | $what | ✘ горело ещё до сбоя | — |" >>"$REPORT"; rc=1; return 0
+  fi
   "$fire" || log "$name: шаг сбоя завершился с ошибкой (продолжаю, проверяю правило)"
   if s=$(wait_for "$name" firing); then t_fire="✔ за $s с"; else rc=1; log "$name: НЕ сработало"; fi
   if [[ -n "$heal" ]]; then
@@ -88,12 +96,27 @@ check EstimatorBackupStale "копий ещё не было" noop backup_now
 
 login_burst() {
   local i
-  for i in $(seq 1 60); do
+  # Ряд счётчика появляется при первом неуспешном входе, а increase() не видит рост от «ряда ещё
+  # нет» до первого значения. Сначала один вход и ожидание опроса — дальше рост считается целиком.
+  api_curl -X POST -H 'Content-Type: application/json' \
+    -d '{"login":"sim.warmup","password":"wrong"}' "$BASE/api/v1/auth/login" >/dev/null
+  sleep 45
+  for i in $(seq 1 70); do
     api_curl -X POST -H 'Content-Type: application/json' \
       -d "{\"login\":\"sim.nobody$i\",\"password\":\"wrong-$i\"}" "$BASE/api/v1/auth/login" >/dev/null
   done
 }
-check EstimatorLoginFailuresBurst "60 неверных входов за минуту" login_burst
+check EstimatorLoginFailuresBurst "70 неверных входов подряд" login_burst
+{
+  echo
+  echo "Ряды estimator_auth_login_failures_total после серии входов:"
+  echo
+  echo '```'
+  curl -fsS "$PROM/api/v1/query" --data-urlencode 'query=estimator_auth_login_failures_total' \
+    | python3 -c 'import json,sys; [print(r["metric"], r["value"][1]) for r in json.load(sys.stdin)["data"]["result"]]' || true
+  echo '```'
+  echo
+} >"$REPORT.login"
 
 clamav_stop() { "${COMPOSE[@]}" stop clamav; }
 clamav_start() { "${COMPOSE[@]}" start clamav; }
@@ -112,8 +135,10 @@ db_stop() {
 db_start() { "${COMPOSE[@]}" start postgres && "${COMPOSE[@]}" up -d --wait postgres api; }
 # 5xx и «БД красная» — один сбой: сначала ждём оба правила, потом поднимаем БД
 db_stop
-for name in Estimator5xxRatioHigh EstimatorComponentDown; do
-  if s=$(wait_for "$name" firing); then
+# на test SMTP не настроен, поэтому EstimatorComponentDown для smtp горит всегда: смотрим db
+for pair in Estimator5xxRatioHigh: EstimatorComponentDown:component=db; do
+  name="${pair%%:*}" label="${pair#*:}"
+  if s=$(wait_for "$name" firing "$label"); then
     echo "| $name | остановлена PostgreSQL, 40 входов за время сбоя | ✔ за $s с | — |" >>"$REPORT"
   else
     rc=1
@@ -121,7 +146,7 @@ for name in Estimator5xxRatioHigh EstimatorComponentDown; do
   fi
 done
 db_start
-if s=$(wait_for EstimatorComponentDown inactive); then
+if s=$(wait_for EstimatorComponentDown inactive component=db); then
   echo "| EstimatorComponentDown | PostgreSQL снова запущена | — | ✔ за $s с |" >>"$REPORT"
 else
   rc=1; echo "| EstimatorComponentDown | PostgreSQL снова запущена | — | ✘ |" >>"$REPORT"
@@ -143,6 +168,7 @@ check EstimatorAuditChainBroken "изменена запись журнала а
   echo "EstimatorWsDeliveryP95High (их пороги проверяет нагрузочный тест QA-019)."
   echo
   echo "После прогона журнал аудита стенда испорчен намеренно: стенд пересоздаётся."
+  cat "$REPORT.login" 2>/dev/null || true
 } >>"$REPORT"
 cat "$REPORT"
 exit "$rc"
