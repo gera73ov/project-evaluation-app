@@ -100,8 +100,17 @@ prepare_secrets() {
   elif [[ -n "$key" && "$key" != "$(cat "$file")" ]]; then
     die "ENCRYPTION_KEY в .env отличается от $file: удалите строку из .env, ключ в файле — действующий"
   fi
-  chown "$APP_UID:$APP_UID" "$file"
-  chmod 0400 "$file"
+  if ((EUID == 0)); then
+    chown "$APP_UID:$APP_UID" "$file"
+    chmod 0400 "$file"
+  else
+    # Без root (test на машине, где у исполнителя CI нет sudo) сменить владельца нельзя:
+    # файл читают все, но каталог 0700 закрыт для остальных пользователей сервера
+    [[ "$stand" == test ]] || die "stage разворачивается только через sudo: ключ должен принадлежать пользователю приложения $APP_UID"
+    chmod 0700 "$SECRETS"
+    chmod 0444 "$file"
+    log "ВНИМАНИЕ: запуск без root, ключ $file — владелец $(id -un), права 0444, каталог 0700"
+  fi
   # Ключ в окружении перекрыл бы secret: убираем строку и ставим пометку для make_env.py
   sed -i '/^ENCRYPTION_KEY=/d' "$ENV_FILE"
   grep -qxF "$mark" "$ENV_FILE" || printf '%s\n' "$mark" >>"$ENV_FILE"
@@ -140,6 +149,16 @@ compose() {
 
 start() {
   mkdir -p deploy/compose/certs
+  # Сервис certs пишет в каталог от имени его владельца (как make up), а в сертификат Nginx
+  # добавляет имя стенда: тестировщики и смоук открывают стенд по нему, а не по localhost
+  local url host
+  url="$(env_value APP_BASE_URL)" host="${url#https://}" host="${host%%[:/]*}"
+  export CERTS_UID CERTS_GID CERTS_NGINX_NAMES="$host"
+  CERTS_UID="$(stat -c %u deploy/compose/certs)" CERTS_GID="$(stat -c %g deploy/compose/certs)"
+  if [[ -s deploy/compose/certs/nginx.crt ]] && command -v openssl >/dev/null \
+     && ! openssl x509 -noout -checkhost "$host" -in deploy/compose/certs/nginx.crt | grep -q 'does match'; then
+    log "ВНИМАНИЕ: deploy/compose/certs/nginx.crt выпущен не на $host; положите сертификат стенда или удалите nginx.crt и nginx.key, чтобы certs выпустил новый"
+  fi
   if ((build)); then compose build; else compose pull --ignore-buildable; fi
   log "миграции и запуск (ожидание healthcheck)"
   compose up -d --wait --remove-orphans

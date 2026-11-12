@@ -59,6 +59,9 @@ services:
         APP_VERSION: ${APP_VERSION:-dev}
     user: "${CERTS_UID:-10001}:${CERTS_GID:-10001}"
     command: ["python", "/opt/certs/gen_dev_certs.py", "/certs"]
+    # Имена стенда в сертификате Nginx (deploy/envs/deploy.sh берёт их из APP_BASE_URL)
+    environment:
+      CERTS_NGINX_NAMES: ${CERTS_NGINX_NAMES:-}
     volumes:
       - ../certs/gen_dev_certs.py:/opt/certs/gen_dev_certs.py:ro
       - ./certs:/certs

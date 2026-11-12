@@ -1,0 +1,137 @@
+# INF-011 · проверка процедуры развёртывания стенда test на домашнем стенде (deploy/envs/README.md).
+# Компания пока не даёт серверов stage, поэтому процедура `deploy/envs/deploy.sh test --build`
+# проверяется на исполнителе home-mint: первое развёртывание с нуля, повторный запуск (пароли,
+# ключ и данные сохраняются), доступ с адреса вне STAND_NETWORKS (403) и смоук по имени стенда.
+# Исполнитель работает под stand без sudo, поэтому мастер-ключ лежит в каталоге рабочей копии
+# (режим «test без sudo» в README). Входной параметр keep оставляет стенд работать после проверки,
+# чтобы открыть его из домашней сети; следующий прогон e2e-stand или этого workflow его уберёт.
+# Правила безопасности те же, что у e2e-stand.yml: только workflow_dispatch, права — чтение.
+name: deploy-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: "Оставить стенд работать после проверки"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-stand-deploy-test
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Развёртывание test по инструкции
+    runs-on: [self-hosted, home-stand]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      LOGS_DIR: ${{ github.workspace }}/stand-logs
+      STAND_SECRETS_DIR: ${{ github.workspace }}/stand-secrets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Убрать остатки прошлого прогона
+        run: |
+          deploy/home-stand/e2e-stand.sh cleanup
+          rm -rf "$STAND_SECRETS_DIR" .env deploy/compose/certs
+
+      - name: Первое развёртывание (deploy.sh test --build)
+        timeout-minutes: 45
+        run: |
+          start=$(date +%s)
+          deploy/envs/deploy.sh test --build 2>&1 | tee first.log
+          echo "FIRST_SEC=$(( $(date +%s) - start ))" >>"$GITHUB_ENV"
+
+      - name: Повторный запуск сохраняет пароли, ключ и данные
+        run: |
+          grep -E '^(POSTGRES_PASSWORD|REDIS_PASSWORD|BACKUP_CIPHER_PASSWORD|SAMBA_ADMIN_PASSWORD)=' .env | sha256sum >before.sum
+          sha256sum "$STAND_SECRETS_DIR/encryption_key" >>before.sum
+          start=$(date +%s)
+          deploy/envs/deploy.sh test --build 2>&1 | tee second.log
+          echo "SECOND_SEC=$(( $(date +%s) - start ))" >>"$GITHUB_ENV"
+          grep -E '^(POSTGRES_PASSWORD|REDIS_PASSWORD|BACKUP_CIPHER_PASSWORD|SAMBA_ADMIN_PASSWORD)=' .env | sha256sum >after.sum
+          sha256sum "$STAND_SECRETS_DIR/encryption_key" >>after.sum
+          diff before.sum after.sum || { echo "::error::повторный запуск изменил пароли или ключ"; exit 1; }
+          ! grep -q '^ENCRYPTION_KEY=' .env || { echo "::error::ENCRYPTION_KEY остался в .env"; exit 1; }
+
+      - name: Чужой адрес получает 403, свой — приложение
+        run: |
+          host=$(sed -n 's|^APP_BASE_URL=https://||p' .env | tail -1)
+          ip=$(hostname -I | awk '{print $1}')
+          # Контейнер в сети docker по умолчанию (172.17.0.0/16) — адрес вне STAND_NETWORKS
+          code=$(docker run --rm --add-host "$host:$ip" curlimages/curl:8.11.1 \
+            -sk -o /dev/null -w '%{http_code}' -m 10 "https://$host/" || true)
+          echo "FOREIGN_CODE=$code" >>"$GITHUB_ENV"
+          [[ "$code" == 403 ]] || { echo "::error::с адреса вне STAND_NETWORKS ответ $code, ждали 403"; exit 1; }
+          code=$(docker run --rm --add-host "$host:$ip" curlimages/curl:8.11.1 \
+            -sk -o /dev/null -w '%{http_code}' -m 10 "http://$host/" || true)
+          [[ "$code" == 403 ]] || { echo "::error::HTTP с адреса вне STAND_NETWORKS: $code, ждали 403"; exit 1; }
+          echo "STAND_IP=$ip" >>"$GITHUB_ENV"
+          echo "STAND_HOST=$host" >>"$GITHUB_ENV"
+
+      - name: Сводка
+        if: always()
+        run: |
+          {
+            echo "### Развёртывание test (INF-011)"
+            echo
+            echo "Машина: $(. /etc/os-release && echo "$PRETTY_NAME"), Docker $(docker version --format '{{.Server.Version}}'), Compose $(docker compose version --short)"
+            echo
+            echo "- первое развёртывание: ${FIRST_SEC:-—} с"
+            echo "- повторный запуск: ${SECOND_SEC:-—} с"
+            echo "- запрос с адреса вне STAND_NETWORKS: ${FOREIGN_CODE:-—}"
+            echo
+            echo '```'
+            cat first.log second.log 2>/dev/null | grep -E '^[0-9T:-]+Z ' || true
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Как открыть стенд из домашней сети
+        if: success() && inputs.keep
+        run: |
+          {
+            echo
+            echo "Стенд оставлен работать. На своём компьютере:"
+            echo "1. В hosts добавьте строку \`$STAND_IP $STAND_HOST\`."
+            echo "2. Добавьте в доверенные УЦ стенда: \`deploy/compose/certs/ca.crt\` из рабочей копии исполнителя (артефакт stand-ca)."
+            echo "3. Откройте https://$STAND_HOST/"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: УЦ стенда
+        if: success() && inputs.keep
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stand-ca
+          path: deploy/compose/certs/ca.crt
+          retention-days: 14
+
+      - name: Собрать логи стенда
+        if: always()
+        run: deploy/home-stand/e2e-stand.sh logs
+
+      - name: Логи
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deploy-test-logs-${{ github.run_number }}
+          path: |
+            first.log
+            second.log
+            stand-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Остановить и почистить стенд
+        if: always() && !(success() && inputs.keep)
+        run: |
+          deploy/home-stand/e2e-stand.sh cleanup
+          rm -rf "$STAND_SECRETS_DIR"
