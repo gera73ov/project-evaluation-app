@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # INF-009 · проверка конфигурации Nginx в Docker: TLS только 1.2/1.3, 301 с HTTP, заголовки
 # безопасности на статике, index.html (CSP с nonce), ошибках Nginx (404, 413, 503), лимиты тела
-# по location, /health и /metrics не отдаются, nonce новый на каждый ответ.
+# по location, /health и /metrics не отдаются, nonce новый на каждый ответ, gzip только у дерева.
 # Запуск из корня репозитория: deploy/nginx/test_nginx.sh (нужны docker, curl, openssl).
 set -euo pipefail
 
@@ -120,6 +120,13 @@ done
 get "$WORK/h_api" /api/v1/me >"$WORK/b_api"
 check "API проксируется с X-Forwarded-Proto и X-Request-ID" grep -q '"proto":"https","request_id":"[0-9a-f]\{32\}"' "$WORK/b_api"
 check "API: HSTS добавлен" has_header "$WORK/h_api" strict-transport-security "max-age=31536000; includeSubDomains"
+get "$WORK/h_tree" /api/v1/projects/0192f1c4-7a1e-7c3b-9f00-1a2b3c4d5e6f/tree \
+  -H 'Accept-Encoding: gzip' >"$WORK/b_tree"
+check "дерево проекта: ответ сжат gzip" has_header "$WORK/h_tree" content-encoding gzip
+check "дерево проекта: тело распаковывается" bash -c "gzip -dc '$WORK/b_tree' | grep -q '\"nodes\"'"
+check "дерево проекта: HSTS добавлен" has_header "$WORK/h_tree" strict-transport-security "max-age=31536000; includeSubDomains"
+get "$WORK/h_api_gz" /api/v1/me -H 'Accept-Encoding: gzip' >/dev/null
+check "остальной API не сжимается (BREACH)" bash -c "! grep -qi '^content-encoding' '$WORK/h_api_gz'"
 post_size() { # post_size <путь> <байт> → HTTP-статус; тело и заголовки — в $WORK/b_post, h_post
   head -c "$2" /dev/zero | curl -sk -o "$WORK/b_post" -D "$WORK/h_post" -w '%{http_code}' \
     -X POST -H 'Content-Type: application/octet-stream' --data-binary @- "$BASE$1"

@@ -106,3 +106,19 @@ async def test_default_probes_fail_without_services() -> None:
     result = await probes.run(0.5)
     await probes.close()
     assert result == {"database": "fail", "redis": "fail"}
+
+
+@pytest.mark.spec("NFR-PERF-02")
+def test_tune_gc_freezes_startup_objects() -> None:
+    import gc
+
+    from estimator.main import GC_THRESHOLDS, tune_gc
+
+    before = gc.get_threshold()
+    try:
+        tune_gc()
+        assert gc.get_threshold() == GC_THRESHOLDS
+        assert gc.get_freeze_count() > 0
+    finally:
+        gc.unfreeze()
+        gc.set_threshold(*before)
