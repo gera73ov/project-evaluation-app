@@ -97,7 +97,7 @@ jobs:
               echo "#### CPU ×$rate: $( ((status == 0)) && echo пройдено || echo есть провалы)"
               echo
               echo '```json'
-              sed -n 's/^QA-020 //p' "$log" | tail -1
+              sed -n 's/^QA-020 //p' "$log"
               echo '```'
               grep -E '^\s+(✓|✘)' "$log" | sed 's/^ */- /' || true
               echo
