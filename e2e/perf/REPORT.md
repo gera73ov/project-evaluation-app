@@ -108,6 +108,7 @@ Mantine (подсказки, выпадающие списки в ячейках
 | [43147164476](https://github.com/gera73ov/project-evaluation-app/actions/runs/43147164476) | 7538b54 (до #128) | 2,16 с ✘ | 4,54 с ✘ | 2,70 с | 47–80 мс | 31 fps, долгих 32% |
 | [43151809609](https://github.com/gera73ov/project-evaluation-app/actions/runs/43151809609) | a7d14c6 (#128) | 2,17 с ✘ | 3,13 с | 1,69 с | — (тест упал, см. ниже) | 32 fps, долгих 23% |
 | [43160861851](https://github.com/gera73ov/project-evaluation-app/actions/runs/43160861851) | 2568542 (#130, #132) | **1,68 с** | **2,58 с** | — | — (ошибка теста, исправлена в #133) | **32 fps**, долгих 26% |
+| [43169536193](https://github.com/gera73ov/project-evaluation-app/actions/runs/43169536193) | e751df9 (#133) | **1,77 с** | **2,59 с** | — | **48–94 мс** | **30 fps**, долгих 38% |
 
 Что было исправлено по итогам замеров:
 
