@@ -79,17 +79,32 @@ def unaccounted_text(count: int) -> str:
     return f"{count} листов без оценки не учтены"
 
 
+@dataclass(frozen=True, slots=True)
+class Summary:
+    """Итоги проекта по готовой свёртке дерева: фазы работ, работы, УП, итог, «не учтено»."""
+
+    phases: dict[str, Figures]
+    works: Figures
+    pm: PmResult
+    total: Figures
+    unaccounted_leaves: int
+
+
 @in_calc_context
-def calculate(project: ProjectInput) -> ProjectResult:
-    """Полный расчёт часов проекта: дерево, фазы, дисциплины, работы, УП, итог."""
-    tree = rollup(project)
-    phase_nodes = {r.node.phase_id: r for r in tree.nodes.values() if r.node.parent_id is None}
-    work_phases = [p for p in project.phases if p.enabled and not p.is_cross_cutting]
+def summarize(project: ProjectInput, tree: TreeResult) -> Summary:
+    """Работы, УП и итог по суммам корней-фаз (6.3); листья не обходятся.
+
+    Общий шаг :func:`calculate` и инкрементального пересчёта
+    (:mod:`estimator.domain.calc.incremental`), поэтому итоги у них совпадают знак в знак.
+    """
+    phase_nodes = {tree.nodes[i].node.phase_id: tree.nodes[i] for i in tree.children.get(None, [])}
     phases: dict[str, Figures] = {}
     works = Totals()
     base = Totals()
     unaccounted = 0
-    for phase in work_phases:
+    for phase in project.phases:
+        if not phase.enabled or phase.is_cross_cutting:
+            continue
         node = phase_nodes.get(phase.id)
         totals = node.totals if node is not None else Totals()
         phases[phase.id] = Figures.of(totals)
@@ -100,7 +115,20 @@ def calculate(project: ProjectInput) -> ProjectResult:
         node = phase_nodes.get(phase.id)
         if phase.enabled and node is not None:
             unaccounted += node.totals.unaccounted
+    k = project.pm_percent / HUNDRED
+    base_sigma = base.sigma
+    pm = PmResult(e=k * base.e, sigma=k * base_sigma, base_e=base.e, base_sigma=base_sigma, k=k)
+    works_figures = Figures.of(works)
+    total = Figures(works.e + pm.e, works_figures.sigma + pm.sigma)
+    return Summary(phases, works_figures, pm, total, unaccounted)
 
+
+@in_calc_context
+def calculate(project: ProjectInput) -> ProjectResult:
+    """Полный расчёт часов проекта: дерево, фазы, дисциплины, работы, УП, итог."""
+    tree = rollup(project)
+    summary = summarize(project, tree)
+    work_phases = [p for p in project.phases if p.enabled and not p.is_cross_cutting]
     by_discipline: dict[str, Totals] = {d.id: Totals() for d in project.disciplines}
     by_phase: dict[str, dict[str, Totals]] = {
         p.id: {d.id: Totals() for d in project.disciplines} for p in work_phases
@@ -112,21 +140,16 @@ def calculate(project: ProjectInput) -> ProjectResult:
         by_discipline[node.discipline_id].add(leaf.totals)
         by_phase[node.phase_id][node.discipline_id].add(leaf.totals)
 
-    k = project.pm_percent / HUNDRED
-    base_sigma = base.sigma
-    pm = PmResult(e=k * base.e, sigma=k * base_sigma, base_e=base.e, base_sigma=base_sigma, k=k)
-    works_figures = Figures.of(works)
-    total = Figures(works.e + pm.e, works_figures.sigma + pm.sigma)
     return ProjectResult(
         input=project,
         tree=tree,
-        phases=phases,
+        phases=summary.phases,
         disciplines={d: Figures.of(t) for d, t in by_discipline.items()},
         discipline_by_phase={
             ph: {d: Figures.of(t) for d, t in row.items()} for ph, row in by_phase.items()
         },
-        works=works_figures,
-        pm=pm,
-        total=total,
-        unaccounted_leaves=unaccounted,
+        works=summary.works,
+        pm=summary.pm,
+        total=summary.total,
+        unaccounted_leaves=summary.unaccounted_leaves,
     )

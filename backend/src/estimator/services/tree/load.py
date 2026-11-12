@@ -31,9 +31,15 @@ from estimator.db.models.projects import (
 from estimator.db.models.tree import Node
 from estimator.db.models.users import User
 from estimator.domain import calc
-from estimator.domain.calc.analytics import DEFAULT_LARGE_LEAF_HOURS, decomposition
+from estimator.domain.calc.analytics import (
+    DEFAULT_LARGE_LEAF_HOURS,
+    decomposition,
+    large_leaf_threshold,
+    leaf_candidate,
+)
 from estimator.services.common import hours, user_ref
 from estimator.services.discussions.counters import Counters, tree_counters
+from estimator.services.tree import calc_cache
 
 NODES_LIMIT = 5000  # BR-TREE-06
 NODES_WARNING = 4500
@@ -276,24 +282,58 @@ async def mutation_view(
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, str | None]]:
     """Узел, его предки (id, E, σ) от родителя к корню и итог проекта — ответ правки (15.3).
 
-    Считает проект целиком, но собирает выходные строки только для узла и предков.
+    Расчёт берётся из кэша экземпляра и догоняется по ``change_log``: пересчитываются только
+    изменённые узлы и их предки (:mod:`estimator.services.tree.calc_cache`). Числа те же, что
+    у :func:`load_tree`.
     """
-    c = await compute(db, project, CALC_COLUMNS)
-    by_id = {n.id: n for n in c.nodes}
+    phases = await project_phases(db, project.id)
+    disciplines = await project_disciplines(db, project.id)
+    statuses = {
+        (ph, d): str(st)
+        for ph, d, st in (
+            await db.execute(
+                select(
+                    BranchStatus.phase_id, BranchStatus.discipline_id, BranchStatus.status
+                ).where(BranchStatus.project_id == project.id)
+            )
+        ).all()
+    }
+    state = await calc_cache.project_state(
+        db,
+        project,
+        calc_cache.fingerprint(project, phases, disciplines, statuses),
+        lambda rows: calc_input(project, phases, disciplines, list(rows), statuses),
+        CALC_COLUMNS,
+    )
+    tree, pm = state.tree, state.summary.pm
     table = Node.__table__
     node = (await db.execute(select(table).where(table.c.id == node_id))).one()
     reviewers = await _reviewers(db, [node])
-    cross_cutting = {p.phase_id for p in c.phases if p.is_cross_cutting}
-    out = _node_out(node, c.result, reviewers, cross_cutting, c.large, c.repeating)
+    cross_cutting = {str(p.phase_id) for p in phases if p.is_cross_cutting}
+    settings = await read_settings(db, "method.large_leaf_hours")
+    threshold = large_leaf_threshold(
+        calc.DetailLevel(str(project.detail_level)),
+        _thresholds(settings.get("method.large_leaf_hours")),
+    )
+    flags = leaf_candidate(tree[str(node.id)], threshold)
+    out = _node_out(
+        node,
+        tree,
+        pm,
+        reviewers,
+        cross_cutting,
+        {str(node.id)} if flags and flags.large else set(),
+        {str(node.id)} if flags and flags.repeating else set(),
+    )
     out |= (await tree_counters(db, project.id, viewer)).node(node.id)
     ancestors = []
-    parent = node.parent_id
+    parent = tree[str(node.id)].node.parent_id
     while parent is not None:
-        row = by_id[parent]
-        figures = _node_figures(row, c.result, cross_cutting)
-        ancestors.append({"id": str(row.id), "e": figures["e"], "sigma": figures["sigma"]})
-        parent = row.parent_id
-    return out, ancestors, _figures(c.result.total)
+        row = tree[parent]
+        figures = _node_figures(row.node, tree, pm, cross_cutting)
+        ancestors.append({"id": parent, "e": figures["e"], "sigma": figures["sigma"]})
+        parent = row.node.parent_id
+    return out, ancestors, _figures(state.summary.total)
 
 
 async def load_tree(
@@ -309,10 +349,10 @@ async def load_tree(
     result, large, repeating = c.result, c.large, c.repeating
     reviewers = await _reviewers(db, nodes)
 
-    cross_cutting = {p.phase_id for p in phases if p.is_cross_cutting}
+    cross_cutting = {str(p.phase_id) for p in phases if p.is_cross_cutting}
     order = {p.phase_id: i for i, p in enumerate(phases)}
     out_nodes = [
-        _node_out(n, result, reviewers, cross_cutting, large, repeating, counters)
+        _node_out(n, result.tree, result.pm, reviewers, cross_cutting, large, repeating, counters)
         for n in _ordered(nodes, order)
     ]
     has_expert = {d.discipline_id: d.has_expert for d in disciplines}
@@ -368,9 +408,10 @@ async def _risks(db: AsyncSession, nodes: list[Node], result: calc.ProjectResult
 
 def _node_out(
     node: Node,
-    result: calc.ProjectResult,
+    tree: calc.TreeResult,
+    pm: calc.PmResult,
     reviewers: Mapping[uuid.UUID, dict[str, Any]],
-    cross_cutting: set[uuid.UUID],
+    cross_cutting: set[str],
     large: set[str],
     repeating: set[str],
     counters: Counters | None = None,
@@ -401,17 +442,20 @@ def _node_out(
         "is_repeating": key in repeating,
         **(counters or Counters()).node(node.id),  # FR-DISC-04
     }
-    return out | _node_figures(node, result, cross_cutting)
+    return out | _node_figures(node, tree, pm, cross_cutting)
 
 
 def _node_figures(
-    node: Any, result: calc.ProjectResult, cross_cutting: set[uuid.UUID]
+    node: Any, tree: calc.TreeResult, pm: calc.PmResult, cross_cutting: set[str]
 ) -> dict[str, Any]:
-    """Расчётные поля узла (E, σ, P80, P90, суммы, состояние листа); нужны id, kind, phase_id."""
-    calc_node = result.tree[str(node.id)]
-    if node.kind is NodeKind.PHASE and node.phase_id in cross_cutting:
+    """Расчётные поля узла (E, σ, P80, P90, суммы, состояние листа); нужны id, kind, phase_id.
+
+    ``node`` — строка БД или узел расчёта (:class:`calc.Node`, идентификаторы — строки).
+    """
+    calc_node = tree[str(node.id)]
+    if str(node.kind) == NodeKind.PHASE and str(node.phase_id) in cross_cutting:
         # строка «Управление проектом»: без листьев, E = k · E базы (6.3, 11.4 №15)
-        out = _figures(result.pm) | {"sum_o": None, "sum_r": None, "sum_p": None}
+        out = _figures(pm) | {"sum_o": None, "sum_r": None, "sum_p": None}
         return out | {"leaf_state": None, "unaccounted_leaves": 0}
     leaf = calc_node.leaf
     if calc_node.is_leaf and leaf is not None:

@@ -16,6 +16,7 @@ from estimator.domain.calc._decimal import HUNDRED, ZERO, in_calc_context
 from estimator.domain.calc.leaf import LeafEstimate
 from estimator.domain.calc.model import DetailLevel, Node
 from estimator.domain.calc.project import ProjectResult
+from estimator.domain.calc.rollup import NodeResult
 
 WORK_TYPE = "Работа"  # тип по умолчанию, если у листа тип не задан (BR-TREE-08)
 WIDE_FORK_RATIO = Decimal("0.3")  # σ/E > 30% — «↔ широкая вилка» (10.1)
@@ -149,6 +150,15 @@ def _candidate(node: Node, estimate: LeafEstimate, threshold: Decimal | None) ->
     )
 
 
+def leaf_candidate(result: NodeResult, threshold: Decimal | None) -> Candidate | None:
+    """Кандидат по одному узлу; ``None`` — не лист, лист без учтённой оценки или в ветке
+    «не нужно» (такие в :func:`decomposition` не попадают)."""
+    leaf = result.leaf
+    if not result.is_leaf or result.excluded or leaf is None or not leaf.state.counted:
+        return None
+    return _candidate(result.node, leaf, threshold)
+
+
 def decomposition(
     project: ProjectResult,
     thresholds: Mapping[DetailLevel, Decimal | None] | None = None,
@@ -156,9 +166,7 @@ def decomposition(
     """«Кандидаты на декомпозицию» и флажки ◆ / ↔ (BR-TREE-09, C-27, 10.1, 11.10 №3)."""
     threshold = large_leaf_threshold(project.input.detail_level, thresholds)
     candidates = [
-        _candidate(leaf.node, leaf.leaf, threshold)
-        for leaf in project.tree.leaves()
-        if leaf.leaf is not None and leaf.leaf.state.counted
+        c for c in (leaf_candidate(leaf, threshold) for leaf in project.tree.leaves()) if c
     ]
     by_ratio = [c for c in candidates if c.sigma_ratio is not None]
     return Decomposition(
