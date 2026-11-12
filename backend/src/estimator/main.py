@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.types import Receive, Scope, Send
 
 from estimator import health, ops_metrics
 from estimator.api import v1 as api_v1
@@ -43,6 +44,26 @@ log = get_logger(__name__)
 #: куче экземпляра — паузы до 200 мс посреди запроса. Реже собирать молодое поколение и реже
 #: старшее — паузы пропадают; память под циклический мусор растёт на единицы МБ.
 GC_THRESHOLDS = (10_000, 20, 20)
+
+
+#: Пути проверок Docker, Prometheus и скриптов эксплуатации. Nginx отдаёт на них 404 снаружи
+#: (deploy/nginx/conf.d/estimator.conf), а изнутри к ним обращаются по адресу контейнера
+#: (127.0.0.1:8000, api:8000), которого нет в TRUSTED_HOSTS стенда.
+INTERNAL_PATHS = ("/health/", "/metrics")
+
+
+class AppHostMiddleware(TrustedHostMiddleware):
+    """Проверка Host (TRUSTED_HOSTS) для всего, кроме внутренних проверок и метрик (INF-011).
+
+    Без исключения на stage и prod, где TRUSTED_HOSTS — имя сервера, healthcheck контейнера api
+    получал бы 400, и стенд не поднимался.
+    """
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["path"].startswith(INTERNAL_PATHS):
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
 
 
 def tune_gc() -> None:
@@ -95,7 +116,7 @@ def create_app(settings: Settings | None = None, probes: health.Probes | None = 
     # Запрещено по умолчанию: маршрут без обеспеченного права не даёт стартовать (SEC-AUTHZ-02)
     assert_routes_protected(app)
     app.mount("/metrics", metrics_app())
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
+    app.add_middleware(AppHostMiddleware, allowed_hosts=settings.trusted_hosts)
     app.add_middleware(RequestIdMiddleware)
     # Внешние слои: заголовки ставятся и на ответы-ошибки, лимит тела — до разбора запроса
     app.add_middleware(BodySizeLimitMiddleware)

@@ -85,8 +85,17 @@ def test_docs_disabled_in_prod() -> None:
 
 def test_trusted_hosts() -> None:
     with _client(_probes(), trusted_hosts=["est.local"]) as c:
-        assert c.get("/health/live").status_code == 400
-        assert c.get("/health/live", headers={"Host": "est.local"}).status_code == 200
+        assert c.get("/api/v1/me").status_code == 400
+        assert c.get("/api/v1/me", headers={"Host": "evil.example"}).status_code == 400
+        assert c.get("/api/v1/me", headers={"Host": "est.local"}).status_code != 400
+
+
+def test_internal_paths_skip_host_check() -> None:
+    """INF-011: healthcheck и Prometheus ходят по адресу контейнера, не из TRUSTED_HOSTS."""
+    with _client(_probes(), trusted_hosts=["est.local"]) as c:
+        for path in ("/health/live", "/health/ready", "/metrics/"):
+            r = c.get(path, headers={"Host": "127.0.0.1:8000"})
+            assert r.status_code == 200, path
 
 
 def test_metrics_endpoint() -> None:
