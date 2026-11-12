@@ -126,6 +126,7 @@ make traceability   # отчёт «требование → тест» в build/
 | `POSTGRES_PORT`, `REDIS_PORT` | compose | Порты PostgreSQL и Redis на 127.0.0.1 (только dev) | `5432`, `6379` |
 | `PROMETHEUS_PORT` | compose (профиль `monitoring`) | Порт Prometheus на 127.0.0.1 | `9090` |
 | `CERTS_UID`, `CERTS_GID` | compose | Владелец файлов сертификатов, которые выпускает сервис `certs` | `10001` |
+| `CERTS_NGINX_NAMES` | compose | Дополнительные DNS-имена сертификата Nginx через пробел; `deploy/envs/deploy.sh` подставляет имя стенда из `APP_BASE_URL` | пусто |
 | `SAMBA_ADMIN_PASSWORD`, `SAMBA_TEST_PASSWORD` | `docker-compose.test.yml` | Пароли эмулятора AD (Samba) на test | обязателен на test |
 | `LDAPS_PORT`, `LDAP_PORT` | `docker-compose.test.yml` | Порты эмулятора AD на 127.0.0.1 | `1636`, `1389` |
 | `MAILPIT_UI_PORT` | `docker-compose.test.yml` | Веб-интерфейс эмулятора почты | `8025` |

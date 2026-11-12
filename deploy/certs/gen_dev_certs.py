@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime as dt
 import ipaddress
+import os
 import sys
 from pathlib import Path
 
@@ -109,6 +110,20 @@ def _load_or_create_ca(out: Path) -> tuple[ec.EllipticCurvePrivateKey, x509.Cert
     return key, cert
 
 
+def nginx_names(extra: str | None = None) -> list[str]:
+    """DNS-имена сертификата Nginx: стандартные и имена стенда из ``CERTS_NGINX_NAMES``.
+
+    Стенд test открывают по его DNS-имени (``APP_BASE_URL``), а не по ``localhost``:
+    ``deploy/envs/deploy.sh`` передаёт это имя сюда через переменную окружения.
+    """
+    names = list(LEAVES["nginx"][0])
+    raw = os.environ.get("CERTS_NGINX_NAMES", "") if extra is None else extra
+    for name in raw.split():
+        if name not in names:
+            names.append(name)
+    return names
+
+
 def issue(out: Path) -> list[str]:
     """Выпустить недостающие сертификаты в ``out``; вернуть имена созданных."""
     out.mkdir(parents=True, exist_ok=True)
@@ -119,6 +134,8 @@ def issue(out: Path) -> list[str]:
         crt, key_path = out / f"{service}.crt", out / f"{service}.key"
         if crt.exists() and key_path.exists():
             continue
+        if service == "nginx":
+            dns = nginx_names()
         key = ec.generate_private_key(ec.SECP256R1())
         sans: list[x509.GeneralName] = [x509.DNSName(d) for d in dns]
         sans += [x509.IPAddress(ipaddress.ip_address(i)) for i in ips]
