@@ -14,7 +14,7 @@
  * (`perf-report.json` во вложениях теста).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Request } from '@playwright/test';
 
 import { PERF_DATA_FILE, runJson } from '../global-setup';
 import { currentStep, totp } from '../auth/totp';
@@ -200,6 +200,15 @@ test('ввод O пересчитывает сумму листа и итог в
   const leaf = firstLeaf();
   await expect(leaf).toBeVisible({ timeout: 15_000 });
   const runs: number[] = [];
+  // ответы на PATCH правок: очередь правок живёт в странице, и перезагрузка до последнего ответа
+  // потеряла бы ещё не отправленную правку — это уже не проверка сервера. Каждый из пяти вводов
+  // меняет значение (2 → 3 → 4 → 3 → 4 → 3), значит, PATCH будет ровно пять
+  let answered = 0;
+  const done = (r: Request) => {
+    if (r.method() === 'PATCH' && r.url().includes('/nodes/')) answered += 1;
+  };
+  page.on('requestfinished', done);
+  page.on('requestfailed', done);
   const stop = await profile('input');
   for (let i = 0; i < 5; i += 1) {
     await leaf.getByRole('button', { name: /^O:/ }).click();
@@ -236,7 +245,10 @@ test('ввод O пересчитывает сумму листа и итог в
     await expect(leaf.getByRole('button', { name: `O: ${3 + (i % 2)}` })).toBeVisible();
   }
   await stop();
-  // после перезагрузки на сервере — последнее введённое значение, а не одно из предыдущих
+  // после ответов на все правки и перезагрузки на сервере — последнее введённое значение
+  await expect.poll(() => answered, { timeout: 20_000 }).toBeGreaterThanOrEqual(5);
+  page.off('requestfinished', done);
+  page.off('requestfailed', done);
   await expect(async () => {
     await page.reload();
     await expect(firstLeaf().getByRole('button', { name: 'O: 3' })).toBeVisible({ timeout: 5_000 });

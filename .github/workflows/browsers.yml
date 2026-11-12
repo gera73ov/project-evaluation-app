@@ -1,8 +1,9 @@
 # QA-023 · совместимость браузеров и экранов (NFR-COMP-01, NFR-COMP-02, FR-UI-03) на домашнем
 # стенде, только запуском вручную. Поднимает стенд профиля test тем же скриптом, что e2e-stand, и
 # гоняет сквозные сценарии ролей (e2e/scenarios, QA-018) в каждом браузере на экране 1366×768:
-# Chromium и Firefox из Playwright, а Chrome, Edge и Яндекс Браузер — если они установлены на
-# машине стенда (без sudo их не поставить; чего нет — в сводке запуска).
+# Chromium и Firefox из Playwright и Chrome, установленный на машине стенда (без sudo его не
+# поставить: команда — в ошибке шага). Edge и Яндекс Браузер не проверяются: в компании ими не
+# пользуются (решение владельца продукта 12.11.2026).
 # Правила безопасности те же, что у e2e-stand.yml: только workflow_dispatch, права — чтение.
 name: browsers
 
@@ -43,31 +44,27 @@ jobs:
         timeout-minutes: 40
         run: deploy/home-stand/e2e-stand.sh up
 
-      - name: Установить Playwright, Chromium и Firefox; найти браузеры системы
+      - name: Установить Playwright, Chromium и Firefox; проверить Chrome
         id: found
         working-directory: e2e
         run: |
           npm ci --no-audit --no-fund
           npx playwright install chromium firefox
           ../deploy/home-stand/e2e-stand.sh check-browser
-          list="chromium,firefox"
+          list="chromium,firefox,chrome"
           note() { echo "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
           note "### Браузеры QA-023"
-          if [[ -x /opt/google/chrome/chrome ]]; then list+=",chrome"; note "- Chrome: $(/opt/google/chrome/chrome --version)"
-          else note "- Chrome: не установлен на стенде"; fi
-          if [[ -x /opt/microsoft/msedge/msedge ]]; then list+=",msedge"; note "- Edge: $(/opt/microsoft/msedge/msedge --version)"
-          else note "- Edge: не установлен на стенде"; fi
-          yandex="$(command -v yandex-browser || command -v yandex-browser-stable || true)"
-          if [[ -n "$yandex" ]]; then list+=",yandex"; note "- Яндекс Браузер: $("$yandex" --version)"
-          else note "- Яндекс Браузер: не установлен на стенде"; fi
+          if [[ ! -x /opt/google/chrome/chrome ]]; then
+            echo "::error::Chrome не установлен на стенде. Из своей учётки (не stand): wget -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && sudo apt install -y /tmp/chrome.deb"
+            exit 1
+          fi
+          note "- Chrome: $(/opt/google/chrome/chrome --version)"
           echo "list=$list" >> "$GITHUB_OUTPUT"
-          echo "yandex=$yandex" >> "$GITHUB_OUTPUT"
 
       - name: Сценарии ролей в каждом браузере, экран 1366×768
         working-directory: e2e
         env:
           E2E_BROWSERS: ${{ steps.found.outputs.list }}
-          E2E_YANDEX_PATH: ${{ steps.found.outputs.yandex }}
         run: |
           source <(../deploy/home-stand/e2e-stand.sh seed-env)
           npx playwright test --reporter=list,html
