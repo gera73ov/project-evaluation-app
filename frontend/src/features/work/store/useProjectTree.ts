@@ -15,7 +15,7 @@ import type { WsEvent } from '../../../shared/ws/client';
 import { useProjectChannel, useWsClient } from '../../../shared/ws/WsProvider';
 import {
   createTreeStore,
-  type NodeEdit,
+  type EditToken,
   settingsOf,
   type TreeEvent,
   type TreeMutation,
@@ -39,8 +39,8 @@ export interface ProjectTree {
   loaded: boolean;
   error: Error | null;
   /** Ответ сервера на правку узла: применить и сообщить WS-клиенту версию. */
-  /** `sent` — значения подтверждённой правки: из несохранённых снимаются только они. */
-  confirm: (node: components['schemas']['Node'], projectVersion: number, sent?: NodeEdit) => void;
+  /** `token` — метка подтверждённой правки: из несохранённых снимаются только её поля. */
+  confirm: (node: components['schemas']['Node'], projectVersion: number, token?: EditToken) => void;
   /** Ответ операции с поддеревом (`NodesMutation`). */
   confirmMutation: (mutation: TreeMutation) => void;
   reload: () => Promise<void>;
@@ -103,8 +103,8 @@ export function useProjectTree(
   });
 
   const confirm = useCallback(
-    (node: components['schemas']['Node'], projectVersion: number, sent?: NodeEdit) => {
-      store.getState().applyNode(node, projectVersion, sent);
+    (node: components['schemas']['Node'], projectVersion: number, token?: EditToken) => {
+      store.getState().applyNode(node, projectVersion, token);
       if (projectId) ws?.markApplied(projectId, projectVersion);
     },
     [projectId, store, ws],
