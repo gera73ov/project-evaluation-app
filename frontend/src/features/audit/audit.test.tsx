@@ -1,7 +1,8 @@
 /** FE-065 · журнал аудита: категории по ролям, фильтры, детали, выгрузка CSV со step-up. */
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { NOW } from '../../shared/api/mocks/ids';
 import { PERSONAS } from '../../shared/api/mocks/personas';
 import { persona } from '../../test/setup';
 import { renderApp } from '../../test/render';
@@ -39,6 +40,16 @@ describe('правила журнала', () => {
 });
 
 describe('экран «Журнал аудита»', () => {
+  // демо-записи журнала — до NOW моков, а период по умолчанию (7 дней) считается от «сегодня»:
+  // часы теста начинаются с NOW и дальше идут как обычно
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(NOW));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('аудитор ИБ: события всех категорий, фильтр результата, детали записи', async () => {
     const table = await open('auditor');
     expect(table().getAllByText('Неуспешный вход').length).toBe(2);
