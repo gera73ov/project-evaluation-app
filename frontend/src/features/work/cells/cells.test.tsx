@@ -144,6 +144,74 @@ describe('ввод в ячейки на рабочем экране', () => {
     expect((within(row('Авторизация')).getByRole('textbox', { name: 'O' }) as HTMLInputElement).value).toBe('10');
   });
 
+  it('QA-020: правки одного узла уходят по очереди, ответ на раннюю не откатывает позднюю', async () => {
+    let open = () => {};
+    const gate = new Promise<void>((resolve) => (open = resolve));
+    let held = true;
+    // первый PATCH ждёт, пока тест не откроет «ворота»; дальше — обычный обработчик моков
+    server.use(
+      http.patch(api('/nodes/:id'), async () => {
+        if (!held) return;
+        held = false;
+        await gate;
+      }),
+    );
+    const { row, patches } = await openTree();
+    const type = async (from: string, value: string) => {
+      fireEvent.click(await within(row('Авторизация')).findByRole('button', { name: from }));
+      const o = within(row('Авторизация')).getByRole('textbox', { name: 'O' });
+      fireEvent.change(o, { target: { value } });
+      fireEvent.keyDown(o, { key: 'Enter' });
+    };
+    await type('O: 8', '10');
+    await waitFor(() => expect(patches).toHaveLength(1));
+    await type('O: 10', '11');
+    // вторая правка ждёт ответа на первую, на экране — последнее значение
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(patches).toHaveLength(1);
+    expect(within(row('Авторизация')).getByRole('button', { name: 'O: 11' })).toBeTruthy();
+
+    open();
+    await waitFor(() => expect(patches).toHaveLength(2));
+    expect(patches.map((p) => p.body.changes)).toEqual([{ o: '10' }, { o: '11' }]);
+    expect(within(row('Авторизация')).getByRole('button', { name: 'O: 11' })).toBeTruthy();
+    await waitFor(() =>
+      expect(within(row('Авторизация')).getByRole('button', { name: 'O: 11' }).className).not.toMatch(/saving/),
+    );
+  });
+
+  it('QA-020: дерево и справочники запрашиваются вместе с карточкой проекта, без второго GET /tree', async () => {
+    let open = () => {};
+    const gate = new Promise<void>((resolve) => (open = resolve));
+    server.use(
+      http.get(api('/projects/:id'), async () => {
+        await gate;
+      }),
+    );
+    const started: string[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'GET') started.push(new URL(request.url).pathname.replace(/^.*\/api\/v1/, ''));
+    });
+    persona.current = PERSONAS.moderator;
+    renderApp(`/projects/${id}`);
+    // карточка проекта ещё не пришла, а дерево и справочники уже запрошены
+    await waitFor(() =>
+      expect(started).toEqual(
+        expect.arrayContaining([
+          `/projects/${id}/tree`,
+          `/projects/${id}/node-types`,
+          '/admin/profiles',
+          '/admin/tags',
+        ]),
+      ),
+    );
+    open();
+    const grid = await screen.findByRole('treegrid', { name: 'Дерево оценки' });
+    await within(grid).findByText('Авторизация');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(started.filter((p) => p === `/projects/${id}/tree`)).toHaveLength(1);
+  });
+
   it('чужая ветка — без полей ввода', async () => {
     const { grid } = await openTree();
     fireEvent.click(screen.getByRole('button', { name: /Мои ветки/, pressed: true }));

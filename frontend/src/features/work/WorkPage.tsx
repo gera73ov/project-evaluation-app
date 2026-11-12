@@ -6,7 +6,7 @@
  * проверяет сервер (403). Сверху — полоса проекта (FE-023), под ней — поиск и фильтры (FE-024);
  * свёртка и фильтры сохраняются на сервере (FR-TREE-14).
  */
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from 'react-i18next';
@@ -92,6 +92,26 @@ export function myDisciplines(members: readonly Member[], userId: string | null)
   return mine.some((m) => m.role === 'moderator') ? null : expert;
 }
 
+const DICT_STALE_MS = 10 * 60_000;
+
+/** Типы словаря и локальные типы проекта (CR-006). */
+const nodeTypesQuery = (projectId: string) =>
+  queryOptions({
+    queryKey: projectTypesKey(projectId),
+    queryFn: () => call(() => api.GET('/projects/{id}/node-types', { params: { path: { id: projectId } } })),
+    staleTime: DICT_STALE_MS,
+  });
+const profilesQuery = queryOptions({
+  queryKey: ['dict', 'profiles'],
+  queryFn: () => call(() => api.GET('/admin/profiles')),
+  staleTime: DICT_STALE_MS,
+});
+const tagsQuery = queryOptions({
+  queryKey: ['dict', 'tags'],
+  queryFn: () => call(() => api.GET('/admin/tags')),
+  staleTime: DICT_STALE_MS,
+});
+
 export function WorkPage({ projectId }: { projectId: string }) {
   const project = useProject(projectId);
   const client = useQueryClient();
@@ -114,7 +134,14 @@ export function WorkPage({ projectId }: { projectId: string }) {
       } else collab.onEvent(event);
     },
     collab.onEvent,
+    projectId,
   );
+  // QA-020: справочники экрана запрашиваются вместе с деревом, а не после первой отрисовки
+  useEffect(() => {
+    void client.prefetchQuery(nodeTypesQuery(projectId));
+    void client.prefetchQuery(profilesQuery);
+    void client.prefetchQuery(tagsQuery);
+  }, [client, projectId]);
   const members = useQuery({
     queryKey: membersKey(projectId),
     queryFn: () => call(() => api.GET('/projects/{id}/members', { params: { path: { id: projectId } } })),
@@ -201,10 +228,7 @@ function WorkScreen({
   useSaveView(projectId, view);
 
   const nodeTypes = useQuery({
-    // типы словаря и локальные типы проекта (CR-006)
-    queryKey: projectTypesKey(projectId),
-    queryFn: () => call(() => api.GET('/projects/{id}/node-types', { params: { path: { id: projectId } } })),
-    staleTime: 10 * 60_000,
+    ...nodeTypesQuery(projectId),
     select: (data) =>
       new Map(
         data.items.map((n) => [
@@ -220,16 +244,12 @@ function WorkScreen({
       ),
   });
   const profiles = useQuery({
-    queryKey: ['dict', 'profiles'],
-    queryFn: () => call(() => api.GET('/admin/profiles')),
-    staleTime: 10 * 60_000,
+    ...profilesQuery,
     select: (data) => data.items.filter((p) => p.is_active),
   });
   const ops = useTreeOps({ projectId, store, confirmMutation });
   const tags = useQuery({
-    queryKey: ['dict', 'tags'],
-    queryFn: () => call(() => api.GET('/admin/tags')),
-    staleTime: 10 * 60_000,
+    ...tagsQuery,
     select: (data) => data.items,
   });
   const canMoney = data.my_permissions.includes('money.read');

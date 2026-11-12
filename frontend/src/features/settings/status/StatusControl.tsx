@@ -120,7 +120,14 @@ export function confirmationFor(key: TransitionKey, facts: StatusFacts, t: TFunc
 export const REASON_MIN = 10;
 export const REASON_MAX = 500;
 
-function useStatusFacts(project: Project, enabled: boolean): StatusFacts | null {
+/** Статус ветки для предупреждения «Не готовы ветки». */
+export type BranchFact = Pick<BranchStatus, 'phase_id' | 'discipline_id' | 'status'>;
+
+function useStatusFacts(
+  project: Project,
+  enabled: boolean,
+  branches: readonly BranchFact[] | undefined,
+): StatusFacts | null {
   const id = project.id;
   const members = useQuery({
     queryKey: membersKey(id),
@@ -131,9 +138,11 @@ function useStatusFacts(project: Project, enabled: boolean): StatusFacts | null 
   const tree = useQuery({
     queryKey: ['tree', id],
     queryFn: () => call(() => api.GET('/projects/{id}/tree', { params: { path: { id } } })),
-    select: (data) => data.branch_statuses as BranchStatus[],
-    enabled,
+    select: (data) => data.branch_statuses as BranchFact[],
+    // на рабочем экране статусы веток уже в хранилище дерева: второй GET /tree не нужен (QA-020)
+    enabled: enabled && branches === undefined,
   });
+  const branchList = branches ?? tree.data;
   const questions = useQuery({
     queryKey: ['customer-questions', id, 'open-count'],
     queryFn: () =>
@@ -148,14 +157,14 @@ function useStatusFacts(project: Project, enabled: boolean): StatusFacts | null 
     select: (data) => data.items.length > 0,
     enabled: enabled && project.my_permissions.includes('snapshot.read'),
   });
-  if (!members.data || !tree.data) return null;
+  if (!members.data || !branchList) return null;
 
   const phase = new Map(project.phases.map((p) => [p.phase_id, p.name]));
   const discipline = new Map(project.disciplines.map((d) => [d.discipline_id, d.name]));
   return {
     experts: new Set(members.data.filter((m) => m.role === 'expert').map((m) => m.user.id)).size,
     disciplinesWithoutExpert: project.disciplines.filter((d) => !d.has_expert).map((d) => d.name),
-    branchesNotDone: tree.data
+    branchesNotDone: branchList
       .filter((b) => b.status === 'draft' || b.status === 'not_started')
       .map((b) => `${phase.get(b.phase_id) ?? '—'} · ${discipline.get(b.discipline_id) ?? '—'}`),
     openQuestions: questions.data ?? null,
@@ -167,9 +176,12 @@ export function StatusControl({
   project,
   readOnly,
   label = true,
+  branches,
 }: {
   project: Project;
   readOnly: boolean;
+  /** Статусы веток, если они уже есть (рабочий экран); без них — `GET /projects/{id}/tree`. */
+  branches?: readonly BranchFact[];
   /** Подпись «Статус» — в шапке настроек; в верхней полосе её нет (DESIGN.md 9.2). */
   label?: boolean;
 }) {
@@ -179,7 +191,7 @@ export function StatusControl({
   const canCopy = project.my_permissions.includes('project.copy');
   const [pending, setPending] = useState<Transition | null>(null);
   const [copyOpen, setCopyOpen] = useState(false);
-  const facts = useStatusFacts(project, canChange);
+  const facts = useStatusFacts(project, canChange, branches);
 
   const change = useMutation({
     mutationFn: (body: components['schemas']['StatusChange']) =>
