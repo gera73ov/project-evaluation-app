@@ -6,7 +6,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-IMAGE="${NGINX_IMAGE:-nginx:1.30-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949}"
+IMAGE="${NGINX_IMAGE:-nginx:1.30.7-alpine@sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598}"
 NAME="inf009-$$"
 WORK="$(mktemp -d)"
 HTTPS_PORT="${TEST_HTTPS_PORT:-18443}"

@@ -3,7 +3,8 @@
 # Контекст сборки — корень репозитория: docker build -f deploy/docker/nginx.Dockerfile .
 # Настройка Nginx (заголовки, CSP с nonce, лимиты) — deploy/nginx, INF-009.
 ARG NODE_IMAGE=node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
-ARG NGINX_IMAGE=nginx:1.30-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949
+# 1.30.7 закрывает CVE-2026-121810, -123007, -123633 и другие (trivy 19.11.2026), исключение из правила 14 дней
+ARG NGINX_IMAGE=nginx:1.30.7-alpine@sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598
 
 FROM ${NODE_IMAGE} AS build
 # Раскладка как в репозитории: tsc проверяет моки (FE-001), а они импортируют ../contracts.

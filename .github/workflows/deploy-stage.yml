@@ -72,9 +72,10 @@ jobs:
         if: inputs.action == 'deploy'
         working-directory: /home/stand/estimator-stage
         run: |
-          # stage, поднятый вручную из другой копии (например, sudo в /opt/estimator-stage), не трогаем
+          # stage, поднятый вручную из другой копии (например, sudo в /opt/estimator-stage), не трогаем.
+          # working_dir у compose — каталог первого файла compose (…/deploy/compose), поэтому сравниваем префикс
           other=$(docker ps -a --filter label=com.docker.compose.project=estimator-stage \
-            --format '{{.Label "com.docker.compose.project.working_dir"}}' | sort -u | grep -vx "$STAGE_DIR" || true)
+            --format '{{.Label "com.docker.compose.project.working_dir"}}' | sort -u | grep -v "^$STAGE_DIR\(/\|$\)" || true)
           [[ -z "$other" ]] || { echo "::error::проект estimator-stage уже запущен из $other: остановите его там (docker compose down) или удалите"; exit 1; }
           version="stage-$(git rev-parse --short HEAD)"
           start=$(date +%s)
