@@ -50,7 +50,8 @@ jobs:
         run: |
           # .env, сертификаты и access.conf не в git: при обновлении они сохраняются
           [[ -d "$STAGE_DIR/.git" ]] || git clone -q "$GITHUB_WORKSPACE" "$STAGE_DIR"
-          git -C "$STAGE_DIR" fetch -q "$GITHUB_WORKSPACE" HEAD
+          # рабочая копия исполнителя неглубокая (checkout depth 1): без --update-shallow git отвергает новый HEAD
+          git -C "$STAGE_DIR" fetch -q --update-shallow "$GITHUB_WORKSPACE" HEAD
           git -C "$STAGE_DIR" reset -q --hard FETCH_HEAD
           git -C "$STAGE_DIR" log --oneline -1
 
