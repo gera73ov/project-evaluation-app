@@ -64,8 +64,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await client.invalidateQueries({ queryKey: ME_KEY });
       },
       clear() {
-        client.clear();
-        void client.invalidateQueries({ queryKey: ME_KEY });
+        // client.clear() убрал бы и запрос /me, а наблюдатель провайдера остался бы с данными
+        // прежнего пользователя: следующий вход другим пользователем показывал бы старую шапку.
+        // Поэтому /me сбрасывается и перечитывается, а остальной кэш удаляется.
+        client.removeQueries({ predicate: (q) => q.queryKey[0] !== ME_KEY[0] });
+        void client.resetQueries({ queryKey: ME_KEY });
       },
     }),
     [client, query.data, query.error, query.isPending],
