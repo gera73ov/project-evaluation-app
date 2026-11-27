@@ -6,7 +6,7 @@
 # Исполнитель работает под stand без sudo, но в группе docker: владельца мастер-ключа (10001, 0400)
 # ставит одноразовый контейнер (STAND_CHOWN_VIA_DOCKER=1).
 # action: deploy — развернуть или обновить до выбранной ветки; superadmin-link — новая ссылка установки
-# пароля суперадминистратору stage.admin (60 минут); stop — остановить (данные остаются);
+# пароля суперадминистратору stage.admin (60 минут; если пароль уже задан — сброс пароля и TOTP); stop — остановить (данные остаются);
 # remove — удалить стенд вместе с данными. Ссылка и пароль демо в лог не попадают: они в файлах
 # рядом с мастер-ключом, читать на стенде через sudo cat.
 name: deploy-stage
@@ -99,7 +99,8 @@ jobs:
           run() { docker compose --env-file .env "${files[@]}" run --rm --no-deps -T api estimator "$@"; }
           (umask 077
            run create-superadmin --login stage.admin --email stage.admin@example.local >"$link" 2>/dev/null \
-             || run issue-activation --login stage.admin >"$link")
+             || run issue-activation --login stage.admin >"$link" 2>/dev/null \
+             || run reset-superadmin --login stage.admin >"$link")
           grep -q '^https://' "$link" || { echo "::error::ссылка не выпущена"; exit 1; }
           echo "Ссылка для stage.admin записана в $link (действует 60 минут)"
 
