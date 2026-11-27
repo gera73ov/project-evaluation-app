@@ -164,6 +164,29 @@ test('новый лист эксперта сразу появляется у в
   await expect(row(second, LEAF)).toBeVisible({ timeout: 10_000 });
 });
 
+test('меню «⋯» единственного листа: пункты и причины не выходят за край меню', async () => {
+  // Единственный лист в ветке: «Вверх» и «Вниз» недоступны с причинами «первый» / «последний»,
+  // «Свернуть в лист» — «нет детей», «Профиль ветки ▸» — «у строки дисциплины» (DESIGN.md 9.9).
+  await row(first, LEAF).hover();
+  await row(first, LEAF)
+    .getByRole('button', { name: `Действия со строкой «${LEAF}»` })
+    .click();
+  const menu = first.getByRole('menu');
+  await expect(menu.getByRole('menuitem', { name: /Вниз/ })).toContainText('последний');
+  const outside = await menu.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return [...el.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menuitem"] *')]
+      .filter((child) => {
+        const r = child.getBoundingClientRect();
+        return r.width > 0 && (r.left < box.left - 0.5 || r.right > box.right + 0.5);
+      })
+      .map((child) => child.textContent ?? '');
+  });
+  expect(outside).toEqual([]);
+  await first.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+});
+
 test('захват ячейки виден другому, правка приходит с подсветкой', async () => {
   await row(second, LEAF).getByRole('button', { name: /^O:/ }).click();
   await expect(row(first, LEAF).getByLabel(`Сейчас редактирует ${seed.expert2.name}`)).toBeVisible({
