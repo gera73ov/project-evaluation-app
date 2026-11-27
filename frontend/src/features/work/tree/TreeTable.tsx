@@ -44,7 +44,7 @@ import {
 import { formatHours, formatHoursInput, formatNumber, formatPercent } from '../../../shared/format/number';
 import { StatusBadge } from '../../../shared/ui/StatusBadge';
 import { nodeTypeSymbol } from '../../../shared/ui/icons/nodeTypes';
-import { CommentCell, HoursCell, MultiplierCell, TitleCell, type Norm } from '../cells/Cells';
+import { CommentCell, HoursCell, MultiplierCell, TitleCell } from '../cells/Cells';
 import { cellKey, useCells, type CellRef, type CellsApi, type CommentLine, type LockResult } from '../cells/useCells';
 import type { CellLock, CellMark } from '../collab/collabStore';
 import { BranchControls, ReviewCell } from '../branch/BranchControls';
@@ -71,8 +71,11 @@ export interface TreeContext {
   /** Дисциплины без эксперта (11.6 №6). */
   withoutExpert: ReadonlySet<string>;
   disciplineNames: ReadonlyMap<string, string>;
-  nodeTypes: ReadonlyMap<string, { name: string; icon: string; norms?: readonly Norm[] }>;
+  nodeTypes: ReadonlyMap<string, { name: string; icon: string }>;
+  /** Названия меток комментария (полные, CR-019). */
   tags: ReadonlyMap<string, string>;
+  /** Категории меток для цвета плашки (DESIGN 2.4). */
+  tagCategories?: ReadonlyMap<string, string>;
   pmPercent: string;
   pmReason: string;
   /** Модератор: строка УП ведёт в настройки. */
@@ -343,7 +346,6 @@ const Row = memo(function Row({
       />
     );
   };
-  const typeNorms = type?.norms ?? [];
   const highlight = (text: string) => <Highlight text={text} query={ctx.highlight} />;
 
   return (
@@ -470,9 +472,9 @@ const Row = memo(function Row({
           nodeId={id}
           lines={comments}
           tags={ctx.tags}
+          tagCategories={ctx.tagCategories}
           cells={cells}
           placeholder={editable && row.kind === 'leaf'}
-          norms={state === 'empty' ? typeNorms : []}
           highlight={highlight}
           lock={lockOf('comment')}
           canForce={canForce}
@@ -526,6 +528,7 @@ function contextKey(ctx: TreeContext, menu: RowMenuApi | undefined): string {
     String(Boolean(ctx.discussion)),
     JSON.stringify([...ctx.nodeTypes]),
     JSON.stringify([...ctx.tags]),
+    JSON.stringify([...(ctx.tagCategories ?? [])]),
     JSON.stringify([...ctx.disciplineNames]),
     [...ctx.withoutExpert].join(),
     menu ? JSON.stringify([menu.history, menu.canNotNeeded, menu.config.types, menu.config.can]) : '',

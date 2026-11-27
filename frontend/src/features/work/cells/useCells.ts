@@ -109,8 +109,6 @@ export interface CellsApi {
    */
   commit: (cell: CellRef, text: string, dir: Direction | null) => boolean;
   saveComment: (nodeId: string, lines: CommentLine[] | null, dir: Direction | null) => void;
-  /** Подставить норму в пустой лист (FR-TREE-02). */
-  applyNorm: (nodeId: string, norm: { o: string; r: string; p: string }) => void;
 }
 
 export function useCells({
@@ -410,21 +408,6 @@ export function useCells({
         );
       else release(held);
       go({ nodeId, field: 'comment' }, dir);
-    },
-    applyNorm: (nodeId, norm) => {
-      const apply = () =>
-        void send(
-          nodeId,
-          { o: norm.o, r: norm.r, p: norm.p } as Changes,
-          new Map<CellField, string>([
-            ['o', formatHoursInput(norm.o)],
-            ['r', formatHoursInput(norm.r)],
-            ['p', formatHoursInput(norm.p)],
-          ]),
-        );
-      const allowed = guard ? guard(nodeId) : true;
-      if (allowed === true) apply();
-      else if (allowed !== false) void allowed.then((ok) => ok && apply());
     },
   };
 }
