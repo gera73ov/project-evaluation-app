@@ -340,7 +340,12 @@ span.person-name{cursor:default}
 .row-btn.more{border:1px solid var(--line);color:var(--muted)}
 .row-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .row-menu .mantine-Menu-label{text-transform:uppercase;letter-spacing:.04em;font-weight:700}
-.row-menu .menu-why{font-size:12px;color:var(--faint);text-align:right;max-width:150px;line-height:1.25}
+.row-menu .menu-why{display:block;font-size:12px;color:var(--faint);text-align:right;line-height:1.25;overflow-wrap:anywhere}
+/* Пункт с причиной: подпись и причина в строку, если помещаются; иначе причина уходит строкой ниже, справа.
+   Ничто не выходит за ширину меню (220 / 300 px, DESIGN.md 9.9). */
+.row-menu .mantine-Menu-item{flex-wrap:wrap;column-gap:8px;row-gap:1px;min-width:0}
+.row-menu .mantine-Menu-itemLabel{flex:1 0 auto;max-width:100%;overflow-wrap:anywhere}
+.row-menu .mantine-Menu-itemSection[data-position='right']{flex:0 1 auto;min-width:0;max-width:100%;margin-left:auto;margin-inline-start:auto}
 .row-menu .mantine-Menu-item[data-disabled]{opacity:1;color:var(--faint)}
 .row-menu .mantine-Menu-item.danger{color:var(--bad)}
 .row-menu .type-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px}
@@ -348,7 +353,11 @@ span.person-name{cursor:default}
 .type-opt .ti{display:inline-block;width:16px;text-align:center;margin-right:4px;font-size:14px}
 .type-opt .type-note{margin-left:6px;font-size:12px;color:var(--faint)}
 .row-menu .local-type{color:var(--accent);font-weight:600}
-.row-menu .menu-pair{display:grid;grid-template-columns:1fr 1fr}
+.row-menu .menu-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.row-menu .menu-pair .mantine-Menu-item{padding-inline:10px;flex-direction:column;align-items:flex-start;justify-content:center}
+.row-menu .menu-pair .mantine-Menu-itemLabel{flex:none}
+.row-menu .menu-pair .mantine-Menu-itemSection[data-position='right']{margin:0}
+.row-menu .menu-pair .menu-why{text-align:left}
 .type-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 button.type-opt{border:1px solid transparent;border-radius:6px;background:none;text-align:left;padding:7px 8px;cursor:pointer;font:inherit}
 button.type-opt:hover{background:var(--line2)}
