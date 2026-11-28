@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { api } from '../../shared/api/client';
 import { call } from '../../shared/api/problem';
+import { useAutoGrow } from '../../shared/ui/useAutoGrow';
 import { keptAddressees, mentionAt, type Addressee } from './feed';
 
 const MAX = 4000;
@@ -47,6 +48,7 @@ export function Composer({
   const [active, setActive] = useState(0);
   const [docsOpen, setDocsOpen] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
+  useAutoGrow(area, text);
 
   const suggest = useQuery({
     queryKey: ['suggest', projectId, mention?.query ?? ''],

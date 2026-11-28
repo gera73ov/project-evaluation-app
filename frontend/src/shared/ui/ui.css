@@ -450,6 +450,8 @@ button.type-opt.sel{background:var(--accent-soft);border-color:#b8d8e4}
 .disc-input{position:relative;flex:1}
 .disc-input textarea{width:100%;min-height:32px;resize:vertical;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;line-height:18px}
 .disc-input textarea:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+/* Поле растёт по тексту (useAutoGrow) до 10 строк, дальше прокрутка; ручное растягивание не нужно */
+.disc-input textarea{resize:none;overflow-y:hidden}
 .mention-list{position:absolute;left:0;bottom:calc(100% + 4px);z-index:20;min-width:240px;max-height:240px;overflow:auto;list-style:none;margin:0;padding:6px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(16,24,40,.12)}
 .mention-list li{padding:6px 10px;border-radius:5px;cursor:pointer;display:flex;justify-content:space-between;gap:12px}
 .mention-list li.on{background:var(--accent-soft)}
