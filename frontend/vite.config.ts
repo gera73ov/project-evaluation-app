@@ -4,10 +4,16 @@
  * проверка — scripts/check-build.mjs после `vite build`.
  */
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
+
+// FE-098: версия в окне «О программе» берётся из package.json
+// eslint-disable-next-line security/detect-non-literal-fs-filename -- путь постоянный, рядом с конфигом
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   // FE-001: Service Worker MSW лежит отдельно и копируется только в режиме моков
   publicDir: mode === 'mock' ? 'mock-public' : false,
   build: {

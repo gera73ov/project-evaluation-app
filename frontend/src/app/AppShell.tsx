@@ -1,9 +1,9 @@
 /**
  * FE-003 · шапка приложения (DESIGN.md 5.1): логотип, пункты по ролям (без права — не рисуются),
- * распорка, колокольчик (FE-010), пользователь с меню «Профиль» и «Выйти».
+ * распорка, колокольчик (FE-010), пользователь с меню «Профиль», «О программе» (FE-098) и «Выйти».
  */
 import { Menu } from '@mantine/core';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../shared/api/client';
@@ -12,6 +12,7 @@ import { userColor } from '../shared/ui/userColor';
 import { OfflineBanner } from '../shared/ws/OfflineBanner';
 import { SessionExtend } from '../features/auth/SessionExtend';
 import { NotificationBell } from '../features/home/NotificationBell';
+import { AboutDialog } from './AboutDialog';
 import { Link, useNavigate } from './router';
 import { NAV, type NavKey } from './routeTable';
 import { hasRole, useSession, type Me } from './session';
@@ -34,6 +35,7 @@ export function AppShell({ me, active, children }: { me: Me; active?: NavKey | u
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { clear } = useSession();
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   async function logout() {
     try {
@@ -78,10 +80,12 @@ export function AppShell({ me, active, children }: { me: Me; active?: NavKey | u
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Item onClick={() => navigate('/profile')}>{t('nav.profile')}</Menu.Item>
+            <Menu.Item onClick={() => setAboutOpen(true)}>{t('nav.about')}</Menu.Item>
             <Menu.Item onClick={() => void logout()}>{t('nav.logout')}</Menu.Item>
           </Menu.Dropdown>
         </Menu>
       </header>
+      <AboutDialog opened={aboutOpen} onClose={() => setAboutOpen(false)} />
       <OfflineBanner />
       <SessionExtend
         idleTimeoutSeconds={me.idle_timeout_seconds}

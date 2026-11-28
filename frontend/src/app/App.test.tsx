@@ -1,5 +1,5 @@
 /** FE-003 · каркас: маршруты 8.1 на моках, гарды, меню по ролям, nonce, ошибки API. */
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { PERSONAS } from '../shared/api/mocks/personas';
@@ -30,6 +30,17 @@ describe('роутер', () => {
 });
 
 describe('гарды и меню', () => {
+  it('«О программе» в меню пользователя: версия, автор, правообладатель (FR-UI-06)', async () => {
+    renderApp('/');
+    fireEvent.click(await screen.findByRole('button', { name: /меню пользователя/i }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'О программе' }));
+    const dialog = await screen.findByRole('dialog', { name: 'О программе' });
+    expect(dialog.textContent).toContain('Версия0.1.0');
+    expect(dialog.textContent).toContain('АвторГерасимов Андрей Александрович');
+    expect(dialog.textContent).toContain('ПравообладательАО «СимбирСофт»');
+    expect(dialog.textContent).toContain('© 2026 АО «СимбирСофт». Все права защищены.');
+  });
+
   it('без сессии — на вход с возвратом на исходный адрес', async () => {
     server.use(http.get(api('/me'), () => problem(401, 'UNAUTHENTICATED')));
     renderApp('/projects/abc/stats');
