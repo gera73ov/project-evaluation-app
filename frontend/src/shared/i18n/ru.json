@@ -714,8 +714,6 @@
     "commentKeys": "Enter — сохранить, Esc — отмена",
     "commentAll": "Весь комментарий, строк: {{count}}",
     "noTag": "без метки",
-    "norm": "Норма: {{label}} {{fork}}",
-    "normApply": "подставить",
     "lockedBy": "Сейчас редактирует {{name}}",
     "force": "Всё равно править",
     "title": "Название",
@@ -1266,9 +1264,9 @@
       },
       "tagShort": {
         "assumption": "Допущение",
-        "constraint": "Огр.",
+        "constraint": "Ограничение",
         "risk": "Риск",
-        "tech": "Тех."
+        "tech": "Технология"
       },
       "word": "Word",
       "tagsEmpty": "Строк с метками пока нет",

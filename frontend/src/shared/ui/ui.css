@@ -204,8 +204,13 @@ span.person-name{cursor:default}
 .tree .cm{font-size:12.5px;color:var(--text-comment);line-height:1.35;overflow:hidden}
 .tree .cm-line{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .tree .cm-empty{color:var(--muted);font-weight:400}
-.tree .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px;background:#e8eef9;color:#2f4f8f}
-.tree .tag.more{background:var(--line2);color:var(--muted-ink);margin-left:4px}
+.tree .tag,.cm-all .tag{display:inline-block;flex:none;white-space:nowrap;font-size:11px;font-weight:700;line-height:15px;border-radius:4px;padding:0 5px;margin-right:5px;border:1px solid color-mix(in srgb,currentColor 35%,transparent);background:var(--line2);color:var(--muted-ink)}
+/* Цвет метки по категории (DESIGN 2.4); отступ до текста 8 px = margin 5 px + пробел. */
+.tag.tag-tech{background:#e6eefc;color:#2f5aa8}
+.tag.tag-assumption{background:#eef3e4;color:#57702c}
+.tag.tag-risk{background:var(--bad-soft);color:var(--bad-ink)}
+.tag.tag-constraint{background:#f3ece2;color:#8a5a1f}
+.tree .tag.more{background:var(--line2);color:var(--muted-ink);border-color:transparent;margin:0 0 0 4px}
 .tree .cell{display:inline-flex;align-items:center;justify-content:center;width:46px;height:26px;border:1px solid var(--line);border-radius:5px;background:#fff;font-variant-numeric:tabular-nums;vertical-align:middle}
 .tree .cell.ro{border-color:transparent;background:transparent;cursor:default}
 .tree .cell.empty{background:var(--bad-soft);border-color:var(--bad-border);padding:0;color:inherit}
@@ -295,8 +300,6 @@ span.person-name{cursor:default}
 .tree .cm-view .tag.more{border:0;cursor:pointer;flex:none;font:inherit;font-size:11px;font-weight:700}
 .tree .td.cm.saving .cm-view{color:var(--muted)}
 .tree .td.cm.error .cm-click{outline:2px solid var(--bad);border-radius:4px}
-.tree .norm{color:var(--muted);font-size:12px}
-.tree .norm .link{border:0;background:none;color:var(--accent);font:inherit;cursor:pointer;padding:0;text-decoration:underline}
 .tree .cm-editor{position:absolute;left:0;right:0;top:2px;z-index:5;background:#fff;border:2px solid var(--accent);border-radius:6px;padding:6px;box-shadow:0 6px 18px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:4px}
 .tree .cm-row{display:flex;gap:4px;align-items:center}
 .tree .cm-row select{height:26px;font:inherit;font-size:12px;border:1px solid var(--line);border-radius:4px}
@@ -305,7 +308,6 @@ span.person-name{cursor:default}
 .tree .cm-foot{display:flex;align-items:center;gap:8px}
 .tree .cm-keys{color:var(--faint);font-size:11px}
 .cm-all ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px}
-.cm-all .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px;background:#e8eef9;color:#2f4f8f}
 .tree .td.num .cell-note{left:auto;right:2px}
 
 /* FE-026 · совместная работа (DESIGN.md 9.7, 6.14) */

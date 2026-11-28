@@ -246,17 +246,22 @@ describe('ввод в ячейки на рабочем экране', () => {
     expect(within(foreign).queryByRole('button', { description: 'Изменить комментарий' })).toBeNull();
   });
 
-  it('норма типа у пустого листа: «Норма: … · подставить» отправляет вилку', async () => {
-    const leaf = PROJECTS.portal.nodes.find((n) => n.title === 'Авторизация');
-    if (!leaf) throw new Error('нет листа');
-    const saved = { o: leaf.o, r: leaf.r, p: leaf.p };
-    Object.assign(leaf, { o: null, r: null, p: null });
+  it('колонка «Комментарий» (CR-019): без подсказки нормы, метка полным названием и цветом категории', async () => {
+    const empty = PROJECTS.portal.nodes.find((n) => n.title === 'Авторизация');
+    const tagged = PROJECTS.portal.nodes.find(
+      (n) => n.kind === 'item' && n.title !== 'Авторизация' && n.parent_id === empty?.parent_id,
+    );
+    if (!empty || !tagged) throw new Error('нет листьев');
+    const savedEmpty = { o: empty.o, r: empty.r, p: empty.p, comment_lines: empty.comment_lines };
+    const savedTagged = { comment_lines: tagged.comment_lines };
+    Object.assign(empty, { o: null, r: null, p: null, comment_lines: [] });
+    Object.assign(tagged, { comment_lines: [{ tag_id: 'tag-c', text: 'Только REST API' }] });
     server.use(
       http.get(api('/projects/:id/node-types'), () =>
         HttpResponse.json({
           items: [
             {
-              id: leaf.type_id,
+              id: empty.type_id,
               name: 'Функция',
               icon: 'function',
               norms: [{ label: 'средняя функция', o: '5', r: '7', p: '10' }],
@@ -267,15 +272,32 @@ describe('ввод в ячейки на рабочем экране', () => {
           ],
         }),
       ),
+      http.get(api('/admin/tags'), () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'tag-c',
+              name: 'Ограничение',
+              short_name: 'Огр.',
+              color: '#8a5a1f',
+              category: 'constraint',
+              is_active: true,
+            },
+          ],
+        }),
+      ),
     );
     try {
-      const { row, patches } = await openTree();
-      expect(await within(row('Авторизация')).findByText(/Норма: средняя функция 5–7–10/)).toBeTruthy();
-      fireEvent.click(within(row('Авторизация')).getByRole('button', { name: 'подставить' }));
-      await waitFor(() => expect(patches).toHaveLength(1));
-      expect(patches[0]?.body.changes).toEqual({ o: '5', r: '7', p: '10' });
+      const { row } = await openTree();
+      expect(await within(row('Авторизация')).findByText('Нажмите, чтобы добавить комментарий')).toBeTruthy();
+      expect(within(row('Авторизация')).queryByText(/Норма:/)).toBeNull();
+      expect(within(row('Авторизация')).queryByRole('button', { name: 'подставить' })).toBeNull();
+      const badge = await within(row(String(tagged.title))).findByText('Ограничение');
+      expect(badge.classList.contains('tag-constraint')).toBe(true);
+      expect(within(row(String(tagged.title))).queryByText('Огр.')).toBeNull();
     } finally {
-      Object.assign(leaf, saved);
+      Object.assign(empty, savedEmpty);
+      Object.assign(tagged, savedTagged);
     }
   });
 });

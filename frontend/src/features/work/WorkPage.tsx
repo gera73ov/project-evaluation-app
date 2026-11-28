@@ -376,7 +376,7 @@ function WorkScreen({
       if (roles.includes('presale')) return t('discussion.presale');
       return null;
     },
-    tags: new Map((tags.data ?? []).map((tag) => [tag.id, tag.short_name])),
+    tags: new Map((tags.data ?? []).map((tag) => [tag.id, tag.name])),
     notes: perms.has('notes.read')
       ? { canWrite: perms.has('notes.write') && !offline && !READ_ONLY_STATUSES.has(data.status) }
       : undefined,
@@ -392,7 +392,8 @@ function WorkScreen({
     withoutExpert: new Set(data.disciplines.filter((d) => !d.has_expert).map((d) => d.discipline_id)),
     disciplineNames: new Map(data.disciplines.map((d) => [d.discipline_id, d.name])),
     nodeTypes: allTypes,
-    tags: new Map((tags.data ?? []).map((tag) => [tag.id, tag.short_name])),
+    tags: new Map((tags.data ?? []).map((tag) => [tag.id, tag.name])),
+    tagCategories: new Map((tags.data ?? []).map((tag) => [tag.id, tag.category])),
     pmPercent: String(data.pm_percent),
     pmReason: data.pm_percent_reason ?? '',
     settingsHref: data.my_permissions.includes('project.settings.write') ? `/projects/${data.id}/settings` : null,
