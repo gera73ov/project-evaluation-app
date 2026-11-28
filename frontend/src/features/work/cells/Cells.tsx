@@ -6,7 +6,7 @@ import { Popover } from '@mantine/core';
 import { useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { formatFork, formatHoursInput } from '../../../shared/format/number';
+import { formatHoursInput } from '../../../shared/format/number';
 import { userColor } from '../../../shared/ui/userColor';
 import type { CellLock } from '../collab/collabStore';
 import { cellKey, type CellField, type CellsApi, type CommentLine, type Direction } from './useCells';
@@ -282,22 +282,30 @@ type Highlighter = (text: string) => ReactNode;
 function CommentView({
   lines,
   tags,
+  tagCategories,
   highlight,
 }: {
   lines: CommentLine[];
   tags: ReadonlyMap<string, string>;
+  tagCategories: ReadonlyMap<string, string> | undefined;
   highlight: Highlighter;
 }) {
   const { t } = useTranslation();
   const [first, ...rest] = lines;
   if (!first) return null;
   const tagOf = (l: CommentLine) => (l.tag_id ? tags.get(l.tag_id) : undefined);
-  const tag = tagOf(first);
+  /** Плашка метки цветом своей категории (DESIGN 2.4, 6.5); неизвестная категория — серая. */
+  const badge = (l: CommentLine) => {
+    const name = tagOf(l);
+    if (!name) return null;
+    const category = (l.tag_id && tagCategories?.get(l.tag_id)) || 'other';
+    return <span className={`tag tag-${category}`}>{name}</span>;
+  };
   const more = rest.map(tagOf).filter(Boolean);
   return (
     <span className="cm-view">
       <span className="cm-line">
-        {tag ? <span className="tag">{tag}</span> : null} {highlight(first.text)}
+        {badge(first)} {highlight(first.text)}
       </span>
       {rest.length || first.text.length > 90 ? (
         <Popover position="bottom-start" width={420} shadow="md" withinPortal>
@@ -315,7 +323,7 @@ function CommentView({
             <ul>
               {lines.map((l, i) => (
                 <li key={i}>
-                  {tagOf(l) ? <span className="tag">{tagOf(l)}</span> : null} {highlight(l.text)}
+                  {badge(l)} {highlight(l.text)}
                 </li>
               ))}
             </ul>
@@ -464,20 +472,13 @@ export function TitleCell({
   );
 }
 
-export interface Norm {
-  label: string;
-  o: string;
-  r: string;
-  p: string;
-}
-
 export function CommentCell({
   nodeId,
   lines,
   tags,
   cells,
   placeholder,
-  norms,
+  tagCategories,
   highlight,
   lock,
   canForce = false,
@@ -488,8 +489,8 @@ export function CommentCell({
   cells: CellsApi | undefined;
   /** Пустой комментарий своего листа — «Нажмите, чтобы добавить комментарий». */
   placeholder: boolean;
-  /** Нормы типа для пустого листа (FR-TREE-02): подсказка «Норма: … · подставить». */
-  norms: readonly Norm[];
+  /** Категории меток для цвета плашки (DESIGN 2.4); без них метки серые. */
+  tagCategories?: ReadonlyMap<string, string> | undefined;
   highlight: Highlighter;
   lock?: CellLock | undefined;
   canForce?: boolean;
@@ -499,23 +500,8 @@ export function CommentCell({
   const error = cells?.errors.get(key);
   const editing = cells?.editing?.nodeId === nodeId && cells.editing.field === 'comment';
   const saving = cells?.savingComments.has(nodeId) ?? false;
-  const norm = norms[0];
   const content = lines.length ? (
-    <CommentView lines={lines} tags={tags} highlight={highlight} />
-  ) : norm && cells ? (
-    <span className="norm">
-      {t('cells.norm', { label: norm.label, fork: formatFork(norm.o, norm.r, norm.p) })} ·{' '}
-      <button
-        type="button"
-        className="link"
-        onClick={(e) => {
-          e.stopPropagation();
-          cells.applyNorm(nodeId, norm);
-        }}
-      >
-        {t('cells.normApply')}
-      </button>
-    </span>
+    <CommentView lines={lines} tags={tags} tagCategories={tagCategories} highlight={highlight} />
   ) : placeholder ? (
     <span className="cm-empty">{t('tree.commentPlaceholder')}</span>
   ) : null;
