@@ -218,6 +218,8 @@ test('модератор: закрытая заметка к листу; экс�
   await own.hover();
   await own.getByRole('button', { name: /^Обсуждение/ }).click();
   const view = expert.getByRole('region', { name: `Обсуждение: ${LEAF}` });
+  // вопрос — самая старая запись; свёрнутый вид показывает последние 3 (FR-DISC-04)
+  await view.getByRole('button', { name: /^Показать всё/ }).click();
   await expect(view).toContainText(QUESTION);
   await expect(view.getByRole('tab')).toHaveCount(0);
   await expect(view).not.toContainText(NOTE);
