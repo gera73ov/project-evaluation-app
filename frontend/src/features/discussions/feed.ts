@@ -18,6 +18,14 @@ export type Entry =
   | { kind: 'resolved'; thread: Thread; last: Message | undefined };
 
 /** Записи ленты по времени; закрытые вопросы — одной строкой. */
+/**
+ * Сервер отдаёт ленту от новых к старым (страницы курсора идут в прошлое); экран показывает её
+ * по времени — старые сверху, новые у поля ввода (макет work.png, 11.4 №14).
+ */
+export function chronological(items: readonly Message[]): Message[] {
+  return [...items].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+}
+
 export function feedEntries(items: readonly Message[], threads: readonly Thread[]): Entry[] {
   const byId = new Map(threads.map((t) => [t.id, t]));
   const out: Entry[] = [];

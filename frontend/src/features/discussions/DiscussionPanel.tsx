@@ -21,6 +21,7 @@ import { NotesPanel, useNotes } from '../notes/NotesPanel';
 import { Composer, type SendRequest } from './Composer';
 import {
   canEditMessage,
+  chronological,
   defaultThread,
   entryKey,
   eventParts,
@@ -135,7 +136,7 @@ export function DiscussionPanel({
     },
     getNextPageParam: (last) => last.next_cursor,
   });
-  const items = (feed.data?.pages.flatMap((p) => p.items) ?? []) as Message[];
+  const items = chronological((feed.data?.pages.flatMap((p) => p.items) ?? []) as Message[]);
   const threadMap = new Map<string, Thread>();
   for (const page of feed.data?.pages ?? []) for (const th of page.threads as Thread[]) threadMap.set(th.id, th);
   const threads = [...threadMap.values()];
@@ -146,6 +147,7 @@ export function DiscussionPanel({
   useEffect(() => {
     if (all && hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [all, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  // по умолчанию — последние 3 записи (FR-DISC-04, DESIGN 7.4)
   const shown = all ? entries : entries.slice(-SHOWN);
   const hidden = entries.length - shown.length;
 

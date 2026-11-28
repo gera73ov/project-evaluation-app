@@ -113,9 +113,16 @@ describe('обсуждение под строкой', () => {
     expect(within(feed).getAllByRole('listitem')).toHaveLength(3);
     expect(feed.textContent).toContain('изменено: O/R/P 30–40–60 → 40–60–100');
     expect(within(feed).getByText('Ответ заказчика')).toBeTruthy();
+    // сервер отдаёт ленту от новых к старым — в свёрнутом виде всё равно последние, по времени
+    expect(feed.textContent).not.toContain('Есть ли у заказчика готовый API');
+    const rows = within(feed).getAllByRole('listitem');
+    expect(rows.at(-1)?.textContent).toContain('Ответ заказчика');
     fireEvent.click(within(panel).getByRole('button', { name: 'Показать всё (5)' }));
     await waitFor(() => expect(within(feed).getAllByRole('listitem')).toHaveLength(5));
     expect(feed.textContent).toContain('Есть ли у заказчика готовый API');
+    const all = within(feed).getAllByRole('listitem');
+    expect(all[0]?.textContent).toContain('Есть ли у заказчика готовый API');
+    expect(all.at(-1)?.textContent).toContain('Ответ заказчика');
   });
 
   it('ответ по Ctrl+Enter уходит в открытый вопрос; HTML показывается как текст', async () => {

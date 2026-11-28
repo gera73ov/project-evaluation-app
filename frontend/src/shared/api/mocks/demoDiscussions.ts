@@ -295,15 +295,17 @@ function withMessage(p: DemoProject, thread: DemoThread) {
   };
 }
 
-/** `GET /nodes/{id}/messages`: лента по времени и вопросы узла. */
-/** Лента узла; `null` — обсуждение проекта (CR-007). */
+/**
+ * `GET /nodes/{id}/messages`: лента и вопросы узла; `null` — обсуждение проекта (CR-007).
+ * Как сервер: от новых к старым (первая страница — самые свежие записи).
+ */
 export function nodeFeed(p: DemoProject, id: string | null) {
   const items = allMessages(p).filter((m) => m.node_id === id);
   const threads = allThreads(p)
     .filter((t) => t.node_id === id)
     .map((t) => withMessage(p, t));
   return {
-    items: items.sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    items: items.sort((a, b) => b.created_at.localeCompare(a.created_at)),
     threads,
     next_cursor: null,
   };
