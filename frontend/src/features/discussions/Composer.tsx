@@ -2,6 +2,7 @@
  * FE-030 · поле ответа в обсуждении (FR-DISC-02…05; 11.4 №14): текст, `@` с автодополнением
  * (дисциплина, участник, «модератор», «заказчик»), флаг «нужен ответ», «📎» — ссылка на документ
  * заказчика (вложений нет, FR-DOC-01), «Отправить» и Ctrl+Enter, «Решено ▾».
+ * Поле во всю ширину панели, кнопки под ним (DESIGN.md D-09).
  */
 import { Menu } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
@@ -183,7 +184,10 @@ export function Composer({
             </ul>
           ) : null}
         </div>
-        <Menu opened={docsOpen} onChange={setDocsOpen} width={280} position="top-end" withinPortal>
+      </div>
+      {/* Кнопки под полем, рядом с текстом (решение D-09): слева «📎» и «нужен ответ», справа «Решено ▾» и «Отправить» */}
+      <div className="disc-actions">
+        <Menu opened={docsOpen} onChange={setDocsOpen} width={280} position="top-start" withinPortal>
           <Menu.Target>
             <button
               type="button"
@@ -221,9 +225,7 @@ export function Composer({
           <input type="checkbox" checked={needsAnswer} onChange={(e) => setNeedsAnswer(e.currentTarget.checked)} />
           {t('discussion.needsAnswer')}
         </label>
-        <button type="button" className="btn-sm primary" disabled={busy || !text.trim()} onClick={() => void send()}>
-          {t('discussion.send')}
-        </button>
+        <span className="disc-spacer" />
         {canResolve ? (
           <Menu width={260} position="top-end" withinPortal>
             <Menu.Target>
@@ -243,6 +245,9 @@ export function Composer({
             </Menu.Dropdown>
           </Menu>
         ) : null}
+        <button type="button" className="btn-sm primary" disabled={busy || !text.trim()} onClick={() => void send()}>
+          {t('discussion.send')}
+        </button>
       </div>
     </div>
   );
