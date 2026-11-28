@@ -47,6 +47,13 @@ function pasteCode(code: string) {
 }
 
 describe('экран входа (11.1)', () => {
+  it('под карточкой — строка авторских прав (CR-020)', async () => {
+    await openLogin();
+    expect(screen.getByRole('contentinfo').textContent).toBe(
+      '© 2026 АО «СимбирСофт» · Автор: Герасимов Андрей Александрович',
+    );
+  });
+
   it('№1: «Войти» недоступна, пока логин или пароль пусты', async () => {
     await openLogin();
     const button = screen.getByRole('button', { name: 'Войти' });

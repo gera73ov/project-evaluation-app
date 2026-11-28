@@ -1,4 +1,7 @@
-/** FE-005 · шаблон «Карточка по центру» (DESIGN.md 5.3): логотип, заголовок, подзаголовок. */
+/**
+ * FE-005 · шаблон «Карточка по центру» (DESIGN.md 5.3): логотип, заголовок, подзаголовок.
+ * FE-098 · под карточкой строка авторских прав (SPEC 11.1, CR-020).
+ */
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,7 +18,7 @@ export function AuthCard({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="page-center">
+    <div className="page-center with-foot">
       <section className={wide ? 'card-center wide' : 'card-center'} aria-labelledby="auth-title">
         <div className="logo">
           <i aria-hidden="true" />
@@ -25,6 +28,7 @@ export function AuthCard({
         {subtitle ? <p className="sub">{subtitle}</p> : null}
         {children}
       </section>
+      <footer className="auth-foot">{t('app.copyright')}</footer>
     </div>
   );
 }

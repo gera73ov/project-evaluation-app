@@ -6,6 +6,13 @@ html:root[data-mantine-color-scheme='light']{--mantine-color-dimmed:var(--muted)
 .pill.ok{color:var(--ok-ink)} .pill.warn{color:var(--warn-ink)} .pill.bad{color:var(--bad-ink)} .pill.gray{color:var(--muted-ink)}
 .av{background:#557a9a}
 .page-center{min-height:100vh;display:grid;place-items:center;background:var(--bg);padding:24px}
+.page-center.with-foot{grid-template-rows:1fr auto;gap:16px}
+.about .logo{margin-bottom:12px}
+.about-list{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0 0 12px}
+.about-list dt{color:var(--muted-ink)}
+.about-list dd{margin:0}
+.about-rights{color:var(--muted-ink);font-size:12px;margin:0 0 16px}
+.auth-foot{color:var(--muted-ink);font-size:12px;text-align:center}
 .card-center{width:360px;background:var(--panel);border-radius:10px;padding:28px 28px 24px;box-shadow:0 1px 3px rgba(20,30,40,.06),0 8px 24px rgba(20,30,40,.08)}
 .card-center.wide{width:480px}
 .card-center h1{font-size:19px;font-weight:700;margin:12px 0 4px}
