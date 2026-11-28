@@ -7,7 +7,7 @@
  * сессии TOTP сервер отвечает 403 `TOTP_REQUIRED` — вместо списка «🔒 Подтвердите вход кодом».
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useNavigate } from '../../app/router';
@@ -17,6 +17,7 @@ import { call, errorMessage } from '../../shared/api/problem';
 import { formatDateTime } from '../../shared/format/date';
 import { AutoLinkText } from '../../shared/ui/AutoLinkText';
 import { MoneyGuard, isTotpRequired } from '../../shared/ui/MoneyGuard';
+import { useAutoGrow } from '../../shared/ui/useAutoGrow';
 
 type Note = components['schemas']['Note'];
 
@@ -59,6 +60,8 @@ export function NotesPanel({
   const totpEnabled = session.state === 'ready' ? session.me.totp_enabled : false;
   const notes = useNotes(projectId, nodeId, true);
   const [text, setText] = useState('');
+  const area = useRef<HTMLTextAreaElement>(null);
+  useAutoGrow(area, text);
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,6 +184,7 @@ export function NotesPanel({
           <div className="disc-compose disc-row">
             <div className="disc-input">
               <textarea
+                ref={area}
                 rows={1}
                 value={text}
                 maxLength={4000}
